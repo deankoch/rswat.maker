@@ -2,32 +2,62 @@
 % Please edit documentation in R/get_catchment.R
 \name{get_catchment}
 \alias{get_catchment}
-\title{Return a list of geometry objects describing watershed upstream}
+\title{Return a list of NHD geometry objects modelling the catchment for an outlet}
 \usage{
-get_catchment(outlet, crs_out = NULL)
+get_catchment(outlet, crs_out = NULL, fast = FALSE)
 }
 \arguments{
 \item{outlet}{character to query OSM for location or else a point accepted by \code{sf::st_geometry}}
 
 \item{crs_out}{output CRS, anything acceptable to \code{sf::st_crs} or NULL to use UTM zone of outlet}
+
+\item{fast}{logical, if TRUE the \code{catchment} object is not returned, speeding things somewhat}
 }
 \value{
 list
 }
 \description{
-This uses the \code{nhdR} package to manage downloads of NHD data collections
-related to the watershed upstream of the point \code{outlet}.  If \code{outlet} is
-a character string instead, it is passed to \code{nominatim_point} to get the point
-from OSM.
+This uses the \code{nhdR} package to manage ETL of NHD data collections related to
+the catchment of the point \code{outlet}.  If \code{outlet} is a character string, it is
+passed to \code{nominatim_point} to get the point from OSM.
 }
 \details{
-The function downloads three collections (see \code{?get_upstream}) from NHD
-containing highly detailed information on sub-catchments and stream reaches,
-which is opened and processed to determine the catchment for \code{outlet}.
+The function downloads three collections from NHD (see \code{?get_upstream}) containing
+geometries and attributes on stream networks, (sub)catchments, and water bodies
+upstream of \code{outlet}. It returns the relevant objects in a list, including a
+boundary polygon representing the full catchment.
+
+Users who are only interested in this boundary polygon can speed things somewhat by
+setting \code{fast=TRUE}. This returns the boundary along with the outlet point and its
+COMID, and omits the more detailed data model for the stream network and sub-catchments.
 
 Note that \code{nhdR} uses \code{rappdirs} to manage persistent storage. This will set
-up a default data storage folder on your system and use cached files instead
-of downloading repeatedly whenever possible.
+up a default data storage folder on your system and, whenever possible, use cached
+files instead of downloading things repeatedly.
+
+\code{crs_out} can be set to NA to return everything in its original projection.
+Otherwise the function transforms all geo-referenced output data to the supplied
+CRS. If \code{crs_out=NULL} (the default), the function assigns the UTM projection for
+the zone overlying the \code{outlet},
 
 The function returns a list with the following
+\itemize{
+\item \code{comid} integer COMID associated with the outlet
+\item \code{outlet} sfc_POINT, the outlet location
+\item \code{boundary} sfc_POLYGON, the catchment boundary inscribing all areas draining to \code{outlet}
+}
+
+If \code{fast=FALSE}, the returned list also includes
+\itemize{
+\item \code{edge} data frame of edges in the directed graph representing stream flow in the NHD model
+\item \code{catchment} sf data frame with polygon geometries, the upstream (sub)catchments
+\item \code{flow} sf data frame with line geometries, the upstream stream reaches (possibly artificial)
+\item \code{lake} sf data frame with polygon geometries, the upstream water bodies
+}
+
+All geo-referenced outputs are converted to the common projection \code{crs_out}. If this
+is \code{NULL} (the default) the function uses the UTM zone overlying \code{outlet}.
+
+See https://cran.r-project.org/package=nhdplusTools and the references pages linked
+there for more on the NHDPlus data model, and how the COMID ties things together.
 }

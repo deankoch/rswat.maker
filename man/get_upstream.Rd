@@ -4,41 +4,53 @@
 \alias{get_upstream}
 \title{Return a list of NHD geometry objects corresponding to the catchment for an outlet}
 \usage{
-get_upstream(outlet, flow, catchment, lake, edge, s2 = FALSE)
+get_upstream(
+  outlet,
+  edge,
+  catchment,
+  flow = NULL,
+  lake = NULL,
+  s2 = FALSE,
+  fast = FALSE
+)
 }
 \arguments{
 \item{outlet}{an sfc_POINT object locating the outlet}
 
-\item{flow}{the "NHDFlowline" dataset from the "NHDSnapshot" component}
+\item{edge}{data frame, the "PlusFlow" dataset from the "NHDPlusAttributes" component}
 
 \item{catchment}{the "Catchment" dataset from NHD from the "NHDPlusCatchment" component}
 
+\item{flow}{the "NHDFlowline" dataset from the "NHDSnapshot" component}
+
 \item{lake}{the "NHDWaterbody" dataset from NHD from the "NHDSnapshot" component}
 
-\item{edge}{data frame, the "PlusFlow" dataset from the "NHDPlusAttributes" component}
-
 \item{s2}{logical if \code{FALSE} the function sets \code{sf::sf_use_s2(FALSE)} for computations}
+
+\item{fast}{logical if \code{TRUE} only the outlet, COMID, and boundary computed and returned}
 }
 \value{
 list containing appropriate subsets of flow, catchment, lake, edge (see details)
 }
 \description{
-This returns a list of flow lines and sub-catchments within the catchment for the
+This returns a list of geometries and other information describing the catchment for the
 supplied outlet point \code{outlet}. It first identifies the element of \code{catchment} containing
 the outlet and exhaustively traces all upstream paths by following the directed paths in
 \code{edge} and collecting the corresponding elements of \code{catchment} and \code{flow}.
 }
 \details{
-Arguments \code{flow}, \code{catchment}, \code{lake} and \code{edge} should all be created using calls to
-\code{nhdR::nhd_plus_load} with arguments "dsn" and "component" set appropriately (see code
-in \code{get_upstream} for example).
-
 The function returns the relevant subsets of these four datasets, along with a copy
 of \code{outlet}, the COMID for outlet, and a new polygon representing the boundary of
 the entire catchment.
 
+Arguments \code{edge}, \code{catchment}, \code{flow}, and \code{lake} should all be created using calls to
+\code{nhdR::nhd_plus_load} with arguments "dsn" and "component" set appropriately (see code
+in \code{get_upstream} for example). Arguments \code{flow} and/or \code{lake} can be \code{NULL}, in which
+case the corresponding output objects are omitted. Set \code{fast=TRUE} to omit all four,
+and only return the outlet, COMID, and boundary.
+
 Having encountered duplicate vertex issues in NHD data while using the S2 Geometry
-Library - terra's default - we now include the \code{s2} argument to allow switching this
-off (temporarily) so that the GeographicLib library is used instead for intersection
-calculations.
+Library (terra's default) we now include the \code{s2} argument to allow switching this
+off temporarily during the function call. This causes terra to switch to the higher-
+precision GeographicLib library for the problematic intersection calculations.
 }
