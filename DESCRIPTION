@@ -13,4 +13,6 @@ Depends:
     R (>= 2.10)
 LazyData: true
 Imports: 
-    nhdR
+    FedData,
+    nhdR,
+    units
