@@ -18,7 +18,7 @@ A data frame with 24953 rows and 13 columns:
 }
 }
 \source{
-\url{https://nrcs.app.box.com/v/soils/folder/18247487156}
+\url{https://help.waterdata.usgs.gov/}
 }
 \usage{
 usgs_lookup
