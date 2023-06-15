@@ -19,8 +19,8 @@
 #' 
 #' `crs_out` can be set to NA to return everything in its original projection.
 #' Otherwise the function transforms all geo-referenced output data to the supplied
-#' CRS. If `crs_out=NULL` (the default), the function assigns the UTM projection for
-#' the zone overlying the `outlet`, 
+#' CRS or EPSG code. If `crs_out=NULL`, the function assigns the UTM projection for the
+#' zone overlying the `outlet`, 
 #' 
 #' The function returns a list with the following
 #' 
@@ -47,7 +47,7 @@
 #'
 #' @return list
 #' @export
-get_catchment = function(outlet, crs_out=NULL, fast=FALSE) {
+get_catchment = function(outlet, crs_out=4326, fast=FALSE) {
   
   # look up locations for character input and/or convert to WGS84 to match NHD data
   if( is.character(outlet) ) outlet = nominatim_point(outlet)
@@ -119,6 +119,71 @@ get_catchment = function(outlet, crs_out=NULL, fast=FALSE) {
   return(result_list)
 }
 
+
+#' Save the output of `get_catchment` to disk
+#' 
+#' When `overwrite=TRUE` the function writes 'outlet.geojson', 'catchment.geojson',
+#' 'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
+#' objects to `sf::st_write`), and when `overwrite=FALSE` the function writes nothing
+#' but returns the file paths that would be written.
+#' 
+#' The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
+#' See `get_catchment` and `get_upstream` for details on input datasets 
+#'
+#' @param data_dir character path to the directory to use for output files
+#' @param catch_list list returned from `get_catchment(..., fast=FALSE)`
+#' @param overwrite logical
+#'
+#' @return the file names to write
+#' @export
+#'
+#' @examples
+#' save_catchment('/example')
+save_catchment = function(data_dir, catch_list=NULL, overwrite=FALSE) {
+  
+  # catch invalid calls and switch to file list mode
+  if( is.null(catch_list) & overwrite ) {
+    
+    warning('overwrite=TRUE but catch_list was NULL')
+    overwrite = FALSE
+  }
+  
+  # output directory
+  dest_dir = file.path(data_dir, 'nhd')
+  
+  # output filenames (outlet listed first on purpose)
+  dest_fname = c(outlet = 'outlet.geojson',
+                 catchment = 'catchment.geojson',
+                 flow = 'flow.geojson',
+                 lake = 'lake.geojson',
+                 boundary = 'boundary.geojson')
+  
+  # output paths
+  dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
+  if( !overwrite ) return(dest_path)
+  
+  # make the directory if necessary and remove any existing output files
+  if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
+  is_over = file.exists(dest_path)
+  if( any(is_over) ) unlink(dest_path[is_over])
+  
+  # save COMID and outlet point in the same geoJSON object
+  data.frame(comid=catch_list[['comid']]) |> 
+    sf::st_sf(geometry=catch_list[['outlet']]) |>
+    sf::st_transform(4326) |>
+    sf::st_write(dest_path[['outlet']])
+  
+  # save everything else in a distinct geoJSON
+  names(dest_fname[-1]) |> lapply(\(x) {
+    
+    sf::st_sf(geometry=catch_list[[x]]) |>
+      sf::st_transform(4326) |>
+      sf::st_write(dest_path[[x]])
+
+    })
+
+  return(dest_path)
+}
 
 #' Return a list of NHD geometry objects corresponding to the catchment for an outlet
 #' 

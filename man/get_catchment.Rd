@@ -4,7 +4,7 @@
 \alias{get_catchment}
 \title{Return a list of NHD geometry objects modelling the catchment for an outlet}
 \usage{
-get_catchment(outlet, crs_out = NULL, fast = FALSE)
+get_catchment(outlet, crs_out = 4326, fast = FALSE)
 }
 \arguments{
 \item{outlet}{character to query OSM for location or else a point accepted by \code{sf::st_geometry}}
@@ -37,8 +37,8 @@ files instead of downloading things repeatedly.
 
 \code{crs_out} can be set to NA to return everything in its original projection.
 Otherwise the function transforms all geo-referenced output data to the supplied
-CRS. If \code{crs_out=NULL} (the default), the function assigns the UTM projection for
-the zone overlying the \code{outlet},
+CRS or EPSG code. If \code{crs_out=NULL}, the function assigns the UTM projection for the
+zone overlying the \code{outlet},
 
 The function returns a list with the following
 \itemize{
