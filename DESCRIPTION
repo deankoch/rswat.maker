@@ -1,0 +1,14 @@
+Package: rswat.uyr
+Title: Auxiliary package for building an rswat project for the UYR
+Version: 0.0.0.9000
+Authors@R: 
+    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: This prepares the datasets required for building a SWAT+ model using QSWAT+, using the Upper Yellowstone River watershed as a demonstration 
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Depends: 
+    R (>= 2.10)
+LazyData: true
