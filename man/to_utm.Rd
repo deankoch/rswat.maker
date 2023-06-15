@@ -13,7 +13,7 @@ to_utm(x)
 integer EPSG code
 }
 \description{
-This prints the UTM zone that covers the centroid of the supplied geometry
+This prints the UTM zone that covers the supplied point
 and returns the corresponding EPSG code
 }
 \examples{
