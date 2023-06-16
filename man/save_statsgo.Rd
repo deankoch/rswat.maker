@@ -4,12 +4,14 @@
 \alias{save_statsgo}
 \title{Save the output of \code{get_statsgo} to disk}
 \usage{
-save_statsgo(data_dir, statsgo = NULL, overwrite = FALSE)
+save_statsgo(data_dir, soils = NULL, model = "statsgo", overwrite = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{statsgo}{sf dataframe returned by \code{get_statsgo}}
+\item{soils}{sf dataframe returned by \code{get_statsgo}}
+
+\item{model}{character either 'statsgo' or 'ssurgo'}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 }
@@ -17,14 +19,14 @@ save_statsgo(data_dir, statsgo = NULL, overwrite = FALSE)
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes 'statsgo.tif' and 'statsgo.geojson'
-based on the data in \code{statsgo}, and when \code{overwrite=FALSE} the function writes nothing
-but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes the data in \code{soils} to a pair of files
+named \code{model}, with extensions '.tif' and '.geojson'. When \code{overwrite=FALSE} the
+function writes nothing but returns the file paths that would be written.
 }
 \details{
-The function writes a copy of \code{statsgo} as geoJSON as well as a rasterized version
+The function writes a copy of \code{soils} as geoJSON as well as a rasterized version
 with grid matching the DEM downloaded in \code{get_dem}
 }
 \examples{
-save_soil('/example')
+save_statsgo('/example')
 }

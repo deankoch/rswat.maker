@@ -2,12 +2,14 @@
 % Please edit documentation in R/get_soil.R
 \name{get_statsgo}
 \alias{get_statsgo}
-\title{Fetch STATSGO2 data}
+\title{Fetch STATSGO2 or SSURGO data}
 \usage{
-get_statsgo(data_dir, s2 = FALSE)
+get_statsgo(data_dir, model = "statsgo", s2 = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
+
+\item{model}{character either 'statsgo' or 'ssurgo'}
 
 \item{s2}{logical, controls whether to use spherical approximation}
 }
@@ -15,11 +17,17 @@ get_statsgo(data_dir, s2 = FALSE)
 sf dataframe object containing a "MUKEY" field and polygon geometries
 }
 \description{
-Downloads and opens STATSGO2 data covering the bounding box of the DEM
-created by \code{get_dem}. This uses HTTPS to download from the FPAC Box cloud
-system at the USDA (see ?statsgo_url).
+Downloads and opens STATSGO2 or SSURGO data covering the bounding box of the DEM
+created by \code{get_dem}. For STATSGO2 we use HTTPS to download from the FPAC Box cloud
+system at the USDA (see ?statsgo_url). For SSURGO we use \code{FedData::get_ssurgo}.
 }
 \details{
 The function saves its source files to the 'raw' sub-directory. Get the
-path to this storage directory with \code{save_statsgo(data_dir, overwrite=FALSE)[['raw_dir']]}
+path to this storage directory by calling the following:
+
+\code{save_statsgo(data_dir, model='ssurgo', overwrite=FALSE)[['raw_dir']]}
+
+SSURGO is very detailed, so when using this model the memory usage may be high,
+and the intermediate .gpkg file written to the "raw" sub-directory may be large.
+For example with the UYR the file is around 8 GB.
 }
