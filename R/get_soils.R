@@ -1,27 +1,132 @@
-#' Soil getter
+#' Download/open soil map unit key rasters from STATSGO2 and SSURGO and combine them
+#' 
+#' SSURGO tends to be the more precise map but it also tends to have less complete
+#' coverage than STATSGO2. In cases where there is no SSURGO map unit key (mukey),
+#' this function assigns the STATSGO2 key.
+#' 
+#' If a SSURGO key is not found in the SWAT+ soils database, the STATSGO2 key is
+#' assigned. If that key is not found, then the value `na_out` is assigned. The
+#' default value (-99) is understood by SWAT+ to mean missing.
+#' 
+#' `mukey_replace` can be used to replace any number of SSURGO polygons with the
+#' underlying STATSGO2 polygons. In some cases (eg with the default 2485736) there
+#' can more detail in the STATSGO2 layer. This may change in the future as SSURGO
+#' continues to be updated.
 #'
 #' @param data_dir character path to the directory to use for output files
+#' @param force_overwrite logical if TRUE the function overwrites a fresh copy of outputs 
+#' @param mukey_replace map unit keys for SSURGO feature to swap for STATSGO feature
+#' @param na_out value to write in place of NA.
 #'
-#' @return something
+#' @return SpatRaster of STATSGO2 and/or SSURGO MUKeys
 #' @export
-get_soil = function(data_dir) {
+get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), na_out=-99L) {
   
+  # set up input/output names
+  input_nm = c('statsgo', 'ssurgo')
+  model_nm = stats::setNames(nm=c(input_nm, 'soils'))
+  model_path = model_nm |> lapply(\(x) save_statsgo(data_dir, model=x, overwrite=FALSE))
+  model_path[['soils']] = model_path[['soils']]['rast']
   
+  # delete old files if requested
+  if(force_overwrite) model_path[input_nm] |> sapply(\(x) unlink(x[c('rast', 'poly')]))
+  
+  # fetch data as needed
+  is_done = model_path[input_nm] |> sapply(\(x) all(file.exists(x)) )
+  if( any(!is_done) ) model_nm[input_nm][!is_done] |> lapply(\(x) { 
+    
+    soils = get_statsgo(data_dir, model=x) 
+    save_statsgo(data_dir, soils, model=x, overwrite=TRUE)
+    
+    })
+
+  # load the two soil key rasters
+  message('opening STATSGO2 and SSURGO layers')
+  ssurgo = model_path[['ssurgo']][['rast']] |> terra::rast()
+  statsgo = model_path[['statsgo']][['rast']] |> terra::rast()
+  
+  # copy the unique mukeys found in each raster as string
+  ssurgo_mukey = ssurgo[] |> unique() |> as.character()
+  statsgo_mukey = statsgo[] |> unique()  |> as.character()
+  
+  # identify those unknown to SWAT+
+  ssurgo_ok = ssurgo_mukey %in% swatplus_soils
+  statsgo_ok = statsgo_mukey %in% swatplus_soils
+  
+  # merge STATSGO and SSURGO mukey layers
+  message('merging')
+  soils = ssurgo
+  if( any(!ssurgo_ok) ) {
+    
+    # unpack both rasters as matrices
+    g_ssurgo = ssurgo[]
+    g_statsgo = statsgo[]
+    
+    # set keys unrecognized by SWAT+ to NA
+    g_ssurgo[ g_ssurgo %in% ssurgo_mukey[!ssurgo_ok] ] = NA
+    g_statsgo[ g_statsgo %in% statsgo_mukey[!statsgo_ok] ] = NA
+    
+    # set particular SSURGO key(s) to NA to force replacement
+    g_ssurgo[ g_ssurgo %in% mukey_replace ] = NA
+    
+    # replace all unassigned pixels in the SSURGO layer with STATSGO values
+    is_replaced = is.na(g_ssurgo)
+    g_ssurgo[is_replaced] = g_statsgo[is_replaced]
+    
+    # export result back to SpatRaster
+    soils[] = g_ssurgo 
+  }
+  
+  # replace NAs with placeholder
+  soils[is.na(soils)] = na_out
+  return(soils)
 }
 
-#' Save the output of `get_soil` to disk
+#' Save the output of `get_soils` to disk
 #' 
+#' With default `overwrite=FALSE` the function returns in a list the three sets
+#' of soils files that are written by this package. If `overwrite=TRUE` the one-layer
+#' combined output from STATSGO2 and SSURGO is written to disk.
+#' 
+#' In a normal workflow you should call `get_soils(...)` to write the two source
+#' datasets to disk and generate the merged layer in memory. then call
+#' `save_soils(overwrite=TRUE)` to write this merged layer to disk.
 #'
 #' @param data_dir character path to the directory to use for output files
-#' @param overwrite logical
+#' @param overwrite logical if `FALSE` the function just returns the file that would be written
 #'
-#' @return the file names to write
+#' @return the file name to write
 #' @export
 #'
 #' @examples
-#' save_soil('/example')
-save_soil = function(data_dir, soils=NULL, overwrite=FALSE) {
+#' save_soils('/example')
+save_soils = function(data_dir, soils=NULL, overwrite=FALSE) {
   
+  # catch invalid calls and switch to file list mode
+  if( is.null(soils) & overwrite ) {
+    
+    warning('overwrite=TRUE but soils was NULL')
+    overwrite = FALSE
+  }
+  
+  # set up input/output names
+  input_nm = c('statsgo', 'ssurgo')
+  model_nm = stats::setNames(nm=c(input_nm, 'soils'))
+  model_path = model_nm |> lapply(\(x) save_statsgo(data_dir, model=x, overwrite=FALSE))
+  model_path[['soils']] = model_path[['soils']]['rast']
+  if( !overwrite ) return(model_path)
+  
+  # this function only writes the one output file
+  dest_path = model_path[['soils']]
+  dest_dir = dirname(dest_path)
+
+  # make the directory if necessary and remove any existing output file
+  if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
+  if( file.exists(dest_path) ) unlink(dest_path)
+  
+  # write the layer
+  soils |> terra::writeRaster(dest_path)
+  return(dest_path)
 }
 
 #' Fetch STATSGO2 or SSURGO data
@@ -73,14 +178,13 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
   if( model == 'statsgo' ) {
     
     # find overlapping states and their abbreviation code
-    is_over = us_states |> sf::st_intersects(bbox_dem, sparse=FALSE)
+    is_over = us_states |> sf::st_intersects(bbox_dem, sparse=FALSE) |> suppressMessages()
     abb_over = us_states[['abbr']][is_over]
     
     #  filter to relevant states
     if( !any(is_over) ) stop('bounding box did not overlap with any polygons in us_states')
     statsgo_fetch = statsgo_url[match(abb_over, statsgo_url[['abb']]), ]
     msg_over = us_states[['abbr']][is_over] |> paste(collapse=', ')
-    
     
     # loop over available states and download/load the data
     n_get = nrow(statsgo_fetch)
@@ -90,16 +194,18 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
       
       message('fetching data for ', us_states[['full']][is_over][i])
       
-      # download the zip file
-      if( !dir.exists(statsgo_path[['raw_dir']]) ) dir.create(statsgo_path[['raw_dir']], recursive=TRUE) 
-      path_i = file.path(statsgo_path[['raw_dir']], statsgo_fetch[['file']][i])
+      # download the zip file if it doesn't exist already
+      raw_dir = statsgo_path[['raw_dir']]
+      if( !dir.exists(raw_dir) ) dir.create(raw_dir, recursive=TRUE) 
+      
+      path_i = file.path(raw_dir, statsgo_fetch[['file']][i])
       if( !file.exists(path_i) ) download.file(statsgo_fetch[['url']][i],
                                                destfile = path_i,
                                                quiet = TRUE,
                                                mode =' wb')
       
       # unpack to same folder, identify the geometries file
-      file_i = path_i |> unzip(exdir=statsgo_path[['raw_dir']])
+      file_i = path_i |> unzip(exdir=raw_dir)
       idx_dbf = grepl('spatial/.+\\.dbf$', file_i) |> which()
       if( length(idx_dbf) != 1 ) stop('could not locate the geometries file in ', path_i)
       
@@ -109,7 +215,6 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     
     # merge all state data
     soils_poly = do.call(rbind, poly_list)
-    soils_poly[['MUKEY']] = soils_poly[['MUKEY']] |> as.integer()
     
     # crop to bounding box of interest
     is_in = soils_poly |> sf::st_intersects(bbox_dem, sparse=FALSE) |> suppressMessages()
@@ -138,7 +243,8 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     # load SSA polygons, omit those not overlapping with AOI, copy area keys
     message('loading ', basename(path_ssa), ' and checking geometries...')
     ssa_poly = path_ssa |> sf::st_read() |> sf::st_make_valid()
-    ssa_in = ssa_poly[sf::st_intersects(ssa_poly, bbox_dem, sparse=FALSE), ]
+    is_in = sf::st_intersects(ssa_poly, bbox_dem, sparse=FALSE) |> suppressMessages()
+    ssa_in = ssa_poly[is_in, ]
     ssa = ssa_in[['areasymbol']]
     if( length(ssa) == 0 ) {
      
@@ -163,9 +269,14 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     pb = txtProgressBar(0, length(ssa), style=3)
     for(i in seq_along(ssa)) {
       
-      # identify the polygons in ith SSA that overlap with AOI, match mukeys to full list
+      # identify the polygons in ith SSA that overlap with AOI, 
       poly_i = soil_result[['spatial']] |> dplyr::filter(AREASYMBOL == ssa[i])
-      is_in_aoi = poly_i |> sf::st_geometry() |> sf::st_intersects(bbox_dem, sparse=FALSE)
+      is_in_aoi = poly_i |> 
+        sf::st_geometry() |> 
+        sf::st_intersects(bbox_dem, sparse=FALSE)|> 
+        suppressMessages()
+
+      # match mukeys to full list
       mukey_in_aoi[ soil_result[['spatial']][['MUKEY']] %in% poly_i[['MUKEY']][is_in_aoi] ] = TRUE
       setTxtProgressBar(pb, i)
     }
@@ -173,7 +284,6 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     
     # extract relevant subset
     soils_poly = soil_result[['spatial']][mukey_in_aoi, ]
-    soils_poly[['MUKEY']] = soils_poly[['MUKEY']] |> as.integer()
   }
   
   return(soils_poly)
@@ -224,7 +334,7 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
   is_over = file.exists(dest_path)
   if( any(is_over) ) unlink(dest_path[is_over])
-
+  
   # write polygons to disk
   soils |> sf::st_write(dest_path[['poly']])
   
@@ -232,14 +342,14 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   dem = save_dem(data_dir, overwrite=FALSE)[['dem']] |> terra::rast()
 
   # coerce to SpatVector with integer values then rasterize to DEM grid
+  soils[['MUKEY']] = soils[['MUKEY']] |> as.integer()
   soils_sv = as(soils['MUKEY'], 'SpatVector')
   soils_sv |> terra::rasterize(dem,
-                                 field = 'MUKEY',
-                                 fun = 'min',
-                                 touches=TRUE,
-                                 filename = dest_path[['rast']])
-                                    
-
+                               field = 'MUKEY',
+                               fun = 'min',
+                               touches = TRUE,
+                               filename = dest_path[['rast']])
+                                 
   return(dest_path)
 }
 

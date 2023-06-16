@@ -12,10 +12,10 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   # get paths written by the function
   nhd_path = save_catchment(data_dir, overwrite=FALSE)
   dem_path = save_dem(data_dir, overwrite=FALSE)
-  soils_path = save_soil(data_dir, overwrite=FALSE)
+  soils_path = save_soils(data_dir, overwrite=FALSE)
   
   # concatenate paths in list and return from list mode
-  all_path = list(nhd=nhd_path)
+  all_path = list(nhd=nhd_path, ned=dem_path, soils=soils_path)
   if( !overwrite ) return(all_path)
   
   # get watershed geometries from NHD if necessary (using `nhdR`)
@@ -34,5 +34,12 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
     save_dem(data_dir, dem, overwrite=TRUE)
   }
   
-  #
+  # get soils from USDA if necessary (using 'FedData' and FPAC Box URLs)
+  if( force_overwrite | !all( file.exists( unlist(soils_path) ) ) ) {
+    
+    # NED data download for UYR completes in < 1 min
+    soils = get_soils(data_dir)
+    save_soils(data_dir, soils, overwrite=TRUE)
+  }
+  
 }
