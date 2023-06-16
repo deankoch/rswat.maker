@@ -9,7 +9,7 @@ save_dem(data_dir, dem = NULL, overwrite = FALSE)
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{overwrite}{logical}
+\item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
 \item{catch_list}{list returned from \code{get_catchment(..., fast=FALSE)}}
 }

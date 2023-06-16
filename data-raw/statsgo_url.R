@@ -54,7 +54,7 @@ get_statsgo_url = function(base_url, dir_nm, page_count=3) {
     dplyr::mutate( file = unname(nrcs_file) ) |>
     dplyr::mutate( abb = sub('.+_([A-Z]{2})_.+.zip$', '\\1', file) ) |>
     dplyr::mutate( state = state.name[match(abb, state.abb)] ) |>
-    dplyr::mutate( url = file.path(download_url, id)) |>
+    dplyr::mutate( url = paste0(download_url, id)) |>
     dplyr::filter( !is.na(abb) ) |>
     dplyr::filter( abb != 'soils' )
 

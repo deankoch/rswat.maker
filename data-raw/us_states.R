@@ -30,14 +30,14 @@ for(i in seq_along(states_result)) {
       
       sdf[c('x', 'y')] |> 
         as.matrix() |> 
-        st_multipoint() |> 
+        sf::st_multipoint() |> 
         list() |> 
-        st_polygon()
+        sf::st_polygon()
       
-    }) |> st_multipolygon() |> st_sfc(crs=crs_in) 
+    }) |> sf::st_multipolygon() |> sf::st_sfc(crs=crs_in) 
   
   # bundle as sf object and copy to storage
-  states_result[[i]] = st_sf(data.frame(state_attr), geometry=state_poly)
+  states_result[[i]] = sf::st_sf(data.frame(state_attr), geometry=state_poly)
 }
 
 # concatenate as a single sf data frame with MULTIPOLYGON in desired projection

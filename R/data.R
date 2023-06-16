@@ -83,3 +83,18 @@
 #' }
 #' @source <https://help.waterdata.usgs.gov/>
 "usgs_lookup"
+
+#' An sf object containing USA state polygons and their names
+#' 
+#' Data come from the `usmaps::us_map('state', ...)` function. This dataset provides
+#' a version as an sf data frame object with MULTIPOLYGON geometry and WGS84 coordinates.
+#'
+#' @format ## `us_states`
+#' An sf data frame with 51 rows and 3 columns:
+#' \describe{
+#'   \item{abbr}{abbrevation}
+#'   \item{full}{state name}
+#'   \item{geometry}{POLYGON with WGS84 coordinates}
+#' }
+#' @source <https://cran.r-project.org/package=us_map>
+"us_states"

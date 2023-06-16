@@ -12,7 +12,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   # get paths written by the function
   nhd_path = save_catchment(data_dir, overwrite=FALSE)
   dem_path = save_dem(data_dir, overwrite=FALSE)
-  soils_path = save_soils(data_dir, overwrite=FALSE)
+  soils_path = save_soil(data_dir, overwrite=FALSE)
   
   # concatenate paths in list and return from list mode
   all_path = list(nhd=nhd_path)

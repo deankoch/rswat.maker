@@ -48,7 +48,7 @@ get_dem = function(data_dir, pad_size=NULL) {
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catchment(..., fast=FALSE)`
-#' @param overwrite logical
+#' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
 #' @export
@@ -67,7 +67,7 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE) {
   # output directory
   dest_dir = file.path(data_dir, 'ned')
   
-  # output filenames (outlet listed first on purpose)
+  # output filenames
   dest_fname = c(dem = 'ned_dem.tif',
                  bbox = 'ned_bbox.geojson')
   

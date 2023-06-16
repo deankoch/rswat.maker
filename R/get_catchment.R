@@ -132,7 +132,7 @@ get_catchment = function(outlet, crs_out=4326, fast=FALSE) {
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catchment(..., fast=FALSE)`
-#' @param overwrite logical
+#' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
 #' @export
@@ -151,8 +151,9 @@ save_catchment = function(data_dir, catch_list=NULL, overwrite=FALSE) {
   # output directory
   dest_dir = file.path(data_dir, 'nhd')
   
-  # output filenames (outlet listed first on purpose)
+  # output filenames (outlet and edge listed first on purpose)
   dest_fname = c(outlet = 'outlet.geojson',
+                 edge = 'edge.csv',
                  catchment = 'catchment.geojson',
                  flow = 'flow.geojson',
                  lake = 'lake.geojson',
@@ -173,8 +174,11 @@ save_catchment = function(data_dir, catch_list=NULL, overwrite=FALSE) {
     sf::st_transform(4326) |>
     sf::st_write(dest_path[['outlet']])
   
+  # save edge data as CSV
+  catch_list[['edge']] |> write.csv(row.names=FALSE, quote=FALSE)
+  
   # save everything else in a distinct geoJSON
-  names(dest_fname[-1]) |> lapply(\(x) {
+  names(dest_fname[-(1:2)]) |> lapply(\(x) {
     
     sf::st_sf(geometry=catch_list[[x]]) |>
       sf::st_transform(4326) |>
@@ -182,6 +186,7 @@ save_catchment = function(data_dir, catch_list=NULL, overwrite=FALSE) {
 
     })
 
+  # return all paths
   return(dest_path)
 }
 

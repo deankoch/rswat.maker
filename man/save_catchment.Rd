@@ -11,7 +11,7 @@ save_catchment(data_dir, catch_list = NULL, overwrite = FALSE)
 
 \item{catch_list}{list returned from \code{get_catchment(..., fast=FALSE)}}
 
-\item{overwrite}{logical}
+\item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 }
 \value{
 the file names to write
