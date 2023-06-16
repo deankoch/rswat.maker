@@ -98,3 +98,20 @@
 #' }
 #' @source <https://cran.r-project.org/package=us_map>
 "us_states"
+
+#' A vector of STATSGO and SSURGO soil MUKEYs available in SWAT+
+#' 
+#' SWAT+ MUKEYs were extracted from the SQLite database that is included in the default
+#' SWAT+ installer ("swatplus_datasets.sqlite"). Since the SWAT+ team updates these
+#' codes from time to time, this dataset will likely need updating someday. It was
+#' last generated in June 2023.
+#'
+#' @format ## `swatplus_soils`
+#' A vector with:
+#' \describe{
+#'   \item{abbr}{abbrevation}
+#'   \item{full}{state name}
+#'   \item{geometry}{POLYGON with WGS84 coordinates}
+#' }
+#' @source <https://swat.tamu.edu/media/69419/Appendix-A.pdf>
+"swatplus_soils"
