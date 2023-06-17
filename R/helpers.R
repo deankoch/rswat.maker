@@ -24,3 +24,26 @@ to_utm = function(x) {
   # EPSG code from zone and signe of latitude (N/S)
   32700 + utm_num - 100*( sign(lat) + 1 )/2 
 }
+
+#' EPSG codes for some common geographical coordinate systems 
+#'
+#' These are some of the datum names I have encountered in NWIS. If `code`
+#' is not 'NAD27' or 'NAD83', the function assumes the WGS84 datum.
+#'
+#' @param code character, the datum name
+#'
+#' @return integer, the EPSG code
+#' @export
+#'
+#' @examples
+#' datum_to_epsg('WGS84')
+#' datum_to_epsg('NAD27')
+#' datum_to_epsg('some_unknown_datum')
+datum_to_epsg = \(code) {
+  
+  code |> switch('NAD27' = 4267,
+                 'NAD83' = 4269,
+                 'WGS84' = 4326, 4326)
+}
+
+

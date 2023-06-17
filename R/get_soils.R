@@ -297,7 +297,8 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
 #' function writes nothing but returns the file paths that would be written.
 #' 
 #' The function writes a copy of `soils` as geoJSON as well as a rasterized version
-#' with grid matching the DEM downloaded in `get_dem`
+#' with grid matching the DEM downloaded in `get_dem`. The contents of the "raw"
+#' sub-directory are written by `get_statsgo`.
 #' 
 #' @param data_dir character path to the directory to use for output files
 #' @param soils sf dataframe returned by `get_statsgo`
@@ -330,10 +331,12 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
   if( !overwrite ) return(dest_path)
   
-  # make the directory if necessary and remove any existing output files
+  # make the directory if necessary
   if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
   is_over = file.exists(dest_path)
-  if( any(is_over) ) unlink(dest_path[is_over])
+  
+  # remove any existing output files (but not "raw", which is a directory)
+  if( any(is_over) ) unlink(dest_path[is_over], recursive=FALSE)
   
   # write polygons to disk
   soils |> sf::st_write(dest_path[['poly']])

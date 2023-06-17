@@ -15,7 +15,7 @@ get_dem(data_dir, pad_size = NULL)
 SpatRaster of elevation data for the catchment area
 }
 \description{
-This opens the boundary polygon created by \code{get_catchment} and passes (a
+This opens the boundary polygon created by \code{get_catch} and passes (a
 buffered version of) it to \code{FedData::get_ned}.
 }
 \details{

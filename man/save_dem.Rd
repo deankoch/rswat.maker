@@ -11,7 +11,7 @@ save_dem(data_dir, dem = NULL, overwrite = FALSE)
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
-\item{catch_list}{list returned from \code{get_catchment(..., fast=FALSE)}}
+\item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
 }
 \value{
 the file names to write
@@ -24,7 +24,7 @@ but returns the file paths that would be written.
 }
 \details{
 The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-See \code{get_catchment} and \code{get_upstream} for details on input datasets
+See \code{get_catch} and \code{get_upstream} for details on input datasets
 }
 \examples{
 save_dem('/example')

@@ -25,7 +25,8 @@ function writes nothing but returns the file paths that would be written.
 }
 \details{
 The function writes a copy of \code{soils} as geoJSON as well as a rasterized version
-with grid matching the DEM downloaded in \code{get_dem}
+with grid matching the DEM downloaded in \code{get_dem}. The contents of the "raw"
+sub-directory are written by \code{get_statsgo}.
 }
 \examples{
 save_statsgo('/example')

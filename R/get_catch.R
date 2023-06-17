@@ -47,7 +47,7 @@
 #'
 #' @return list
 #' @export
-get_catchment = function(outlet, crs_out=4326, fast=FALSE) {
+get_catch = function(outlet, crs_out=4326, fast=FALSE) {
   
   # look up locations for character input and/or convert to WGS84 to match NHD data
   if( is.character(outlet) ) outlet = nominatim_point(outlet)
@@ -120,7 +120,7 @@ get_catchment = function(outlet, crs_out=4326, fast=FALSE) {
 }
 
 
-#' Save the output of `get_catchment` to disk
+#' Save the output of `get_catch` to disk
 #' 
 #' When `overwrite=TRUE` the function writes 'outlet.geojson', 'catchment.geojson',
 #' 'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
@@ -128,18 +128,18 @@ get_catchment = function(outlet, crs_out=4326, fast=FALSE) {
 #' but returns the file paths that would be written.
 #' 
 #' The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-#' See `get_catchment` and `get_upstream` for details on input datasets 
+#' See `get_catch` and `get_upstream` for details on input datasets 
 #'
 #' @param data_dir character path to the directory to use for output files
-#' @param catch_list list returned from `get_catchment(..., fast=FALSE)`
+#' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
-#' save_catchment('/example')
-save_catchment = function(data_dir, catch_list=NULL, overwrite=FALSE) {
+#' save_catch('/example')
+save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
   
   # catch invalid calls and switch to file list mode
   if( is.null(catch_list) & overwrite ) {

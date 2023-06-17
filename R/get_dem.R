@@ -1,6 +1,6 @@
 #' Wrapper for `FedData::get_ned`
 #' 
-#' This opens the boundary polygon created by `get_catchment` and passes (a
+#' This opens the boundary polygon created by `get_catch` and passes (a
 #' buffered version of) it to `FedData::get_ned`. 
 #' 
 #' The buffer size default is 10% of the square root of the polygon area. For
@@ -17,12 +17,12 @@
 get_dem = function(data_dir, pad_size=NULL) {
   
   # locate catchment boundary 
-  nhd_path = save_catchment(data_dir, overwrite=FALSE)
+  nhd_path = save_catch(data_dir, overwrite=FALSE)
   boundary_path = nhd_path[['boundary']]
   
   # sanity check 
   msg_error = paste('missing boundary polygon:', boundary_path)
-  msg_suggestion = 'Have you run `get_catchment()` yet?'
+  msg_suggestion = 'Have you run `get_catch()` yet?'
   if( !file.exists(boundary_path) ) stop(msg_error, '\n', msg_suggestion)
   
   # load boundary and set default padding 
@@ -44,10 +44,10 @@ get_dem = function(data_dir, pad_size=NULL) {
 #' but returns the file paths that would be written.
 #' 
 #' The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-#' See `get_catchment` and `get_upstream` for details on input datasets 
+#' See `get_catch` and `get_upstream` for details on input datasets 
 #'
 #' @param data_dir character path to the directory to use for output files
-#' @param catch_list list returned from `get_catchment(..., fast=FALSE)`
+#' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
