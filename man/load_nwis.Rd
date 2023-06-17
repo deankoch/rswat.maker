@@ -15,13 +15,13 @@ load_nwis(
 \arguments{
 \item{data_dir}{character path to the directory to look for output files}
 
-\item{site}{character, the site code}
+\item{site}{character, the site code to fetch}
 
 \item{output}{character, either 'path', 'date' , or 'values'}
 
-\item{param_code, }{the parameter code}
+\item{param_code, }{the parameter code to fetch}
 
-\item{stat_code, }{the statistic code}
+\item{stat_code, }{the statistic code to fetch}
 }
 \value{
 either the file path (character), date range (length-2 POSIXct vector), or data frame

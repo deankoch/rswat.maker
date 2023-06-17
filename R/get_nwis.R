@@ -6,9 +6,19 @@
 #' @export
 get_nwis = function(data_dir) {
   
-  # get stations list
+  # get stations list and write output
   nwis = list_nwis(data_dir)
   data_dir |> save_nwis(nwis, overwrite=TRUE)
+  
+  # update/initialize stations data (writes to "raw")
+  # TODO: determine `from`
+  # TODO: run update_nwis()
+  
+  # update file paths and dates in stations list
+  # TODO: run load_nwis to get dates
+  # TODO: save_nwis to overwrite nwis
+  
+  # summarize all available time series
   
 }
 
@@ -67,6 +77,97 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
 }
 
 
+
+
+
+#' Update NWIS data files on disk by downloading latest dates
+#'
+#' This loops over the site codes listed in the file `save_nwis(data_dir)['station']`,
+#' calling `data_nwis` to download all new records starting from the date `from`, and
+#' storing the results on disk in CSV files in the "raw" sub-directory.
+#' 
+#' If `from` is NULL and there is no existing file on disk, the function downloads all
+#' available dates and creates the file. If there is a file on disk already and `from`
+#' is NULL, the function sets `from` to the day after the latest date in the file.
+#' 
+#' The function will overwrite existing files without warning, but existing values in
+#' the file on dates prior to `from` are not modified. New dates are added to the file
+#' and existing dates with new values are overwritte.
+#' 
+#' Specify the variable and statistic of interest with `param_code` and `stat_code`
+#' (see `?list_nwis`). `n_sec` should be left alone unless you know what you are doing
+#' and plan to respect the Water Service API rate limits (see `?data_nwis`).
+#'
+#' @param data_dir character path to the directory to use for output files
+#' @param from Date (or any other object coercible Date) from which to start update
+#' @param param_code, the parameter code to update
+#' @param stat_code, the statistic code to update
+#' @param n_sec numeric >= 0, the number of seconds to wait between requests
+#'
+#' @return returns nothing but possibly writes to CSV files in "raw" subdirectory
+#' @export
+update_nwis = function(data_dir, from=NULL, param_code='00060', stat_code='00003', n_sec=0.5) {
+
+  # get site codes from station site points data frame
+  pts = save_nwis(data_dir)['station'] |> sf::st_read(quiet=TRUE)
+  site_fetch = pts[['site_no']]
+  
+  # get station records data frame 
+  nwis = save_nwis(data_dir)['record'] |> read.csv(colClasses='character')
+  
+  # download and write to disk in a loop over sites
+  t_req = proc.time()
+  for(site in site_fetch) {
+    
+    # limit requests to n_sec/second
+    sec_wait = pmax(0, n_sec - (proc.time() - t_req)['elapsed'])
+    Sys.sleep(sec_wait)
+    t_req = proc.time()
+    
+    # path to the CSV on disk
+    site_path = load_nwis(data_dir, site, output='path', param_code=param_code, stat_code=stat_code)
+
+    # set up starting date for update with `from` is NULL
+    site_start = from
+    if( file.exists(site_path) & is.null(site_start) ) {
+      
+      # update starts from the day after the latest existing date in the file
+      day_as_int = 1
+      site_start = load_nwis(data_dir,
+                             site,
+                             output = 'date', 
+                             param_code = param_code,
+                             stat_code = stat_code)[2] + 1
+    }
+    
+    # download and open the time series 
+    message('updating site ', site, ' (', match(site, site_fetch), ' of ', length(site_fetch), ')')
+    site_df = data_nwis(nwis, site, from=site_start, param_code=param_code, stat_code=stat_code)
+    
+    # relabel parameter code column with alphabetic name
+    names(site_df)[ names(site_df) == param_code ] = 'value'
+    
+    # if no results from NWIS, data_nwis returns empty list (and we skip to next site)
+    if( length(site_df) == 0 ) next
+    
+    # merge with any existing file data
+    if( file.exists(site_path) ) {
+      
+      # make sure read.csv sets the right column classes
+      col_classes = site_df |> lapply(class) |> lapply(\(x) x[1])
+      existing_site_df = read.csv(site_path, colClasses=col_classes)
+      
+      # discard any stale data, rbind, then sort by date 
+      is_over = existing_site_df[['date']] %in% site_df[['date']]
+      site_df = rbind(existing_site_df[!is_over,], site_df) |> dplyr::arrange('date')
+    }
+    
+    # write to disk
+    site_df |> write.csv(site_path, row.names=FALSE)
+    message('')
+  }
+}
+
 #' Load NWIS data from a file on disk, or return the date range within, or the file path
 #' 
 #' This function organizes the storage of bulk data downloads from NWIS. The data are
@@ -80,9 +181,9 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
 #'
 #' @param data_dir character path to the directory to look for output files 
 #' @param output character, either 'path', 'date' , or 'values' 
-#' @param site character, the site code
-#' @param param_code, the parameter code
-#' @param stat_code, the statistic code
+#' @param site character, the site code to fetch
+#' @param param_code, the parameter code to fetch
+#' @param stat_code, the statistic code to fetch
 #'
 #' @return either the file path (character), date range (length-2 POSIXct vector), or data frame
 #' @export
@@ -93,10 +194,10 @@ load_nwis = function(data_dir, site, output='path', param_code='00060', stat_cod
   
   # build file path from "raw"
   output_path = save_nwis(data_dir, overwrite=FALSE)['raw_dir'] |> file.path(output_nm)
-    
+  
   # return from path mode then initialize date mode
   if(output=='path') return(output_path)
-  output_date = as.POSIXct(NULL) |> list() |> rep(2) |> stats::setNames(c('start', 'end'))
+  output_date = as.POSIXct(NULL)
   
   # check for existence (NULL for file not found)
   if( !file.exists(output_path) ) return( output_date ) 
@@ -104,63 +205,12 @@ load_nwis = function(data_dir, site, output='path', param_code='00060', stat_cod
   # else load the file to get dates
   output_df = read.csv(output_path)
   dates = read.csv(output_path)[['date']]
-  date_range = c(head(dates, 1), tail(dates, 1)) |> as.POSIXct(tz='UTC')
-  if(output=='date') return(date_range)
+  output_date = c(head(dates, 1), tail(dates, 1)) |> as.Date()
+  if(output=='date') return(output_date)
   
   # convert date column to expected class
-  output_df[['date']] = output_df[['date']] |> as.POSIXct(tz='UTC')
+  output_df[['date']] = output_df[['date']] |> as.Date()
   return(output_df)
-}
-
-
-
-
-#' Update 
-#'
-#' @param data_dir 
-#' @param from 
-#' @param param_code 
-#' @param stat_code 
-#'
-#' @return
-#' @export
-#'
-#' @examples
-update_nwis = function(data_dir, from=NULL, param_code='00060', stat_code='00003') {
-
-  # get site codes and destination paths
-  dest_path = load_nwis_site(data_dir, output='path', param_code=param_code, stat_code=stat_code)
-  site_fetch = names(dest_path)
-  
-  # get station records data frame 
-  nwis = save_nwis(data_dir)['record'] |> read.csv(colClasses='character')
-  
-  # download and write to disk in a loop over sites
-  for(site in site_fetch) {
-    
-    # download and open the time series (relabel parameter code column with alphabetic name)
-    message('updating site ', site, ' (', match(site, site_fetch), ' of ', length(site_fetch), ')')
-    site_df = data_nwis(nwis, site, from, param_code, stat_code)
-    names(site_df)[ names(site_df) == param_code ] = 'value'
-    if( nrow(site_df) == 0 ) next
-    
-    # merge with existing file data
-    site_path = dest_path[[site]]
-    if( file.exists(site_path) ) {
-      
-      # make sure read.csv sets the right column classes
-      col_classes = site_df |> lapply(class) |> lapply(\(x) x[1])
-      existing_site_df = read.csv(site_path, colClasses=col_classes)
-      
-      # discard any stale data, rbind, then sort by date 
-      is_over = existing_site_df[['date']] %in% site_df[['date']]
-      site_df = rbind(existing_site_df[!is_over], site_df) |> dplyr::arrange('date')
-    }
-    
-    # write to disk
-    site_df |> write.csv(dest_path[[site]], row.names=FALSE)
-    message('')
-  }
 }
 
 
@@ -271,6 +321,7 @@ data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003
     # limit requests to n_sec/second
     sec_wait = pmax(0, n_sec - (proc.time() - t_req)['elapsed'])
     Sys.sleep(sec_wait)
+    t_req = proc.time()
     
     # arguments for waterservices.usgs.gov/rest 
     args_i = list(sites = record_df[['site_no']][i],
@@ -279,20 +330,14 @@ data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003
                   startDate = record_df[['begin_date']][i],
                   statCd = record_df[['stat_cd']][[i]])
     
-    # validate `from` argument (if supplied) and append to arguments
-    if( !is.null(from) ) {
-     
-      from = from |> as.Date()
-      end_date = record_df[['end_date']] |> as.Date()
-      if( from <= end_date ) args_i[['startDate']] = as.character(from)
-    }
+    # append `from` (if supplied) to arguments
+    if( !is.null(from) ) args_i[['startDate']] = from |> as.Date() |> as.character()
 
     # print progress report to console 
     var_msg_i = paste0(args_i[['service']], '-', args_i[['parameterCd']])
-    message('NWIS has ', record_df[['count_nu']][i], ' observation(s) of ', var_msg_i)
+    message('NWIS reports ', record_df[['count_nu']][i], ' observation(s) of ', var_msg_i)
     
     # attempt to download and import record data
-    t_req = proc.time()
     result_i = tryCatch({
 
       # download all station data for this variable/service combination 
@@ -308,12 +353,13 @@ data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003
       var_nm = nwis_nm[ grep(var_regex, names(result_df)) ]
       if( !( 'dateTime' %in% nwis_nm ) | ( length(var_nm) != 1 ) ) stop('unexpected column names')
       
-      # copy output columns with tidier names
-      output_df = result_df[c('dateTime', var_nm)] |> stats::setNames(c('time', var_nm))
-  
-      # append some constant columns to index this time series later
+      # copy output columns with tidier names and add site code
+      output_df = result_df[c('dateTime', var_nm)] |> stats::setNames(c('date', var_nm))
       output_df[['site_no']] = site
-      output_df = output_df[c('site_no', 'time', var_nm)]
+      output_df = output_df[c('site_no', 'date', var_nm)]
+      
+      # convert POSIXct to Date
+      if( nrow(output_df) > 0 ) output_df[['date']] = output_df[['date']] |> as.Date()
       
       # omit NA rows from output
       is_incomplete = output_df |> apply(1, anyNA)
@@ -332,16 +378,13 @@ data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003
   record_complete = record_df[!is_fail,]
   if( any(is_fail) ) {
     
-    message(sum(is_fail), ' request(s) failed!')
-    print(record_df[is_fail,])
+    message(sum(is_fail), ' request(s) failed or returned no new results')
+    message('')
     if( all(is_fail) ) return(list()) 
   }
   
-  # success message
-  
-  
   # return all records in a single data frame
-  do.call(rbind, result_all[!is_fail]) |> dplyr::arrange('time')
+  do.call(rbind, result_all[!is_fail]) |> dplyr::arrange('date')
 }
 
 

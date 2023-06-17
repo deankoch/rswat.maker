@@ -2,19 +2,45 @@
 % Please edit documentation in R/get_nwis.R
 \name{update_nwis}
 \alias{update_nwis}
-\title{Update}
+\title{Update NWIS data files on disk by downloading latest dates}
 \usage{
-update_nwis(data_dir, from = NULL, param_code = "00060", stat_code = "00003")
+update_nwis(
+  data_dir,
+  from = NULL,
+  param_code = "00060",
+  stat_code = "00003",
+  n_sec = 0.5
+)
 }
 \arguments{
-\item{data_dir}{}
+\item{data_dir}{character path to the directory to use for output files}
 
-\item{from}{}
+\item{from}{Date (or any other object coercible Date) from which to start update}
 
-\item{param_code}{}
+\item{param_code, }{the parameter code to update}
 
-\item{stat_code}{}
+\item{stat_code, }{the statistic code to update}
+
+\item{n_sec}{numeric >= 0, the number of seconds to wait between requests}
+}
+\value{
+returns nothing but possibly writes to CSV files in "raw" subdirectory
 }
 \description{
-Update
+This loops over the site codes listed in the file \code{save_nwis(data_dir)['station']},
+calling \code{data_nwis} to download all new records starting from the date \code{from}, and
+storing the results on disk in CSV files in the "raw" sub-directory.
+}
+\details{
+If \code{from} is NULL and there is no existing file on disk, the function downloads all
+available dates and creates the file. If there is a file on disk already and \code{from}
+is NULL, the function sets \code{from} to the day after the latest date in the file.
+
+The function will overwrite existing files without warning, but existing values in
+the file on dates prior to \code{from} are not modified. New dates are added to the file
+and existing dates with new values are overwritte.
+
+Specify the variable and statistic of interest with \code{param_code} and \code{stat_code}
+(see \code{?list_nwis}). \code{n_sec} should be left alone unless you know what you are doing
+and plan to respect the Water Service API rate limits (see \code{?data_nwis}).
 }
