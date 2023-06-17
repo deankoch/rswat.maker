@@ -1,38 +1,86 @@
-#' This will run the whole workflow
+#' Create/update a database of NWIS daily mean values
+#' 
+#' This uses the `dataRetrieval` package to manage downloads of data from the
+#' National Water Information Service (NWIS). By default this constructs and/or
+#' updates a database of mean daily stream flow in ft3.
+#' 
+#' Station sites of interest are selected by filtering results to points within
+#' the catchment boundary polygon created by `get_catch`. A GeoJSON file locating
+#' these points is written to "nwis/". Call `save_nwis(data_dir)` to get the path.
+#' This file is written once only when `refresh=FALSE`. Set `refresh=TRUE` to
+#' create it again - note that this updates all fields and checks for new points.
+#' 
+#' Specify a different variable of interest by changing the parameter and
+#' statistic codes `param_code` and  `stat_code` (see also `?data_nwis`, and
+#' `?dataRetrieval::whatNWISdata`). Always set `fresh=TRUE` when calling with a
+#' new set of codes to ensure that you find all applicable stations (and not just
+#' the ones that had your previous variable of interest).
+#' 
+#' Outputs from individual stations are cached in the "nwis/raw" sub-directory of
+#' `data_dir` before being merged in the output CSV file in "nwis/" . This file will
+#' be overwritten (along with the GeoJSON) if you change the request codes (eg
+#' `param_code`) but the cached station data will not be deleted.
+#' 
+#' After initializing, subsequent calls will update starting from the last recorded
+#' date in the "raw" output files. To start from scratch, delete these files.
 #'
-#' @param data_dir 
+#' @param data_dir character path to the directory to use for output files
+#' @param param_code, the parameter code to update
+#' @param stat_code, the statistic code to update
 #'
-#' @return something
+#' @return character vector, the file paths of the output
 #' @export
-get_nwis = function(data_dir) {
+get_nwis = function(data_dir, param_code='00060', stat_code='00003', refresh=FALSE) {
   
   # get stations list and write output
-  nwis = list_nwis(data_dir)
-  data_dir |> save_nwis(nwis, overwrite=TRUE)
+  nwis_path = save_nwis(data_dir)[c('station', 'record')]
+  if( !all(file.exists(nwis_path)) | refresh ) {
+    
+    # this requests up-to-date list from NWIS and overwrites existing result on disk
+    nwis = list_nwis(data_dir)
+    save_nwis(data_dir, nwis, overwrite=TRUE)
+  }
+
+  # get list of sites of interest
+  site_fetch = sf::st_read(nwis_path['station'], quiet=TRUE)[['site_no']]
   
   # update/initialize stations data (writes to "raw")
-  # TODO: determine `from`
-  # TODO: run update_nwis()
+  update_nwis(data_dir, param_code=param_code, stat_code=stat_code)
   
-  # update file paths and dates in stations list
-  # TODO: run load_nwis to get dates
-  # TODO: save_nwis to overwrite nwis
+  # load all station data
+  output_path = save_nwis(data_dir)['data']
+  message('updating records from ', length(site_fetch), ' stations in ', output_path)
+  data_list = site_fetch |> lapply(\(s) {
+    
+      load_nwis(data_dir,
+                site = s,
+                output = 'data',
+                param_code = param_code,
+                stat_code = stat_code)
+  })
   
-  # summarize all available time series
-  
+  # combine into a single data-frame and remove duplicates
+  data_df = do.call(rbind, data_list)
+
+  # write to disk then return file paths written above
+  save_nwis(data_dir, station_data=data_df, overwrite=TRUE)
+  message('up to date')
+  return(save_nwis(data_dir, overwrite=FALSE))
 }
 
 
-#' Save the output of `get_nwis` to disk
+#' Save NWIS files to disk
 #' 
-#' The function writes a copy of `nwis` to geoJSON. The contents of the "raw"
-#' sub-directory are written by `get_nwis`.
+#' This writes the output of `list_nwis` (to geoJSON and CSV) and `data_nwis` (to CSV),
+#' or reports the files that would be written.
 #' 
-#' When `overwrite=TRUE` the function writes ..., and when `overwrite=FALSE` the function
-#' writes nothing but returns the file paths that would be written.
+#' When `overwrite=TRUE` the function writes non-NULL objects passed to `nwis_list` and
+#' `station_data` to disk. When `overwrite=FALSE` (the default) the function writes nothing
+#' but returns the file paths that would be written.
 #' 
 #' @param data_dir character path to the directory to use for output files
-#' @param nwis list returned from `get_nwis`
+#' @param nwis_list list returned from `list_nwis`
+#' @param station_data data frame of station data (eg the result of `data_nwis`)
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
@@ -40,12 +88,12 @@ get_nwis = function(data_dir) {
 #'
 #' @examples
 #' save_nwis('/example')
-save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
+save_nwis = function(data_dir, nwis_list=NULL, station_data=NULL, overwrite=FALSE) {
   
   # catch invalid calls and switch to file list mode
-  if( is.null(nwis) & overwrite ) {
+  if( is.null(nwis_list) & is.null(station_data) & overwrite ) {
     
-    warning('overwrite=TRUE but nwis was NULL')
+    warning('overwrite=TRUE but nwis_list and station_data were NULL')
     overwrite = FALSE
   }
   
@@ -54,6 +102,7 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
   
   # output filenames
   dest_fname = c(station = 'station.geojson',
+                 data = 'station_data.csv',
                  record = 'raw/all_station.csv',
                  raw_dir = 'raw')
   
@@ -63,21 +112,33 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
   
   # make the directories if necessary and remove any existing output files
   if( !dir.exists(dest_path[['raw_dir']]) ) dir.create(dest_path[['raw_dir']], recursive=TRUE)
-  is_over = file.exists(dest_path)
-  
-  # remove any existing output files (but not "raw", which is a directory)
-  if( any(is_over) ) unlink(dest_path[is_over], recursive=FALSE)
+  is_over = file.exists(dest_path[['record']])
   
   # write raw station metadata table
-  if( !is.null(nwis[['all']]) ) nwis[['all']] |> write.csv(dest_path[['record']], row.names=FALSE)
-  
+  if( !is.null(nwis_list[['all']]) ) {
+    
+    # first remove existing output file
+    if( file.exists(dest_path[['record']]) ) unlink( dest_path[['record']] )
+    nwis_list[['all']] |> write.csv(dest_path[['record']], row.names=FALSE)
+  }
+
   # write points data frame for stations of interest
-  if( !is.null(nwis[['catch']]) ) nwis[['catch']] |> sf::st_write(dest_path[['station']])
+  if( !is.null(nwis_list[['catch']]) ) {
+    
+    # first remove existing output file
+    if( file.exists(dest_path[['station']]) ) unlink( dest_path[['station']] )
+    nwis_list[['catch']] |> sf::st_write(dest_path[['station']])
+  }
+
+  # write points data frame for stations of interest
+  if( !is.null(station_data) ) {
+    
+    if( file.exists(dest_path[['data']]) ) unlink( dest_path[['data']] )
+    station_data |> write.csv(dest_path[['data']], row.names=FALSE)
+  }
+  
   return( invisible(dest_path) )
 }
-
-
-
 
 
 #' Update NWIS data files on disk by downloading latest dates
@@ -92,11 +153,11 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
 #' 
 #' The function will overwrite existing files without warning, but existing values in
 #' the file on dates prior to `from` are not modified. New dates are added to the file
-#' and existing dates with new values are overwritte.
+#' and existing dates with new values are overwritten.
 #' 
 #' Specify the variable and statistic of interest with `param_code` and `stat_code`
 #' (see `?list_nwis`). `n_sec` should be left alone unless you know what you are doing
-#' and plan to respect the Water Service API rate limits (see `?data_nwis`).
+#' and plan to respect the Water Service API rate limits (see also `?data_nwis`).
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param from Date (or any other object coercible Date) from which to start update
@@ -167,6 +228,7 @@ update_nwis = function(data_dir, from=NULL, param_code='00060', stat_code='00003
     message('')
   }
 }
+
 
 #' Load NWIS data from a file on disk, or return the date range within, or the file path
 #' 
@@ -281,10 +343,11 @@ list_nwis = function(data_dir, param_code='00060', stat_code='00003', n_min=10) 
 #' Download daily observation data for a particular NWIS site and variable
 #' 
 #' This uses the result of `dataRetrieval::whatNWISdata` to construct API calls
-#' to waterservices.usgs.gov/rest and download daily records for the variable
-#' coded in `param_code` at site `site`, starting from date `from`.
+#' for waterservices.usgs.gov/rest to download daily records.
 #' 
-#' If `from` is not supplied, the function downloads all available dates.
+#' This processes one variable at a time. Specify the variable code in `param_code`,
+#' along with the site code `site`, and the starting date `from`. If `from` is not
+#' supplied, the function downloads all available dates.
 #' 
 #' It is important to respect rate limits when making requests to this API.
 #' The default `n_sec` sets a half-second pause in between subsequent requests,
@@ -439,7 +502,7 @@ points_nwis = function(nwis_info, param_code=NULL, stat_code='00003', na_rm=TRUE
     dplyr::filter( is.na(stat_cd) | (stat_cd %in% stat_code) )
   
   # make a points data-frame for each each station
-  message('aggregating ', nrow(site_fetch), ' service records')
+  message('aggregating service records')
   site_list = site_fetch |> split(site_fetch[['site_no']]) |> lapply(\(s) {
     
     # geometry point for the station

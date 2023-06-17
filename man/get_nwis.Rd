@@ -2,16 +2,43 @@
 % Please edit documentation in R/get_nwis.R
 \name{get_nwis}
 \alias{get_nwis}
-\title{This will run the whole workflow}
+\title{Create/update a database of NWIS daily mean values}
 \usage{
-get_nwis(data_dir)
+get_nwis(data_dir, param_code = "00060", stat_code = "00003", refresh = FALSE)
 }
 \arguments{
-\item{data_dir}{}
+\item{data_dir}{character path to the directory to use for output files}
+
+\item{param_code, }{the parameter code to update}
+
+\item{stat_code, }{the statistic code to update}
 }
 \value{
-something
+character vector, the file paths of the output
 }
 \description{
-This will run the whole workflow
+This uses the \code{dataRetrieval} package to manage downloads of data from the
+National Water Information Service (NWIS). By default this constructs and/or
+updates a database of mean daily stream flow in ft3.
+}
+\details{
+Station sites of interest are selected by filtering results to points within
+the catchment boundary polygon created by \code{get_catch}. A GeoJSON file locating
+these points is written to "nwis/". Call \code{save_nwis(data_dir)} to get the path.
+This file is written once only when \code{refresh=FALSE}. Set \code{refresh=TRUE} to
+create it again - note that this updates all fields and checks for new points.
+
+Specify a different variable of interest by changing the parameter and
+statistic codes \code{param_code} and  \code{stat_code} (see also \code{?data_nwis}, and
+\code{?dataRetrieval::whatNWISdata}). Always set \code{fresh=TRUE} when calling with a
+new set of codes to ensure that you find all applicable stations (and not just
+the ones that had your previous variable of interest).
+
+Outputs from individual stations are cached in the "nwis/raw" sub-directory of
+\code{data_dir} before being merged in the output CSV file in "nwis/" . This file will
+be overwritten (along with the GeoJSON) if you change the request codes (eg
+\code{param_code}) but the cached station data will not be deleted.
+
+After initializing, subsequent calls will update starting from the last recorded
+date in the "raw" output files. To start from scratch, delete these files.
 }

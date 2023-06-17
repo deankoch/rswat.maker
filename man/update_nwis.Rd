@@ -38,9 +38,9 @@ is NULL, the function sets \code{from} to the day after the latest date in the f
 
 The function will overwrite existing files without warning, but existing values in
 the file on dates prior to \code{from} are not modified. New dates are added to the file
-and existing dates with new values are overwritte.
+and existing dates with new values are overwritten.
 
 Specify the variable and statistic of interest with \code{param_code} and \code{stat_code}
 (see \code{?list_nwis}). \code{n_sec} should be left alone unless you know what you are doing
-and plan to respect the Water Service API rate limits (see \code{?data_nwis}).
+and plan to respect the Water Service API rate limits (see also \code{?data_nwis}).
 }

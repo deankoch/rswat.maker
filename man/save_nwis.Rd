@@ -2,14 +2,16 @@
 % Please edit documentation in R/get_nwis.R
 \name{save_nwis}
 \alias{save_nwis}
-\title{Save the output of \code{get_nwis} to disk}
+\title{Save NWIS files to disk}
 \usage{
-save_nwis(data_dir, nwis = NULL, overwrite = FALSE)
+save_nwis(data_dir, nwis_list = NULL, station_data = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{nwis}{list returned from \code{get_nwis}}
+\item{nwis_list}{list returned from \code{list_nwis}}
+
+\item{station_data}{data frame of station data (eg the result of \code{data_nwis})}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 }
@@ -17,12 +19,13 @@ save_nwis(data_dir, nwis = NULL, overwrite = FALSE)
 the file names to write
 }
 \description{
-The function writes a copy of \code{nwis} to geoJSON. The contents of the "raw"
-sub-directory are written by \code{get_nwis}.
+This writes the output of \code{list_nwis} (to geoJSON and CSV) and \code{data_nwis} (to CSV),
+or reports the files that would be written.
 }
 \details{
-When \code{overwrite=TRUE} the function writes ..., and when \code{overwrite=FALSE} the function
-writes nothing but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes non-NULL objects passed to \code{nwis_list} and
+\code{station_data} to disk. When \code{overwrite=FALSE} (the default) the function writes nothing
+but returns the file paths that would be written.
 }
 \examples{
 save_nwis('/example')

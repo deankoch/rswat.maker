@@ -31,11 +31,12 @@ data frame with 'date' column and the requested values
 }
 \description{
 This uses the result of \code{dataRetrieval::whatNWISdata} to construct API calls
-to waterservices.usgs.gov/rest and download daily records for the variable
-coded in \code{param_code} at site \code{site}, starting from date \code{from}.
+for waterservices.usgs.gov/rest to download daily records.
 }
 \details{
-If \code{from} is not supplied, the function downloads all available dates.
+This processes one variable at a time. Specify the variable code in \code{param_code},
+along with the site code \code{site}, and the starting date \code{from}. If \code{from} is not
+supplied, the function downloads all available dates.
 
 It is important to respect rate limits when making requests to this API.
 The default \code{n_sec} sets a half-second pause in between subsequent requests,
