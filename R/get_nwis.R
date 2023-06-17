@@ -1,66 +1,8 @@
-#' Fetch records of point data from stations at the National Water Information System (NWIS)
-#' 
-#' This calls `dataRetrieval::whatNWISdata` to get a list of available service records,
-#' before calling `nwis_data` in a loop to download all records relevant to the query.
-#' 
-#' Currently this only retrieves daily values (having `data_type_cd='dv'`) but
-#' other types of records may be listed in nwis_info_all. Records with fewer than n_min
-#' observations are skipped.s
-#' 
-#' Specify your variables of interest by supplying a vector of parameter codes in
-#' `param_code`. A lookup table for these codes is lazy-loaded by this package in object
-#' `usgs_lookup` - get a table of definitions for your query by calling:
-#' 
-#' `usgs_lookup |> dplyr::filter(parm_cd %in% param_code)`
-#' 
-#' For more information on accessing NWIS from R see the help pages and vignettes at
-#' https://cran.r-project.org/package=dataRetrieval
-#' 
-#' @param data_dir character path to the directory to use for output files 
-#' @param n_min integer > 0, the minimum number of records to include a station
-#' @param param_code character, the 5-digit NWIS parameter code (see `?usgs_lookup`)
-#' @param force_overwrite logical, causes the function to download a fresh table of service records
-#'
-#' @return list of data frame
-#' @export
-get_nwis = function(data_dir, param_code=c(flow_m='30208', flow_ft='00060'), n_min=10) {
+get_nwis = function(data_dir) {
   
-  # # print info on requested variables
-  # usgs_lookup |> 
-  #   dplyr::filter(parm_cd %in% param_code) |> 
-  #   dplyr::select(c('parm_cd', 'parm_nm', 'parm_unit'))
-  
-  # input and output paths
-  boundary_path = save_catch(data_dir, overwrite=FALSE)['boundary']
-  bbox_path = save_dem(data_dir, overwrite=FALSE)[['bbox']]
-  nwis_raw_dir = save_nwis(data_dir, overwrite=FALSE)[['raw_dir']]
-
-  # request updated directory of records from NWIS
-  message('requesting service records from NWIS')
-  bbox_geo = bbox_path |> sf::st_read() |> sf::st_bbox() |> sprintf(fmt='%8f')
-  nwis_info_all = dataRetrieval::whatNWISdata(bBox=bbox_geo)
-  
-  # filter to relevant records
-  nwis_info = nwis_info_all |>
-    dplyr::filter(parm_cd %in% param_code) |> 
-    dplyr::filter(count_nu >= n_min) |> 
-    dplyr::filter(data_type_cd == 'dv')
-  
-  # convert to sf points data frame with some additional fields
-  nwis_pt = nwis_info |> nwis_points(param_code)
-  
-  # crop to 
-  boundary = sf::st_read(boundary_path)
-  sf::st_crop(nwis_pt, boundary)
-  
-  
-  
-  
-  
-
-  
-  
-  
+  # get stations list
+  nwis = list_nwis(data_dir)
+  data_dir |> save_nwis(nwis, overwrite=TRUE)
   
 }
 
@@ -103,14 +45,25 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
   # output paths
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
   if( !overwrite ) return(dest_path)
-
-  # make the directory if necessary and remove any existing output files
-  if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
+  
+  # make the directories if necessary and remove any existing output files
+  if( !dir.exists(dest_path[['raw_dir']]) ) dir.create(dest_path[['raw_dir']], recursive=TRUE)
   is_over = file.exists(dest_path)
-
+  
   # remove any existing output files (but not "raw", which is a directory)
   if( any(is_over) ) unlink(dest_path[is_over], recursive=FALSE)
   
+  # write raw station metadata table
+  if( !is.null(nwis[['all']]) ) nwis[['all']] |> write.csv(dest_path[['record']],
+                                                           row.names=FALSE,
+                                                           quote=FALSE)
+  
+  # write points data frame for stations of interest
+  if( !is.null(nwis[['catch']]) ) nwis[['catch']] |> sf::st_write(dest_path[['station']])
+  
+  # TODO: verify that station is compatible with data being written (warning>)
+  
+  # write the data
   # TODO:
   # writing
   # message('writing to ', path_out[['nwis_records']])
@@ -121,8 +74,213 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
   return(dest_path)
 }
 
+#' Fetch records of point data from stations at the National Water Information System (NWIS)
+#' 
+#' This calls `dataRetrieval::whatNWISdata` to get a list of available service records
+#' for the area of interest in `data_dir`.
+#' 
+#' Currently this only checks for daily values (having `data_type_cd='dv'`). Records with
+#' fewer than `n_min` observations are skipped.
+#' 
+#' The function retuns a list with two data frames: 'all' the output from
+#' `dataRetrieval::whatNWISdata` before filtering for observation count and variable name;
+#' and 'catch' is an sf points data frame describing the station sites.
+#' 
+#' Specify the statistic of interest by its stat code `stat_code` (see `?points_nwis`).
+#' Specify the variables of interest by supplying `param_code`. A lookup table for these
+#' codes is lazy-loaded by this package in object `usgs_lookup` - check the definition
+#' of your query by calling:
+#' 
+#' `usgs_lookup |> dplyr::filter(parm_cd == param_code)`
+#' 
+#' For more information on accessing NWIS from R see the help pages and vignettes at
+#' https://cran.r-project.org/package=dataRetrieval
+#' 
+#' @param data_dir character path to the directory to use for output files 
+#' @param param_code character, the 5-digit NWIS parameter code (see `?usgs_lookup`)
+#' @param stat_code character the statistic code for the variable (default is mean)
+#' @param n_min integer > 0, the minimum number of records to include a station
+#'
+#' @return list with data frames 'catch' and 'all'
+#' @export
+list_nwis = function(data_dir, param_code='00060', stat_code='00003', n_min=10) {
 
-#' Wrapper for `dataRetrieval::whatNWISdata` to return metadata about NWIS points
+  # set the name(s) of the variable if there are none 
+  if( is.null(names(param_code)) ) names(param_code) = paste0('nwis_', param_code)
+  
+  # input and output paths
+  boundary_path = save_catch(data_dir, overwrite=FALSE)['boundary']
+  bbox_path = save_dem(data_dir, overwrite=FALSE)[['bbox']]
+  nwis_raw_dir = save_nwis(data_dir, overwrite=FALSE)[['raw_dir']]
+  
+  # load the catchment boundary
+  boundary = boundary_path |> sf::st_read(quiet=TRUE)
+
+  # request updated directory of records from NWIS
+  message('requesting service records from NWIS')
+  bbox_geo = bbox_path |> sf::st_read(quiet=TRUE) |> sf::st_bbox() |> sprintf(fmt='%8f')
+  nwis_info_all = dataRetrieval::whatNWISdata(bBox=bbox_geo, service='dv', statCd=stat_code)
+  
+  # filter to relevant variables and record lengths
+  nwis_info = nwis_info_all |> 
+    dplyr::filter(parm_cd == param_code) |>  
+    dplyr::filter(count_nu >= n_min)
+  
+  # convert to sf points data frame with some additional fields
+  nwis_pt = nwis_info |> points_nwis(param_code, stat_code=stat_code)
+
+  # crop results to catchment
+  is_in = sf::st_intersects(nwis_pt, boundary, sparse=FALSE)
+  nwis_catch_pt = nwis_pt[is_in,]
+  message( paste(sum(is_in), 'station(s) in catchment for', basename(data_dir)) )
+  return( list(catch=nwis_catch_pt, all=nwis_info_all) )
+}
+
+
+# TODO: check existing dates, call data_nwis to update them
+update_nwis = function(data_dir, from=NULL) {
+  
+  station_path = save_nwis(data_dir, overwrite=FALSE)['record']
+  msg_suggestion = 'To make the file pass the result of `list_nwis` to `nwis_save`'
+  if( !file.exists(station_path) ) stop(station_path, ' not found.\n', msg_suggestion)
+  
+  
+  # # initialize database for each site
+  # site_fetch = nwis_catch_pt[['site_no']]
+  # nwis = nwis_info_all
+  # site = site_fetch[2]
+  # 
+  # data_nwis_list = nwis_info_all |> 
+  #   data_nwis(site, from=NULL, param_code=param_code, stat_code=stat_code)
+  # 
+  # # update database
+  # 
+  # # load database
+  # 
+  # # return everything
+  # return( list(catch=nwis_catch_pt, all=nwis_info_all, data=data_nwis_list) )
+  
+}
+
+
+#' Fetch daily observation data for a particular NWIS site and variable
+#' 
+#' This uses the result of `dataRetrieval::whatNWISdata` to construct API calls
+#' to waterservices.usgs.gov/rest and download daily records for the variable
+#' coded in `param_code` at site `site`, starting from date `from`.
+#' 
+#' If `from` is not supplied, the function downloads all available dates.
+#' 
+#' It is important to respect rate limits when making requests to this API.
+#' The default `n_sec` sets a half-second pause in between subsequent requests,
+#' when the site has multiple distinct records. You should program a similar delay
+#' to happen in between calls to `data_nwis` (for example using `Sys.sleep`).
+#'
+#' @param nwis data frame returned by `dataRetrieval::whatNWISdata`
+#' @param site character, the site number (must appear in `site_no` column of `nwis`)
+#' @param from Date, the earliest date to fetch 
+#' @param param_code character, the 5-digit NWIS parameter code (see `?usgs_lookup`)
+#' @param stat_code character the 5-digit statistic code for the variable (default is mean)
+#' @param n_sec numeric >= 0, the number of seconds to wait between requests
+#'
+#' @return data frame with 'date' column and the requested values
+#' @export
+data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003', n_sec=0.5) {
+  
+  # list of all relevant records for this site
+  record_df = nwis |> 
+    dplyr::filter( site_no == site ) |> 
+    dplyr::filter( parm_cd == param_code ) |>
+    dplyr::filter( data_type_cd == 'dv' ) |>
+    dplyr::filter( stat_cd == stat_code ) 
+  
+  # message about site
+  msg_site = paste0(record_df[['station_nm']][1], ' (', site, ')')
+  message('processing ', nrow(record_df), ' record(s) at ', msg_site)
+  
+  # loop over distinct records for the site
+  result_all = vector(mode='list', length=nrow(record_df))
+  t_req = proc.time()
+  for(i in seq(nrow(record_df))) {
+    
+    # limit requests to n_sec/second
+    sec_wait = pmax(0, n_sec - (proc.time() - t_req)['elapsed'])
+    Sys.sleep(sec_wait)
+    
+    # arguments for waterservices.usgs.gov/rest 
+    args_i = list(sites = record_df[['site_no']][i],
+                  service = record_df[['data_type_cd']][i],
+                  parameterCd = record_df[['parm_cd']][i],
+                  startDate = record_df[['begin_date']][i],
+                  statCd = record_df[['stat_cd']][[i]])
+    
+    # validate `from` argument (if supplied) and append to arguments
+    if( !is.null(from) ) {
+     
+      from = from |> as.Date()
+      end_date = record_df[['end_date']] |> as.Date()
+      if( from <= end_date ) args_i[['startDate']] = as.character(from)
+    }
+
+    # print progress report to console 
+    var_msg_i = paste0(args_i[['service']], '-', args_i[['parameterCd']])
+    message('NWIS has ', record_df[['count_nu']][i], ' observation(s) of ', var_msg_i)
+    
+    # attempt to download and import record data
+    t_req = proc.time()
+    result_i = tryCatch({
+
+      # download all station data for this variable/service combination 
+      result_df = dataRetrieval::readNWISdata(args_i)
+      nwis_nm = names(result_df)
+      
+      # regex for stats code 
+      stat_code = args_i[['statCd']]
+      stat_suffix = paste0('[_', stat_code, ']*$')
+      
+      # expected variable name regex (based on ?dataRetrieval::readNWISdata)
+      var_regex = c('^X.*', paste0('_', args_i[['parameterCd']]), stat_suffix) |> paste(collapse='')
+      var_nm = nwis_nm[ grep(var_regex, names(result_df)) ]
+      if( !( 'dateTime' %in% nwis_nm ) | ( length(var_nm) != 1 ) ) stop('unexpected column names')
+      
+      # copy output columns with tidier names
+      output_df = result_df[c('dateTime', var_nm)] |> stats::setNames(c('time', var_nm))
+  
+      # append some constant columns to index this time series later
+      output_df[['site_no']] = site
+      output_df = output_df[c('site_no', 'time', var_nm)]
+      
+      # omit NA rows from output
+      is_incomplete = output_df |> apply(1, anyNA)
+      if( all(is_incomplete) ) stop('all rows had NAs')
+      message(sum(!is_incomplete), ' day(s) downloaded')
+      output_df[!is_incomplete, ] |> stats::setNames(c('site_no', 'date', param_code))
+      
+    }, error=identity)
+    
+    # copy results to storage unless there was an error
+    if( !is(result_i, 'error') ) result_all[[i]] = result_i
+  } 
+  
+  # warn of failed downloads
+  is_fail = result_all |> sapply(is.null)
+  record_complete = record_df[!is_fail,]
+  if( any(is_fail) ) {
+    
+    message(sum(is_fail), ' request(s) failed!')
+    print(record_df[is_fail,])
+    if( all(is_fail) ) return(list()) 
+  }
+  
+  # success message
+  
+  
+  # return all records in a single data frame
+  do.call(rbind, result_all[!is_fail]) |> dplyr::arrange('time')
+}
+
+
+#' Summarize output from `dataRetrieval::whatNWISdata` as a sf points data frame 
 #' 
 #' The function returns an sf data frame summarizing the NWIS metadata returned by 
 #' `dataRetrieval::whatNWISdata` on hydrological point data. Points are in WGS84
@@ -137,6 +295,11 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
 #' specified and its entries are named, these names are re-used in the output.
 #' For example if `param_code=c(flow_m='30208')` then the output data frame will
 #' include a column named `flow_m` with the latest available date (or `NA`).
+#' Otherwise the `param_code` itself is the column name.
+#' 
+#' The `count` field in the output is the sum of the counts for all of the requested
+#' variables - ie if you request one variable, then `count` is the number of days of
+#' records, but if you request multiple variables `count` is the sum of these numbers.
 #' 
 #' The 5-digit `stat_code` by default fetches mean values ('00003'). This makes
 #' sense for our use-case of daily stream flow data, but not necessarily for other
@@ -149,13 +312,13 @@ save_nwis = function(data_dir, nwis=NULL, overwrite=FALSE) {
 #' See also also the help pages at https://help.waterdata.usgs.gov/
 #'
 #' @param nwis_info subset of data frame returned by `dataRetrieval::whatNWISdata`
-#' @param param_code named character vector, parameter codes (see `?usgs_lookup`)
-#' @param stat_code character the statistic code for the variable (default is mean)
+#' @param param_code character vector, parameter code(s) (see `?usgs_lookup`)
+#' @param stat_code character the 5-digit statistic code for the variable (default is mean)
 #' @param na_rm logical if `TRUE`, sites with no applicable records are omitted
 #'
-#' @return data frame with a row for each distinct station site
+#' @return data frame with a row for each distinct station site and three columns
 #' @export
-nwis_points = function(nwis_info, param_code=NULL, stat_code='00003', na_rm=TRUE) {
+points_nwis = function(nwis_info, param_code=NULL, stat_code='00003', na_rm=TRUE) {
   
   # param_code should be a named vector of parameter code strings eg. c(foo='00010')
   nwis_info = nwis_info |> dplyr::filter( !is.na(parm_cd) )
@@ -185,12 +348,12 @@ nwis_points = function(nwis_info, param_code=NULL, stat_code='00003', na_rm=TRUE
       as.data.frame() |> 
       stats::setNames( names(param_code) )
     
+    # count all variable-days of records
+    count_i = data.frame(count=sum(s[['count_nu']], na.rm=TRUE) )
+    
     # append metadata for the station
-    s[1L, c('site_no',
-            'station_nm',
-            'agency_cd',
-            'site_tp_cd',
-            'huc_cd')] |> cbind(end_i) |> sf::st_sf(geometry=point_i)
+    station_i = s[1L, c('site_no', 'station_nm', 'agency_cd', 'site_tp_cd', 'huc_cd')]
+    station_i |> cbind(end_i, count_i) |> sf::st_sf(geometry=point_i)
   })
   
   # merge them all together into a data frame
@@ -205,5 +368,6 @@ nwis_points = function(nwis_info, param_code=NULL, stat_code='00003', na_rm=TRUE
     site_df = site_df[!is_rm, ]
   }
   
-  return(site_df)
+  # transform to WGS84 
+  return(sf::st_transform(site_df, 4326))
 }
