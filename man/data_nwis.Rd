@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_nwis.R
 \name{data_nwis}
 \alias{data_nwis}
-\title{Fetch daily observation data for a particular NWIS site and variable}
+\title{Download daily observation data for a particular NWIS site and variable}
 \usage{
 data_nwis(
   nwis,
