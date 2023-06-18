@@ -4,14 +4,30 @@
 \alias{get_nwis}
 \title{Create/update a database of NWIS daily mean values}
 \usage{
-get_nwis(data_dir, param_code = "00060", stat_code = "00003", refresh = FALSE)
+get_nwis(
+  data_dir,
+  nwis_nm = "nwis",
+  param_code = "00060",
+  stat_code = "00003",
+  n_min = 10,
+  from_initial = NULL,
+  refresh = FALSE
+)
 }
 \arguments{
-\item{data_dir}{character path to the directory to use for output files}
+\item{data_dir}{character path to the directory to write the \code{nwis_nm} folder}
 
-\item{param_code, }{the parameter code to update}
+\item{nwis_nm}{character name of the output data sub-directory}
 
-\item{stat_code, }{the statistic code to update}
+\item{param_code}{character, the parameter code to update}
+
+\item{stat_code}{character, the statistic code to update}
+
+\item{n_min}{integer > 0, the minimum number of observations to include a record}
+
+\item{from_initial}{Date, results are filtered to records occurring on or after this date}
+
+\item{refresh}{logical if TRUE a fresh list of station metadata is requested from NWIS}
 }
 \value{
 character vector, the file paths of the output
@@ -24,21 +40,33 @@ updates a database of mean daily stream flow in ft3.
 \details{
 Station sites of interest are selected by filtering results to points within
 the catchment boundary polygon created by \code{get_catch}. A GeoJSON file locating
-these points is written to "nwis/". Call \code{save_nwis(data_dir)} to get the path.
+these points is written to "nwis/". Call \code{save_nwis(nwis_dir)} to get the path.
 This file is written once only when \code{refresh=FALSE}. Set \code{refresh=TRUE} to
-create it again - note that this updates all fields and checks for new points.
+create it again - note that this updates all fields and checks for new station
+locations relevant to the whole query.
 
-Specify a different variable of interest by changing the parameter and
-statistic codes \code{param_code} and  \code{stat_code} (see also \code{?data_nwis}, and
-\code{?dataRetrieval::whatNWISdata}). Always set \code{fresh=TRUE} when calling with a
-new set of codes to ensure that you find all applicable stations (and not just
-the ones that had your previous variable of interest).
+By default records from all time periods are returned. If \code{from} is set, the
+function filters results to stations having a record on/after \code{from}.
 
-Outputs from individual stations are cached in the "nwis/raw" sub-directory of
-\code{data_dir} before being merged in the output CSV file in "nwis/" . This file will
-be overwritten (along with the GeoJSON) if you change the request codes (eg
-\code{param_code}) but the cached station data will not be deleted.
+Outputs from individual stations are cached in the "raw" sub-directory of the
+\code{nwis_nm} directory in \code{data_dir}. They are then merged together and written to
+a single CSV file in \code{nwis_nm}. This file gets overwritten with each function
+call, whereas the cached station data is only updated/appended as needed.
 
 After initializing, subsequent calls will update starting from the last recorded
 date in the "raw" output files. To start from scratch, delete these files.
+
+\code{from_initial} and \code{n_min} apply only to selecting relevant stations, so it
+affects the output when initializing a new database, or when updating station
+info with \code{refresh=TRUE}, but not when running an ordinary daily values update
+with \code{refresh=FALSE}.
+
+Specify a different variable of interest by changing the parameter and
+statistic codes \code{param_code} and  \code{stat_code} (see also \code{?data_nwis}, and
+\code{?dataRetrieval::whatNWISdata}).
+
+When changing \code{from_initial}, \code{param_code}, or \code{stat_code}, you should either
+change/delete the output directory (\code{nwis_nm}), or else set \code{refresh=TRUE} to
+rebuild the stations file - otherwise the function will only be aware of
+previously seen stations.
 }

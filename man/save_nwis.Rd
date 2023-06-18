@@ -4,10 +4,10 @@
 \alias{save_nwis}
 \title{Save NWIS files to disk}
 \usage{
-save_nwis(data_dir, nwis_list = NULL, station_data = NULL, overwrite = FALSE)
+save_nwis(nwis_dir, nwis_list = NULL, station_data = NULL, overwrite = FALSE)
 }
 \arguments{
-\item{data_dir}{character path to the directory to use for output files}
+\item{nwis_dir}{character path to the directory to use for output files}
 
 \item{nwis_list}{list returned from \code{list_nwis}}
 

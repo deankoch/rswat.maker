@@ -9,12 +9,16 @@
 #' @export
 fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FALSE) {
   
+  # subdirectory for stream flow records and starting date
+  nwis_from = as.Date('2005-01-01')
+  nwis_nm = 'nwis/flow_ft'
+  
   # get paths written by the function
-  nhd_path = save_catch(data_dir, overwrite=FALSE)
-  dem_path = save_dem(data_dir, overwrite=FALSE)
-  land_path = save_land(data_dir, overwrite=FALSE)
-  soils_path = save_soils(data_dir, overwrite=FALSE)
-  nwis_path = save_nwis(data_dir, overwrite=FALSE)
+  nhd_path = data_dir |> save_catch()
+  dem_path = data_dir |> save_dem()
+  land_path = data_dir |> save_land()
+  soils_path = data_dir |> save_soils()
+  nwis_path = data_dir |> file.path(nwis_nm) |> save_nwis()
   
   # concatenate paths in list and return from list mode
   all_path = list(nhd=nhd_path, ned=dem_path, soils=soils_path)
@@ -52,6 +56,10 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
     save_soils(data_dir, soils, overwrite=TRUE)
   }
   
-  
-  
+  # get stream gage records from NWIS (using `dataRetrieval`)
+  if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
+    
+    # small batch of downloads, should complete in < 5 min  
+    get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
+  }
 }

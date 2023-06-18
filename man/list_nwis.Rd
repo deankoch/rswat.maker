@@ -4,23 +4,33 @@
 \alias{list_nwis}
 \title{Fetch records of point data from stations at the National Water Information System (NWIS)}
 \usage{
-list_nwis(data_dir, param_code = "00060", stat_code = "00003", n_min = 10)
+list_nwis(
+  nwis_dir,
+  param_code = "00060",
+  stat_code = "00003",
+  n_min = 10,
+  buff_m = 100
+)
 }
 \arguments{
-\item{data_dir}{character path to the directory to use for output files}
+\item{nwis_dir}{character path to the directory to look for output files}
 
 \item{param_code}{character, the 5-digit NWIS parameter code (see \code{?usgs_lookup})}
 
 \item{stat_code}{character the statistic code for the variable (default is mean)}
 
 \item{n_min}{integer > 0, the minimum number of records to include a station}
+
+\item{buff_m}{numeric > 0, the length in metres to buffer the catchment boundary (see details)}
 }
 \value{
 list with data frames 'catch' and 'all'
 }
 \description{
 This calls \code{dataRetrieval::whatNWISdata} to get a list of available service records
-for the area of interest in \code{data_dir}.
+for the area of interest in \code{nwis_dir}. The area of interest is defined by the catchment
+boundary file at \code{save_catch(data_dir)['boundary']} extended outwards by \code{buff_m} metres
+(to allow for some innacuracy in positions).
 }
 \details{
 Currently this only checks for daily values (having \code{data_type_cd='dv'}). Records with

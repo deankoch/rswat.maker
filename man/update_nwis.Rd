@@ -5,7 +5,7 @@
 \title{Update NWIS data files on disk by downloading latest dates}
 \usage{
 update_nwis(
-  data_dir,
+  nwis_dir,
   from = NULL,
   param_code = "00060",
   stat_code = "00003",
@@ -13,13 +13,13 @@ update_nwis(
 )
 }
 \arguments{
-\item{data_dir}{character path to the directory to use for output files}
+\item{nwis_dir}{character path to the directory to use for output files}
 
 \item{from}{Date (or any other object coercible Date) from which to start update}
 
-\item{param_code, }{the parameter code to update}
+\item{param_code}{character, the parameter code to update}
 
-\item{stat_code, }{the statistic code to update}
+\item{stat_code}{character, the statistic code to update}
 
 \item{n_sec}{numeric >= 0, the number of seconds to wait between requests}
 }
@@ -27,7 +27,7 @@ update_nwis(
 returns nothing but possibly writes to CSV files in "raw" subdirectory
 }
 \description{
-This loops over the site codes listed in the file \code{save_nwis(data_dir)['station']},
+This loops over the site codes listed in the file \code{save_nwis(nwis_dir)['station']},
 calling \code{data_nwis} to download all new records starting from the date \code{from}, and
 storing the results on disk in CSV files in the "raw" sub-directory.
 }
