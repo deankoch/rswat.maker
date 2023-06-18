@@ -175,7 +175,7 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
     sf::st_write(dest_path[['outlet']])
   
   # save edge data as CSV
-  catch_list[['edge']] |> write.csv(row.names=FALSE, quote=FALSE)
+  catch_list[['edge']] |> write.csv(dest_path[['edge']], row.names=FALSE, quote=FALSE)
   
   # save everything else in a distinct geoJSON
   names(dest_fname[-(1:2)]) |> lapply(\(x) {
