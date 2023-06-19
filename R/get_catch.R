@@ -252,29 +252,9 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, s2=FALSE,
   outlet_comid = catchment[['FEATUREID']][covers_catch][1]
   message('outlet COMID: ', outlet_comid) 
   
-  # follow all upstream edges in a loop
-  id_mat = edge[c('FROMCOMID', 'TOCOMID')] |> as.list()
-  comid_caught = outlet_comid
-  any_upstream = TRUE
+  # find upstram COMIDs and sub-catchment polygons
   message('following upstream tributaries')
-  while( any_upstream ) {
-    
-    # look for upstream edges (exclude headwater nodes with code 0)
-    is_caught = id_mat[['TOCOMID']] %in% comid_caught[comid_caught != 0]
-    
-    # update exit condition
-    any_upstream = any(is_caught)
-    if(any_upstream) {
-      
-      # add new id(s) to the list, checking if any are new
-      id_new = as.numeric(id_mat[['FROMCOMID']][is_caught])
-      any_upstream = !all(id_new %in% comid_caught)
-      comid_caught = c(comid_caught, id_new)
-    }
-  }
-  
-  # vector of all COMID codes found upstream of outlet
-  sws_comid = comid_caught[comid_caught != 0]
+  sws_comid = comid_up(outlet_comid, edge)
   sws_poly = catchment[catchment[['FEATUREID']] %in% sws_comid,] |> sf::st_make_valid()
 
   # boundary polygon from union of associated sub-catchments - computations can be slow
