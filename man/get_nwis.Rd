@@ -6,7 +6,7 @@
 \usage{
 get_nwis(
   data_dir,
-  nwis_nm = "nwis",
+  nwis_nm = "nwis/flow_ft",
   param_code = "00060",
   stat_code = "00003",
   n_min = 10,
@@ -68,5 +68,6 @@ statistic codes \code{param_code} and  \code{stat_code} (see also \code{?data_nw
 When changing \code{from_initial}, \code{param_code}, or \code{stat_code}, you should either
 change/delete the output directory (\code{nwis_nm}), or else set \code{refresh=TRUE} to
 rebuild the stations file - otherwise the function will only be aware of
-previously seen stations.
+previously seen stations. Note that the default \code{nwis_nm} only makes sense for
+the default \code{param_code} - and the function will not warn of nonsensical name choices.
 }

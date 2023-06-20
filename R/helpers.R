@@ -81,9 +81,6 @@ datum_to_epsg = \(code) {
 #' 
 comid_down = function(comid, edge, first_only=FALSE) { 
   
-  # discard all but first in vector input
-  #comid = comid[1]
-  
   # returns immediate downstream COMID(s) or empty character (if none)
   if(first_only) return( edge[['TOCOMID']][ edge[['FROMCOMID']] %in% comid ] )
   
@@ -92,7 +89,7 @@ comid_down = function(comid, edge, first_only=FALSE) {
   if( length(comid_found) == 0 ) return(comid)
   
   # else call the function recursively on downstream node(s)
-  return( c(comid, comid_down(comid_found, edge)) )
+  return( unique( c(comid, comid_down(comid_found, edge)) ) )
 }
 
 #' Return a vector of all upstream COMID values

@@ -237,8 +237,8 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, s2=FALSE,
   }
   
   # transform outlet coordinates to match catchments polygons
-  catch_crs = sf::st_crs(catchment)
-  outlet_on_catch = sf::st_transform(outlet, catch_crs)
+  catch_crs = sf::st_crs(catchment) |> suppressMessages()
+  outlet_on_catch = sf::st_transform(outlet, catch_crs) |> suppressMessages()
   
   # find the (sub)catchment COMID for our outlet point
   message('locating outlet')
@@ -273,11 +273,15 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, s2=FALSE,
     suppressMessages()
   
   # initialize output list
-  out_list = list(comid = outlet_comid,
+  out_list = list(comid = as.character(outlet_comid),
                   outlet = outlet,
                   boundary = boundary)
   
-  if(fast) return( out_list )
+  if(fast) {
+    
+    message('')
+    return(out_list)
+  }
   
   # copy edges and catchments subsets
   is_sws_edge = edge[['TOCOMID']] %in% sws_comid

@@ -34,7 +34,8 @@
 #' When changing `from_initial`, `param_code`, or `stat_code`, you should either
 #' change/delete the output directory (`nwis_nm`), or else set `refresh=TRUE` to
 #' rebuild the stations file - otherwise the function will only be aware of
-#' previously seen stations.
+#' previously seen stations. Note that the default `nwis_nm` only makes sense for
+#' the default `param_code` - and the function will not warn of nonsensical name choices.
 #'
 #' @param data_dir character path to the directory to write the `nwis_nm` folder
 #' @param nwis_nm character name of the output data sub-directory
@@ -47,7 +48,7 @@
 #' @return character vector, the file paths of the output
 #' @export
 get_nwis = function(data_dir,
-                    nwis_nm = 'nwis',
+                    nwis_nm = 'nwis/flow_ft',
                     param_code = '00060',
                     stat_code = '00003', 
                     n_min = 10,
