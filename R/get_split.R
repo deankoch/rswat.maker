@@ -164,7 +164,6 @@ get_split = function(data_dir,
 }
 
 
-
 #' Split a catchment into sub-catchments with outlets on the points in `gage`
 #'
 #' This finds a partition of the union of the polygons in `catchment` based on the
@@ -290,9 +289,6 @@ split_catch = function(gage, edge, catchment) {
   return(result_list = list(boundary = sub_sf |> sf::st_sf(),
                             gage_lookup = gage_lookup))
 }
-
-
-
 
 
 #' Find outlet points for a set of sub-catchments
