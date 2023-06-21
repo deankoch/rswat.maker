@@ -6,12 +6,19 @@ document()
 
 # current data directory
 data_dir = 'D:/rswat_data/uyr'
-# gage = NULL
-# snap_dist = units::set_units(100, m)
 split_result = get_split(data_dir)
+
+
+# save function
+split_result[[3]] |> str()
+
+
+
+
 
 i = 0
 
+xx[['lake']]
 
 
 i = i + 1

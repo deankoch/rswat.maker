@@ -16,21 +16,24 @@
 #' @export
 get_dem = function(data_dir, pad_size=NULL) {
   
-  # locate catchment boundary 
-  nhd_path = save_catch(data_dir, overwrite=FALSE)
-  boundary_path = nhd_path[['boundary']]
+  # paths to catchment boundary and outlet point from `get_catch`
+  boundary_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
+  outlet_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
+  
+  # load outlet to find appropriate UTM zone for computations
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
   
   # sanity check 
   msg_error = paste('missing boundary polygon:', boundary_path)
   msg_suggestion = 'Have you run `get_catch()` yet?'
   if( !file.exists(boundary_path) ) stop(msg_error, '\n', msg_suggestion)
   
-  # load boundary and set default padding 
-  boundary = sf::st_read(boundary_path)
-  if( is.null(pad_size) ) pad_size = 1e-1 * sqrt( sf::st_area(boundary) )
+  # load boundary in UTM projection and set default padding 
+  boundary_utm = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
+  if( is.null(pad_size) ) pad_size = 1e-1 * sqrt(sf::st_area(boundary_utm)) 
   
-  # add padding
-  boundary_pad = boundary |> sf::st_buffer(pad_size)
+  # add padding and transform back
+  boundary_pad = boundary_utm |> sf::st_buffer(pad_size) |> sf::st_transform(4326)
   
   # fetch NED tiles (default 1 arc-second) and merge into one SpatRaster
   FedData::get_ned(template = boundary_pad, label = basename(data_dir))
@@ -64,12 +67,9 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE) {
     overwrite = FALSE
   }
   
-  # output directory
+  # output directory and file names
   dest_dir = file.path(data_dir, 'ned')
-  
-  # output filenames
-  dest_fname = c(dem = 'ned_dem.tif',
-                 bbox = 'ned_bbox.geojson')
+  dest_fname = c(dem = 'ned_dem.tif', bbox = 'ned_bbox.geojson')
   
   # output paths
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))

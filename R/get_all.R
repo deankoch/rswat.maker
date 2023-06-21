@@ -31,13 +31,20 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
     catch_list = get_catch(outlet)
     save_catch(data_dir, catch_list, overwrite=TRUE)
   }
-
+  
   # get DEM from USGS if necessary (using 'FedData')
   if( force_overwrite | !all(file.exists(dem_path)) ) {
     
     # NED data download for UYR completes in < 1 min
     dem = get_dem(data_dir)
     save_dem(data_dir, dem, overwrite=TRUE)
+  }
+  
+  # get stream gage records from NWIS (using `dataRetrieval`)
+  if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
+    
+    # small batch of downloads, should complete in < 5 min  
+    get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
   }
   
   # get land use data from GAP/LANDFIRE
@@ -54,12 +61,5 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
     # several GB to download here, after initial download runs in < 2 min  
     soils = get_soils(data_dir)
     save_soils(data_dir, soils, overwrite=TRUE)
-  }
-  
-  # get stream gage records from NWIS (using `dataRetrieval`)
-  if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
-    
-    # small batch of downloads, should complete in < 5 min  
-    get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
   }
 }

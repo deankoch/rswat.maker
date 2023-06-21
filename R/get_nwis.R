@@ -354,27 +354,31 @@ list_nwis = function(nwis_dir, param_code='00060', stat_code='00003', n_min=10, 
   if( is.null(names(param_code)) ) names(param_code) = paste0('nwis_', param_code)
   
   # input and output paths
+  outlet_path = save_catch(data_dir, overwrite=FALSE)['outlet']
   boundary_path = save_catch(data_dir, overwrite=FALSE)['boundary']
-  bbox_path = save_dem(data_dir, overwrite=FALSE)[['bbox']]
   
-  # load the catchment boundary
-  boundary = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_buffer(units::set_units(buff_m, m))
+  # set UTM zone for computations
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
+  
+  # load the catchment bounding box and add padding
+  boundary_utm = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
+  boundary_pad = boundary_utm |> sf::st_buffer(units::set_units(buff_m, m)) |> sf::st_transform(4326)
   
   # request updated directory of records from NWIS
   message('requesting service records from NWIS')
-  bbox_geo = bbox_path |> sf::st_read(quiet=TRUE) |> sf::st_bbox() |> sprintf(fmt='%8f')
+  bbox_geo = boundary_pad |> sf::st_bbox() |> sprintf(fmt='%8f')
   nwis_info_all = dataRetrieval::whatNWISdata(bBox=bbox_geo, service='dv', statCd=stat_code)
 
   # filter to relevant variables and record lengths
   nwis_info = nwis_info_all |> 
-    dplyr::filter(parm_cd == param_code) |>  
+    dplyr::filter(parm_cd == param_code) |> 
     dplyr::filter(count_nu >= n_min)
   
   # convert to sf points data frame with some additional fields
   nwis_pt = nwis_info |> points_nwis(param_code, stat_code=stat_code)
   
   # crop results to catchment
-  is_in = sf::st_intersects(nwis_pt, boundary, sparse=FALSE)
+  is_in = nwis_pt |> sf::st_transform(crs_utm) |> sf::st_intersects(boundary_utm, sparse=FALSE)
   nwis_catch_pt = nwis_pt[is_in,]
   message( paste(sum(is_in), 'station(s) in catchment for', basename(nwis_dir)) )
   
