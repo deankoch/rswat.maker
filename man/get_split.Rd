@@ -8,8 +8,7 @@ get_split(
   data_dir,
   gage = NULL,
   fast = FALSE,
-  snap_dist = units::set_units(100, m),
-  s2 = FALSE
+  snap_dist = units::set_units(100, m)
 )
 }
 \arguments{
@@ -20,8 +19,6 @@ get_split(
 \item{fast}{logical if \code{TRUE} only a subset of the results are returned}
 
 \item{snap_dist}{numeric with units, snapping distance to set "main" outlet}
-
-\item{s2}{logical passed to \code{split_catch}}
 }
 \value{
 something
@@ -47,8 +44,12 @@ If the main outlet of the catchment is not found within snapping distance
 automatically. This ensures the set of output sub-catchment polygons always
 forms a partition of the whole catchment.
 
+The "true" outlet point for a sub-catchment (under the NHD model) lies at the
+intersection of the boundary of the NHD polygon for the outlet COMID, and its
+flow line. These points are calculated and returned in \code{outlet}. Note that the
+\code{gage} points will often be located slightly upstream of the true outlet, but
+always within the outlet NHD polygon.
+
 See also \code{split_catch}, which does most of the work of following flow-lines and
 building boundaries with set operations.
-
-For more on \code{s2} see \code{?get_upstream}
 }

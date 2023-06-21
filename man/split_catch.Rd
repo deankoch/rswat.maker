@@ -19,7 +19,7 @@ split_catch(gage, edge, catchment, s2 = FALSE)
 list with elements 'boundary', 'gage', 'gage_lookup'
 }
 \description{
-This finds a partition of the area occupied by \code{catchment} based on the
+This finds a partition of the union of the polygons in \code{catchment} based on the
 locations of points of interest in \code{gage}, and the directed edges representing flow
 lines in \code{edge}. The output has one sub-catchment for each point in \code{gage}, with
 \code{gage} positioned on the outlet polygon.
