@@ -4,24 +4,17 @@
 \alias{get_split}
 \title{Split a catchment into sub-catchments with an NWIS gage at each outlet}
 \usage{
-get_split(
-  data_dir,
-  gage = NULL,
-  fast = FALSE,
-  snap_dist = units::set_units(100, m)
-)
+get_split(data_dir, gage = NULL, snap_dist = units::set_units(100, m))
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
 \item{gage}{sf points data frame, point of interest at which to split the catchment}
 
-\item{fast}{logical if \code{TRUE} only a subset of the results are returned}
-
 \item{snap_dist}{numeric with units, snapping distance to set "main" outlet}
 }
 \value{
-something
+a list of
 }
 \description{
 This partitions the catchment in \code{data_dir} into a set of sub-catchments

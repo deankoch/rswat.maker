@@ -4,7 +4,7 @@
 \alias{split_catch}
 \title{Split a catchment into sub-catchments with outlets on the points in \code{gage}}
 \usage{
-split_catch(gage, edge, catchment, s2 = FALSE)
+split_catch(gage, edge, catchment)
 }
 \arguments{
 \item{gage}{sf points data frame, point of interest at which to split the catchment}
@@ -12,8 +12,6 @@ split_catch(gage, edge, catchment, s2 = FALSE)
 \item{edge}{data frame of flow line directed edges ("PlusFlow" from "NHDPlusAttributes")}
 
 \item{catchment}{sf data frame of sub-catchment polygons ("Catchment" from "NHDPlusCatchment")}
-
-\item{s2}{logical if \code{FALSE} sets \code{sf::sf_use_s2(FALSE)} during function evaluation}
 }
 \value{
 list with elements 'boundary', 'gage', 'gage_lookup'
@@ -49,7 +47,4 @@ Sub-catchments in \code{boundary} are assigned identifiers from their associated
 polygon, then they will share a common sub-catchment polygon in \code{boundary}. If this
 happens, the function copies the name and COMID from the station with the highest
 'count' field (ie the most records).
-
-\code{s2} is used internally and should remain \code{FALSE} unless you know what you are doing
-(see \code{?get_upstream})
 }

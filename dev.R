@@ -3,17 +3,49 @@ library(devtools)
 load_all()
 document()
 
-##
 
 # current data directory
 data_dir = 'D:/rswat_data/uyr'
+# gage = NULL
+# snap_dist = units::set_units(100, m)
+split_result = get_split(data_dir)
 
-outlet = NULL
-fast = FALSE
-snap_dist = units::set_units(100, m)
-s2 = FALSE
+i = 0
 
-xx = split_catch(data_dir)
+
+
+i = i + 1
+xx = split_result[[i]]
+
+xx[['catchment']] |> sf::st_geometry() |> plot(col='turquoise', border='lightblue', bg='black')
+xx[['boundary']] |> sf::st_geometry() |> plot(add=T, border='turquoise', lwd=2)
+xx[['flow']] |> sf::st_geometry() |> plot(add=T, col=adjustcolor('darkblue', alpha.f=0.5))
+xx[['stem']] |> sf::st_geometry() |> plot(add=T, col=adjustcolor('darkblue', alpha.f=0.5), lwd=2)
+xx[['lake']] |> sf::st_geometry() |> plot(add=T, col='darkblue')
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='red')
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='green')
+
+# TODO: add gage data
+
+
+
+plot(boundary, add=T)
+plot(main_stem, add=T, col='darkblue', lwd=2)
+
+outlet |> sf::st_geometry() |> plot(add=T, pch=16)
+outlet |> sf::st_geometry() |> plot(add=T, pch=16, cex=0.5, col='red')
+
+# take subsets of lakes, flow, etc
+
+xx = get_split(data_dir)
+
+result_list = xx
+
+
+
+
 
 
 
