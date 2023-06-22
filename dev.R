@@ -8,11 +8,40 @@
 
 library(devtools)
 load_all()
-document()
+#document()
 
 
-data_dir = 'D:/rswat_data/snake'
-outlet = nominatim_point("Alpine Junction, WY")
+bou = save_catch('D:/rswat_data/uyr')[['boundary']] |> sf::st_read()
+
+plot(bou)
+draw_scale(bou)
+
+
+
+draw_scale(bou, left=F, size=0.25)
+draw_scale(bou, bottom=F, left=F, size=0.25)
+draw_scale(bou, bottom=F, size=0.25)
+
+
+obj = bou
+bottom=TRUE
+left=TRUE
+size=1
+draw=TRUE
+y_adj=0
+outer_adj=0.01
+
+
+#data_dir = 'D:/rswat_data/tuolumne'
+#data_dir = 'D:/rswat_data/snake'
+#data_dir = 'D:/rswat_data/nooksack'
+#data_dir = 'D:/rswat_data/provo'
+
+#outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
+#outlet = nominatim_point("Alpine Junction, WY")
+#outlet = nominatim_point("Nugents Corner, WA")
+#outlet = nominatim_point("Deer Creek Reservoir, UT")
+
 
 result_list = outlet |> get_catch()
 save_catch(data_dir, result_list, overwrite=TRUE)
@@ -21,6 +50,10 @@ main_txt = paste('COMID =', result_list[['comid']])
 result_list[['boundary']] |> sf::st_geometry() |> plot(main=main_txt)
 result_list[['flow']] |> sf::st_geometry() |> plot(add=TRUE, col='lightblue')
 result_list[['lake']] |> sf::st_geometry() |> plot(add=TRUE, col='darkblue', border=NA)
+
+result_list[['boundary']] |> sf::st_geometry() |> plot(main=main_txt)
+result_list[['boundary']] |> draw_scale(left=F)
+
 
 nwis_from = as.Date('2005-01-01')
 nwis_nm = 'nwis/flow_ft'
@@ -37,15 +70,65 @@ i = 0
 i = i + 1
 xx = split_result[[i]]
 
+obj = xx[['boundary']] |> sf::st_geometry()
+obj |> plot(border='turquoise', lwd=2)
+draw_scale(obj, size=1, bottom=F)
+
+
+crs_utm = to_utm(obj)
+obj2 = obj |> sf::st_transform(crs_utm)
+obj2 |> plot(border='turquoise', lwd=2)
+obj2 |> sf::st_bbox() |> sf::st_as_sfc() |> plot(add=T, border='grey80')
+draw_scale(obj2, size=1, outer_adj=0.1, bottom=F)
+
+
+
+bottom=TRUE
+left=TRUE
+size=1
+draw=TRUE
+y_adj=0
+outer_adj=0.01
+
+
+
+
+
+
+
+y = obj_bbox[ifelse(bottom, 'ymin', 'ymax')] + ifelse(bottom, 1, -1) * y_pad
+
+
+# draw the line
+segments(x0=x_pos[1], x1=x_pos[2], y0=y, lwd=lwd, col=col, xpd=TRUE)
+
+
+
+
+
+
+
+##
+
+
+
 i
 xx[['catchment']] |> sf::st_geometry() |> plot(col='turquoise', border='lightblue', bg='black')
 xx[['boundary']] |> sf::st_geometry() |> plot(add=T, border='turquoise', lwd=2)
 xx[['flow']] |> sf::st_geometry() |> plot(add=T, col=adjustcolor('darkblue', alpha.f=0.5))
 xx[['lake']] |> sf::st_geometry() |> plot(add=T, col='darkblue')
-xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
-xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='red')
-xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
-xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='green')
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1)
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=0.9, col='red')
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1)
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=0.9, col='green')
+
+
+
+library(mapsf)
+mf_scale(col='white', unit='m')
+
+
+
 
 
 i = 15

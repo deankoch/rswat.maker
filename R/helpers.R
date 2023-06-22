@@ -167,9 +167,97 @@ biggest_poly = function(poly_list) {
     p = poly_list[i] |> sf::st_cast('POLYGON') |> sf::st_make_valid()
     p = p[ which.max( sf::st_area(p) ) ] |> sf::st_transform(4326) |> sf::st_make_valid() 
     
-    # remove holes from result
+    # remove holes from result (using the trick in `mapsf::mf_scale`)
     p = sf::st_multipolygon(lapply(p, function(x) x[1])) |> sf::st_geometry()
     sf::st_crs(p) = 4326
     return(p)
+    
   }))
 }
+
+
+#' Create a scale bar and add it to an sf plot
+#' 
+#' This returns a LINESTRING geometry representing a scale bar, and optionally draws
+#' it on the plot (if `draw=TRUE`) along with a label giving the distance and units.
+#' 
+#' The function returns a LINESTRING geometry of known length located in one of the four
+#' corners of the bounding box for `obj` (depending on the choice of `bottom` and `left`).
+#' The length is selected by finding a `pretty` number close (but less than or equal) to
+#' `size` times the horizontal span of the bounding box, and the units are always in 'km'
+#' (or 'm' if the distance is less than 1 km).
+#' 
+#' Move the text label up and down with respect to the scale bar line using `y_adj`,
+#' expressed in units of character height. Move the whole scale bar inwards or outwards
+#' using `outer_adj`, expressed as a proportion of the square root of the area of the
+#' bounding box.
+#' 
+#' All calculations are done in the UTM projection but the results are returned in the
+#' coordinate system of the input `obj`. Note that this means scale bars for plots in
+#' geographical coordinates (lon/lat) may look curved, but the path length reported for
+#' the line segment will be accurate.
+#'
+#' @param obj the sf object that was used to create the plot
+#' @param bottom logical, whether to position the scale bar at top or bottom
+#' @param left logical, whether to position the scale bar at left or right
+#' @param draw logical, whether to draw the scale bar or just return it
+#' @param above logical, whether to position the text above or below the line
+#' @param size numeric > 0 controls the width of the scale bar (see details)
+#' @param y_adj numeric, up/down position adjustment factor for text 
+#' @param outer_adj, outer/inner position adjustment factor for scale bar 
+#'
+#' @return sf LINESTRING data frame of the scale bar line with 'label' and 'distance' fields
+#' @export
+draw_scale = function(obj, bottom=TRUE, left=TRUE, draw=TRUE, above=!bottom,
+                      size=1/4, y_adj=0, outer_adj=1/100) {
+  
+  # take bounding box polygon and project to utm coordinates
+  crs_in = sf::st_crs(obj)
+  crs_utm = to_utm(obj) |> suppressMessages()
+  bbox_utm = sf::st_geometry(obj) |> sf::st_bbox() |> sf::st_as_sfc() |> sf::st_transform(crs_utm)
+  
+  # add buffer then take bounding box of result
+  pad_dist = outer_adj * sqrt( sf::st_area(bbox_utm) )
+  bbox_pad = sf::st_buffer(bbox_utm, pad_dist) |> sf::st_bbox() |> sf::st_as_sfc()
+
+  # extract line geometry from bounding box
+  bbox_line = bbox_pad |> sf::st_cast('LINESTRING') 
+  
+  # find the particular (horizontal) line segment where we will draw the scale-bar
+  idx_draw = if(bottom) 1:2 else 4:3
+  if(!left) idx_draw = rev(idx_draw)
+  origin_line = bbox_line[[1]][idx_draw,] |> sf::st_linestring() |> sf::st_sfc(crs=crs_utm)
+  
+  # measure line length then scale down to a lower and prettier number (based on `size`)
+  origin_len = origin_line |> sf::st_cast('POINT') |> sf::st_distance() |> max()
+  output_len = pretty( size * ( origin_len - (2 * pad_dist) ) )[1]
+  
+  # construct shortened line segment using scaling factor determined above
+  size_as_p =  output_len / units::drop_units(origin_len)
+  output_xy = origin_line |> sf::st_cast('POINT') |> sf::st_coordinates()
+  output_xy[2,'X'] = output_xy[1,'X'] + ifelse(left, 1, -1) * size_as_p * diff(sort(output_xy[,'X'])) 
+  output_line = sf::st_linestring(output_xy) |> sf::st_sfc(crs=crs_utm) |> sf::st_transform(crs_in)
+  
+  # text to print above/below
+  output_m = output_len |> units::set_units('m') |> units::drop_units()
+  print_len = ifelse(output_m > 1e3, output_m/1e3, output_m)
+  print_unit = ifelse(output_m > 1e3, 'km', 'm')
+  print_msg = paste(print_len, print_unit)
+  
+  # create an sf data frame with metadata then optionally draw on plot
+  output_sf = sf::st_sf(data.frame(distance=print_msg, label=print_msg), geometry=output_line)
+  if(draw) {
+    
+    # positioning for the label
+    y_pad = ifelse(above, 1, -1) * y_adj * strheight('0')
+    xy_msg = sf::st_coordinates( sf::st_centroid(output_line) ) + c(0, y_pad)
+    
+    # draw the line and label
+    plot(output_line, add=TRUE, xpd=TRUE)
+    text(xy_msg[1], xy_msg[2], print_msg, pos=ifelse(above, 3, 1), xpd=TRUE)
+  }
+  
+  return( invisible(output_sf) )
+}
+
+
