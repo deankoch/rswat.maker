@@ -2,34 +2,73 @@
 % Please edit documentation in R/helpers.R
 \name{draw_scale}
 \alias{draw_scale}
-\title{Title something}
+\title{Create a scale bar and add it to an sf plot}
 \usage{
 draw_scale(
   obj,
   bottom = TRUE,
-  left = TRUE,
-  size = 0.5,
+  left = FALSE,
   draw = TRUE,
+  above = bottom,
+  size = 1/5,
   y_adj = 0,
-  outer_adj = 0.05
+  outer_adj = 0,
+  lwd = 2,
+  cex = 1,
+  col = "grey30",
+  box_col = NA,
+  box_border = NA
 )
 }
 \arguments{
 \item{obj}{the sf object that was used to create the plot}
 
-\item{bottom}{logical whether to position the scale bar at top or bottom}
+\item{bottom}{logical, whether to position the scale bar at top or bottom}
 
-\item{left}{logical logical whether to position the scale bar at left or right}
+\item{left}{logical, whether to position the scale bar at left or right}
+
+\item{draw}{logical, whether to draw the scale bar or just return it}
+
+\item{above}{logical, whether to position the text above or below the line}
 
 \item{size}{numeric > 0 controls the width of the scale bar (see details)}
 
-\item{draw}{logical}
+\item{y_adj}{numeric, up/down position adjustment factor for text}
 
-\item{y_adj}{numeric > 1}
+\item{outer_adj, }{outer/inner position adjustment factor for scale bar}
+
+\item{lwd}{numeric line width, passed to \code{sf::plot.sf}}
+
+\item{cex}{numeric text size expansion factor, passed to \code{text}}
+
+\item{col}{passed to both \code{sf::plot.sf} and \code{text} for drawing}
+
+\item{box_col}{character or NA, a color for painting the box behind the scale bar}
 }
 \value{
-something
+sf LINESTRING data frame describing and positioning the scale bar
 }
 \description{
-Title something
+This returns a LINESTRING geometry representing a scale bar, and optionally draws
+it on the plot along with a label giving the distance and units.
+}
+\details{
+The function returns a LINESTRING geometry of known length located in one of the four
+corners of the bounding box for \code{obj} (depending on the choice of \code{bottom} and \code{left}).
+The length is selected by finding a \code{pretty} number close (but less than or equal) to
+\code{size} times the horizontal span of the bounding box, and the units are always in 'km'
+(or 'm' if the distance is less than 1 km).
+
+Move the text label up and down with respect to the scale bar line using \code{y_adj},
+expressed in units of character height. Move the whole scale bar inwards or outwards
+using \code{outer_adj}, expressed as a proportion of the square root of the area of the
+bounding box. \code{cex}, \code{col}, \code{lwd} have their usual meanings (see \code{?plot}) and \code{col}
+is applied to box the line and text. \code{box_col} causes the function to first draw a
+rectangle of the requested color behind the scale bar (\code{box_border} is also passed to
+\code{rect} to set the border color).
+
+Calculations are done in the UTM projection but the results are returned in the
+coordinate system of the input \code{obj}. This means scale bars for plots in other
+coordinate systems (especially lon/lat) may look curved, but the reported path length
+of the line segment drawn will be accurate.
 }

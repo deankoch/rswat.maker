@@ -179,7 +179,7 @@ biggest_poly = function(poly_list) {
 #' Create a scale bar and add it to an sf plot
 #' 
 #' This returns a LINESTRING geometry representing a scale bar, and optionally draws
-#' it on the plot (if `draw=TRUE`) along with a label giving the distance and units.
+#' it on the plot along with a label giving the distance and units.
 #' 
 #' The function returns a LINESTRING geometry of known length located in one of the four
 #' corners of the bounding box for `obj` (depending on the choice of `bottom` and `left`).
@@ -190,12 +190,15 @@ biggest_poly = function(poly_list) {
 #' Move the text label up and down with respect to the scale bar line using `y_adj`,
 #' expressed in units of character height. Move the whole scale bar inwards or outwards
 #' using `outer_adj`, expressed as a proportion of the square root of the area of the
-#' bounding box.
+#' bounding box. `cex`, `col`, `lwd` have their usual meanings (see `?plot`) and `col`
+#' is applied to box the line and text. `box_col` causes the function to first draw a
+#' rectangle of the requested color behind the scale bar (`box_border` is also passed to
+#' `rect` to set the border color).
 #' 
-#' All calculations are done in the UTM projection but the results are returned in the
-#' coordinate system of the input `obj`. Note that this means scale bars for plots in
-#' geographical coordinates (lon/lat) may look curved, but the path length reported for
-#' the line segment will be accurate.
+#' Calculations are done in the UTM projection but the results are returned in the
+#' coordinate system of the input `obj`. This means scale bars for plots in other
+#' coordinate systems (especially lon/lat) may look curved, but the reported path length
+#' of the line segment drawn will be accurate.
 #'
 #' @param obj the sf object that was used to create the plot
 #' @param bottom logical, whether to position the scale bar at top or bottom
@@ -204,14 +207,19 @@ biggest_poly = function(poly_list) {
 #' @param above logical, whether to position the text above or below the line
 #' @param size numeric > 0 controls the width of the scale bar (see details)
 #' @param y_adj numeric, up/down position adjustment factor for text 
-#' @param outer_adj, outer/inner position adjustment factor for scale bar 
+#' @param outer_adj, outer/inner position adjustment factor for scale bar
+#' @param col passed to both `sf::plot.sf` and `text` for drawing
+#' @param box_col character or NA, a color for painting the box behind the scale bar
+#' @param lwd numeric line width, passed to `sf::plot.sf`
+#' @param cex numeric text size expansion factor, passed to `text`
 #'
-#' @return sf LINESTRING data frame of the scale bar line with 'label' and 'distance' fields
+#' @return sf LINESTRING data frame describing and positioning the scale bar 
 #' @export
-draw_scale = function(obj, bottom=TRUE, left=TRUE, draw=TRUE, above=!bottom,
-                      size=1/4, y_adj=0, outer_adj=1/100) {
+draw_scale = function(obj, bottom=TRUE, left=FALSE, draw=TRUE, above=bottom,
+                      size=1/5, y_adj=0, outer_adj=0, lwd=2, cex=1,
+                      col='grey30', box_col=NA, box_border=NA) {
   
-  # take bounding box polygon and project to utm coordinates
+  # take bounding box polygon and project to UTM coordinates
   crs_in = sf::st_crs(obj)
   crs_utm = to_utm(obj) |> suppressMessages()
   bbox_utm = sf::st_geometry(obj) |> sf::st_bbox() |> sf::st_as_sfc() |> sf::st_transform(crs_utm)
@@ -223,12 +231,12 @@ draw_scale = function(obj, bottom=TRUE, left=TRUE, draw=TRUE, above=!bottom,
   # extract line geometry from bounding box
   bbox_line = bbox_pad |> sf::st_cast('LINESTRING') 
   
-  # find the particular (horizontal) line segment where we will draw the scale-bar
+  # copy the horizontal line segment of the padded bounding box - scale-bar gets drawn here
   idx_draw = if(bottom) 1:2 else 4:3
   if(!left) idx_draw = rev(idx_draw)
   origin_line = bbox_line[[1]][idx_draw,] |> sf::st_linestring() |> sf::st_sfc(crs=crs_utm)
   
-  # measure line length then scale down to a lower and prettier number (based on `size`)
+  # measure whole side length then scale down to a lower and prettier number (based on `size`)
   origin_len = origin_line |> sf::st_cast('POINT') |> sf::st_distance() |> max()
   output_len = pretty( size * ( origin_len - (2 * pad_dist) ) )[1]
   
@@ -238,23 +246,38 @@ draw_scale = function(obj, bottom=TRUE, left=TRUE, draw=TRUE, above=!bottom,
   output_xy[2,'X'] = output_xy[1,'X'] + ifelse(left, 1, -1) * size_as_p * diff(sort(output_xy[,'X'])) 
   output_line = sf::st_linestring(output_xy) |> sf::st_sfc(crs=crs_utm) |> sf::st_transform(crs_in)
   
-  # text to print above/below
+  # text label and units
   output_m = output_len |> units::set_units('m') |> units::drop_units()
   print_len = ifelse(output_m > 1e3, output_m/1e3, output_m)
   print_unit = ifelse(output_m > 1e3, 'km', 'm')
   print_msg = paste(print_len, print_unit)
   
-  # create an sf data frame with metadata then optionally draw on plot
-  output_sf = sf::st_sf(data.frame(distance=print_msg, label=print_msg), geometry=output_line)
+  # positioning for the label
+  y_pad =  ifelse(above, 1, -1) * strheight('0')
+  xy_msg = sf::st_coordinates( sf::st_centroid(output_line) ) + c(0, y_adj * y_pad)
+  
+  # create an sf data frame from this information
+  output_sf = data.frame(distance=print_msg, label=print_msg, x=xy_msg[1], y=xy_msg[2]) |> 
+    sf::st_sf(geometry=output_line)
+  
+  # attempt to draw the line and label
   if(draw) {
     
-    # positioning for the label
-    y_pad = ifelse(above, 1, -1) * y_adj * strheight('0')
-    xy_msg = sf::st_coordinates( sf::st_centroid(output_line) ) + c(0, y_pad)
+    # draw a rectangle behind it first 
+    if( !anyNA(box_col) ) {
+      
+      xy_line = output_line |> sf::st_cast('POINT') |> sf::st_coordinates()
+      rect(xleft = min(xy_line[,'X']) - abs(y_pad),
+           xright = max(xy_line[,'X']) + abs(y_pad),
+           ybottom = min(xy_line[,'Y']) - abs(y_pad) + ifelse(above, 0, (1.5 + y_adj) * y_pad),
+           ytop = max(xy_line[,'Y']) + abs(y_pad) + ifelse(above, (1.5 + y_adj) * y_pad, 0),
+           col = box_col,
+           border = box_border)
+    }
     
-    # draw the line and label
-    plot(output_line, add=TRUE, xpd=TRUE)
-    text(xy_msg[1], xy_msg[2], print_msg, pos=ifelse(above, 3, 1), xpd=TRUE)
+    # now draw line with plot.sf and text
+    plot(output_line, add=TRUE, xpd=TRUE, col=col, lwd=lwd)
+    text(xy_msg[1], xy_msg[2], print_msg, pos=ifelse(above, 3, 1), xpd=TRUE, col=col, cex=cex)
   }
   
   return( invisible(output_sf) )
