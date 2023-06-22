@@ -21,23 +21,31 @@
 #' 
 #' The "true" outlet point for a sub-catchment (under the NHD model) lies at the
 #' intersection of the boundary of the NHD polygon for the outlet COMID, and its
-#' flow line. These points are calculated and returned in `outlet`. Note that the
-#' `gage` points will often be located slightly upstream of the true outlet, but
-#' always within the outlet NHD polygon.
+#' flow line. These points are calculated and returned in `outlet`.  
+#' 
+#' `gage` points from NWIS will often be located slightly upstream of the true outlet
+#' for an NHD polygon, but they are always "near" in the sense of being within the
+#' same outlet NHD polygon, and sharing the same COMID. Set `include_inlet=TRUE` to
+#' include this whole polygon when forming the downstream sub-catchment boundary. The
+#' result will no longer be a partition, but all resulting boundaries will be
+#' guaranteed to contain the full drainage around these problematic `gage` sites.
+#' This is useful when when preparing data for a model that will later on resolve
+#' boundaries with more precision (like TauDEM and QSWAT+).
 #' 
 #' See also `split_catch`, which does most of the work of following flow-lines and
 #' building boundaries with set operations.
 #'
-#'
 #' @param data_dir character path to the directory to use for output files
 #' @param gage sf points data frame, point of interest at which to split the catchment
 #' @param snap_dist numeric with units, snapping distance to set "main" outlet
+#' @param include_inlet logical whether to include inlet polygons
 #'
 #' @return a list of 
 #' @export
 get_split = function(data_dir, 
                      gage = NULL, 
-                     snap_dist = units::set_units(100, m)) {
+                     snap_dist = units::set_units(100, m),
+                     include_inlet = FALSE) {
   
   # look for default USGS stream gage stations found by `get_nwis`
   if( is.null(gage) ) {
@@ -47,12 +55,19 @@ get_split = function(data_dir,
     gage = sf::st_read(gage_path, quiet=TRUE)
   }
   
+  # input paths in data_dir
+  outlet_path = save_catch(data_dir)['outlet']
+  boundary_path = save_catch(data_dir)['boundary']
+  catch_path = save_catch(data_dir)['catchment']
+  edge_path = save_catch(data_dir)['edge']
+  
   # local UTM projection for computations
   crs_utm = gage[1,] |> sf::st_geometry() |> to_utm() |> suppressMessages()
+  gage_utm = gage |> sf::st_geometry() |> sf::st_transform(crs_utm)
   
   # load original outlet point (input to `get_catch`) and match it against `gage` points
-  outlet_main = save_catch(data_dir)['outlet'] |> sf::st_read(quiet=TRUE)
-  dist_usgs = sf::st_distance(outlet_main, gage)
+  outlet_main = outlet_path |> sf::st_read(quiet=TRUE)
+  dist_usgs = outlet_main |> sf::st_transform(crs_utm) |> sf::st_distance(gage_utm)
   is_usgs = dist_usgs < snap_dist
   
   # if there are any matches at this snapping distance, select the closest
@@ -72,11 +87,12 @@ get_split = function(data_dir,
     # add it to the `gage` points and mark as the main 
     gage = sf::st_sf(new_row, geometry=sf::st_geometry(outlet_main)) |> rbind(gage)
     gage[['main_outlet']] = seq(nrow(gage)) == 1
+    gage_utm = gage |> sf::st_geometry() |> sf::st_transform(crs_utm)
   }
   
   # load boundary polygon and check validity of gage
-  boundary = save_catch(data_dir)['boundary'] |> sf::st_read(quiet=TRUE)
-  is_valid = sf::st_intersects(gage, boundary, sparse=FALSE)
+  boundary_utm = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
+  is_valid = gage_utm |> sf::st_intersects(boundary_utm, sparse=FALSE)
   
   # sanity checking
   msg_invalid = paste(which(!is_valid), collapse=', ')
@@ -84,37 +100,31 @@ get_split = function(data_dir,
   if( !is.data.frame(gage) ) stop('gage must be a data frame, or NULL')
   
   # load sub-catchment polygons and edge data frame (as character to avoid COMID as integer)
-  catch = save_catch(data_dir)['catchment'] |> sf::st_read(quiet=TRUE)
-  edge = save_catch(data_dir)['edge'] |> read.csv(colClasses='character')
+  catch = catch_path |> sf::st_read(quiet=TRUE)
+  edge = edge_path |> read.csv(colClasses='character')
   
   # run splitting subroutine 
   split_result = split_catch(gage, edge, catchment=catch)
   
-  # load flow lines (slow)
+  # load boundary and flow lines (slow)
   message('collecting sub-catchment features')
+  boundary_utm = split_result[['boundary']] |> sf::st_geometry() |> sf::st_transform(crs_utm)
   flow_utm = save_catch(data_dir)['flow'] |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
   flow_utm[['COMID']] = as.character(flow_utm[['COMID']])
   
   # compute true outlet locations and bind with metadata from nearest gage
   outlet = split_result[['boundary']] |> find_outlet(edge, flow_utm)
-  
-  # create a main stem LINESTRING for this set of sub-catchments
-  comid_stem = split_result[['boundary']][['comid']] |> comid_down(edge)
-  main_stem_utm = flow_utm[ flow_utm[['COMID']] %in% comid_stem, ] |> sf::st_union()
-  
-  # split at sub-catchment boundaries and transform back to WGS84
-  boundary_utm = split_result[['boundary']] |> sf::st_geometry() |> sf::st_transform(crs_utm)
-  main_stem_split = main_stem_utm |> sf::st_intersection(boundary_utm) |> sf::st_transform(4326)
-  
-  # load lakes and project to match
+
+  # load lakes
   lake_utm = save_catch(data_dir)['lake'] |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
 
   # split remaining features at sub-catchments
   result_by_catch = nrow(outlet) |> seq() |> lapply(\(i) {
-    
+
     # avoid slow spatial query by following the COMIDs
     comid = outlet[['comid']][i]
     comid_check =  comid_up(comid, edge)
+    boundary_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
     
     # initialize data frame of inlets
     inlet_i = outlet[0,]
@@ -126,8 +136,25 @@ get_split = function(data_dir,
       inlet_comid = outlet[['comid']][ outlet[['downstream']] == comid ]
       inlet_i = outlet[outlet[['comid']] %in% inlet_comid, ]
       
-      # exclude objects upstream of inlets
+      # exclude all objects upstream of inlets
       comid_check = comid_check[ !( comid_check %in% comid_up(inlet_comid, edge) ) ]
+      if( include_inlet ) {
+        
+        # on request include inlet in flow lines, catchment polygons, lakes 
+        comid_check = c(inlet_comid, comid_check)
+        
+        # append inlet polygon(s) to boundary
+        poly_add = catch[ catch[['FEATUREID']] %in% inlet_comid, ] |> sf::st_transform(crs_utm)
+        poly_new = poly_add |> 
+          sf::st_geometry() |> 
+          sf::st_make_valid() |>
+          c(sf::st_geometry(boundary_i)) |>
+          sf::st_union() |> 
+          biggest_poly()
+  
+        # overwrite the geometry
+        sf::st_geometry(boundary_i) = poly_new |> sf::st_transform(crs_utm)
+      }
     }
     
     # copy the relevant flow lines
@@ -137,7 +164,8 @@ get_split = function(data_dir,
     catch_sub = catch[ catch[['FEATUREID']] %in% comid_check, ] |> sf::st_transform(crs_utm)
     
     # spatial filter
-    lake_sub = lake_utm[sf::st_intersection(boundary_utm[i], lake_utm, sparse=FALSE), ]
+    is_lake_touching = lake_utm |> sf::st_geometry() |> sf::st_intersection(boundary_i, sparse=FALSE)
+    lake_sub = lake_utm[is_lake_touching, ]
 
     # copy all site numbers (in case of duplicates)
     site_no = split_result[['gage_lookup']] |> 
@@ -147,8 +175,7 @@ get_split = function(data_dir,
     # transform spatial layers to WGS84
     spatial_out = list(outlet = outlet[i,],
                        inlet = inlet_i,
-                       stem = main_stem_split[i],
-                       boundary = split_result[['boundary']][i,],
+                       boundary = boundary_i,
                        lake = lake_sub,
                        flow = flow_sub,
                        catchment = catch_sub) |> lapply(\(x) sf::st_transform(x, 4326))
@@ -240,7 +267,7 @@ split_catch = function(gage, edge, catchment) {
   gage[['comid']] = gage_result |> sapply(\(x) x[['comid']])
   
   # create sf data frame of sub-catchment boundary polygons (likely overlapping)
-  message('computing stream flow order for COMIDs: ', paste(gage[['comid']], collapse=', '))
+  message('computing stream flow order for ', nrow(gage), ' COMIDs')
   sub_poly = do.call(c, lapply(gage_result, \(x) x[['boundary']]))
   
   # for each gage point, find nearest downstream neighbour
@@ -284,20 +311,23 @@ split_catch = function(gage, edge, catchment) {
   is_pending = sub_sf[['downstream']] %in% comid
   while( any(is_pending) ) {
 
-    # replace the sub-catchment with clipped version (temporarily use UTM projection)
+    # clip areas upstream of sub-catchment inlets (temporarily use UTM projection)
     is_shrinking = sub_sf[['comid']] %in% comid
     poly_shrink = sub_sf[is_pending,] |> sf::st_transform(crs_utm) |> sf::st_union()
-    sf::st_geometry(sub_sf[is_shrinking,]) = sub_sf[is_shrinking,] |> 
+    poly_temp = sub_sf[is_shrinking,] |> 
       sf::st_geometry() |> 
       sf::st_transform(crs_utm) |>
       sf::st_difference(poly_shrink) |>
-      sf::st_transform(4326)
+      biggest_poly()
     
+    # overwrite geometry in sub_sf
+    sf::st_geometry(sub_sf[is_shrinking,]) = poly_temp
+
     # update comid and list of pending sub-catchments
     comid = sub_sf[['comid']][is_pending]
     is_pending = sub_sf[['downstream']] %in% comid
   }
-  
+
   # st_sf sets geometry column properly
   return(result_list = list(boundary = sub_sf |> sf::st_sf(),
                             gage_lookup = gage_lookup))

@@ -144,3 +144,32 @@ comid_up = function(comid, edge, first_only=FALSE) {
   # else call the function on upstream nodes
   return( c(comid, comid_up(comid_found, edge)) )
 }
+
+
+#' Omit all but the largest in a set of polygons
+#' 
+#' This selects the largest polygon from a set, transforms to WGS84 coordinates,
+#' runs `sf::st_make_valid()`, then removes holes from the result.
+#' 
+#' This is useful for tidying up the result of set operations (like differencing)
+#' when the expected result is a single connected polygon.
+#'
+#' @param poly_list any object for which `sf::st_geometry() |> sf::st_area()` is valid
+#'
+#' @return an sfc_polygon object
+#' @export
+biggest_poly = function(poly_list) {
+  
+  poly_list = poly_list |> sf::st_geometry() |> sf::st_make_valid()
+  do.call(c, lapply(seq_along(poly_list), \(i) {
+
+    # selects max area polygon from the set than transforms back to WGS84
+    p = poly_list[i] |> sf::st_cast('POLYGON') |> sf::st_make_valid()
+    p = p[ which.max( sf::st_area(p) ) ] |> sf::st_transform(4326) |> sf::st_make_valid() 
+    
+    # remove holes from result
+    p = sf::st_multipolygon(lapply(p, function(x) x[1])) |> sf::st_geometry()
+    sf::st_crs(p) = 4326
+    return(p)
+  }))
+}
