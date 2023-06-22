@@ -31,7 +31,7 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
   # delete old files if requested
   if(force_overwrite) model_path[input_nm] |> sapply(\(x) unlink(x[c('rast', 'poly')]))
   
-  # fetch data as needed
+  # fetch data as needed (writes source files to "raw")
   is_done = model_path[input_nm] |> sapply(\(x) all(file.exists(x)) )
   if( any(!is_done) ) model_nm[input_nm][!is_done] |> lapply(\(x) { 
     
@@ -143,28 +143,23 @@ save_soils = function(data_dir, soils=NULL, overwrite=FALSE) {
 #' 
 #' SSURGO is very detailed, so when using this model the memory usage may be high,
 #' and the intermediate .gpkg file written to the "raw" sub-directory may be large.
-#' For example with the UYR the file is around 8 GB.
+#' For example with the Carter's Bridge example (Upper Yellowstone) the memory usage
+#' exceeds 10 GB and about 2 GB are written to disk.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param model character either 'statsgo' or 'ssurgo'
-#' @param s2 logical, controls whether to use spherical approximation
 #'
 #' @return sf dataframe object containing a "MUKEY" field and polygon geometries
 #' @export
-get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
+get_statsgo = function(data_dir, model='statsgo') {
   
-  # turn off spherical approximation for intersection calculation
-  if(!s2) {
-    
-    # for less chance of failure with corrupt geometries
-    if( sf::sf_use_s2() ) on.exit( sf::sf_use_s2(TRUE) |> suppressMessages() )
-    sf::sf_use_s2(FALSE) |> suppressMessages()
-  }
-  
-  # locate DEM boundary and output paths for source files
+  # input and output paths in data_dir
   statsgo_path = save_statsgo(data_dir, model=model, overwrite=FALSE)
-  dem_path = save_dem(data_dir, overwrite=FALSE)
-  bbox_path = dem_path[['bbox']]
+  bbox_path = save_dem(data_dir, overwrite=FALSE)[['bbox']]
+  outlet_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
+  
+  # load outlet to find appropriate UTM zone for computations
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
   
   # sanity check 
   msg_error = paste('missing DEM bounding box polygon:', bbox_path)
@@ -172,13 +167,13 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
   if( !file.exists(bbox_path) ) stop(msg_error, '\n', msg_suggestion)
   
   # load boundary polygon created by make_dem.R
-  bbox_dem = sf::st_read(bbox_path)
+  bbox_utm = sf::st_read(bbox_path, quiet=TRUE) |> sf::st_transform(crs_utm)
   
   # process STATSGO2 requests
   if( model == 'statsgo' ) {
     
     # find overlapping states and their abbreviation code
-    is_over = us_states |> sf::st_intersects(bbox_dem, sparse=FALSE) |> suppressMessages()
+    is_over = us_states |> sf::st_transform(crs_utm) |> sf::st_intersects(bbox_utm, sparse=FALSE)
     abb_over = us_states[['abbr']][is_over]
     
     #  filter to relevant states
@@ -210,14 +205,14 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
       if( length(idx_dbf) != 1 ) stop('could not locate the geometries file in ', path_i)
       
       # load it and copy to list
-      poly_list[[i]] = file_i[idx_dbf] |> sf::st_read()
+      poly_list[[i]] = file_i[idx_dbf] |> sf::st_read(quiet=TRUE)
     }
     
     # merge all state data
     soils_poly = do.call(rbind, poly_list)
     
     # crop to bounding box of interest
-    is_in = soils_poly |> sf::st_intersects(bbox_dem, sparse=FALSE) |> suppressMessages()
+    is_in = soils_poly |> sf::st_transform(crs_utm) |> sf::st_intersects(bbox_utm, sparse=FALSE)
     soils_poly = soils_poly[is_in, ] 
   }
   
@@ -239,11 +234,13 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     path_ssa_all = list.files(raw_dir)
     dbf_nm = path_ssa_all[grepl('.+.dbf$', path_ssa_all)][1] |> basename()
     path_ssa = raw_dir |> file.path(dbf_nm)
+
+    # load all the SSA polygons (slow)
+    message('loading ', basename(path_ssa), ' and filtering to area of interest')
+    ssa_poly = path_ssa |> sf::st_read(quiet=TRUE)
     
-    # load SSA polygons, omit those not overlapping with AOI, copy area keys
-    message('loading ', basename(path_ssa), ' and checking geometries...')
-    ssa_poly = path_ssa |> sf::st_read() |> sf::st_make_valid()
-    is_in = sf::st_intersects(ssa_poly, bbox_dem, sparse=FALSE) |> suppressMessages()
+    # omit polygons not overlapping with AOI and copy soil survey area keys
+    is_in = ssa_poly |> sf::st_transform(crs_utm) |> sf::st_intersects(bbox_utm, sparse=FALSE)
     ssa_in = ssa_poly[is_in, ]
     ssa = ssa_in[['areasymbol']]
     if( length(ssa) == 0 ) {
@@ -252,7 +249,7 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
       return(NULL)
     }
     
-    # download/open all data for these overlapping SSAs
+    # download/open all data for these overlapping SSAs (writes gpkg file to "raw")
     message('loading SSURGO data from ', length(ssa), ' soil survey area(s)...')
     soil_result = FedData::get_ssurgo(ssa,
                                       label = 'uyr_pad',
@@ -264,19 +261,19 @@ get_statsgo = function(data_dir, model='statsgo', s2=FALSE) {
     ssa = soil_result[['spatial']][['AREASYMBOL']] |> unique()
     
     # loop over SSAs
-    message('looping over ', length(ssa), ' soil survey area(s) to find intersection')
+    message('processing MUKEYs in ', length(ssa), ' soil survey area(s)')
     mukey_in_aoi = length(ssa) |> logical()
     pb = txtProgressBar(0, length(ssa), style=3)
     for(i in seq_along(ssa)) {
       
-      # identify the polygons in ith SSA that overlap with AOI, 
-      poly_i = soil_result[['spatial']] |> dplyr::filter(AREASYMBOL == ssa[i])
+      # identify overlapping polygons from ith SSA 
+      poly_i = soil_result[['spatial']][ soil_result[['spatial']][['AREASYMBOL']] == ssa[i], ]
       is_in_aoi = poly_i |> 
         sf::st_geometry() |> 
-        sf::st_intersects(bbox_dem, sparse=FALSE)|> 
-        suppressMessages()
+        sf::st_transform(crs_utm) |> 
+        sf::st_intersects(bbox_utm, sparse=FALSE)
 
-      # match mukeys to full list
+      # flag the matching mukey in full list
       mukey_in_aoi[ soil_result[['spatial']][['MUKEY']] %in% poly_i[['MUKEY']][is_in_aoi] ] = TRUE
       setTxtProgressBar(pb, i)
     }

@@ -1,7 +1,80 @@
+# # create a main stem LINESTRING for this set of sub-catchments
+# comid_stem = split_result[['boundary']][['comid']] |> comid_down(edge)
+# main_stem_utm = flow_utm[ flow_utm[['COMID']] %in% comid_stem, ] |> sf::st_union()
+# 
+# # split at sub-catchment boundaries and transform back to WGS84
+# 
+# main_stem_split = main_stem_utm |> sf::st_intersection(boundary_utm) |> sf::st_transform(4326)
 
 library(devtools)
 load_all()
 document()
+
+
+data_dir = 'D:/rswat_data/snake'
+outlet = nominatim_point("Alpine Junction, WY")
+
+result_list = outlet |> get_catch()
+save_catch(data_dir, result_list, overwrite=TRUE)
+
+main_txt = paste('COMID =', result_list[['comid']])
+result_list[['boundary']] |> sf::st_geometry() |> plot(main=main_txt)
+result_list[['flow']] |> sf::st_geometry() |> plot(add=TRUE, col='lightblue')
+result_list[['lake']] |> sf::st_geometry() |> plot(add=TRUE, col='darkblue', border=NA)
+
+nwis_from = as.Date('2005-01-01')
+nwis_nm = 'nwis/flow_ft'
+get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
+
+# TODO plotter for all this
+split_result = data_dir |> get_split(include_inlet=T)
+
+# TODO: then plot all this
+# i = 15 is still problematic
+# i = 22 has a weird situation with a lake
+i = 0
+
+i = i + 1
+xx = split_result[[i]]
+
+i
+xx[['catchment']] |> sf::st_geometry() |> plot(col='turquoise', border='lightblue', bg='black')
+xx[['boundary']] |> sf::st_geometry() |> plot(add=T, border='turquoise', lwd=2)
+xx[['flow']] |> sf::st_geometry() |> plot(add=T, col=adjustcolor('darkblue', alpha.f=0.5))
+xx[['lake']] |> sf::st_geometry() |> plot(add=T, col='darkblue')
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
+xx[['outlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='red')
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=2)
+xx[['inlet']] |> sf::st_geometry() |> plot(add=T, pch=16, cex=1.5, col='green')
+
+
+i = 15
+comid = outlet[['comid']][i]
+comid_check =  comid_up(comid, edge)
+inlet_i = outlet[0,]
+if( !outlet[['headwater']][i] ) {
+  inlet_comid = outlet[['comid']][ outlet[['downstream']] == comid ]
+  inlet_i = outlet[outlet[['comid']] %in% inlet_comid, ]
+  comid_check = comid_check[ !( comid_check %in% comid_up(inlet_comid, edge) ) ]
+}
+
+flow_sub = flow_utm[flow_utm[['COMID']] %in% comid_check, ]
+catch_sub = catch[ catch[['FEATUREID']] %in% comid_check, ] |> sf::st_transform(crs_utm)
+lake_sub = lake_utm[sf::st_intersection(boundary_utm[i], lake_utm, sparse=FALSE), ]
+
+split_result[['boundary']][i,] |> sf::st_geometry() |> plot(bg='grey50')
+flow_sub |> sf::st_geometry() |> sf::st_transform(4326) |> plot(add=T, col='lightblue')
+catch_sub |> sf::st_geometry() |> sf::st_transform(4326) |> plot(add=T, col=adjustcolor('blue', alpha.f=0.2), border=NA)
+lake_sub |> sf::st_geometry() |> sf::st_transform(4326) |> plot(add=T, col=adjustcolor('violet', alpha.f=0.5), border=NA)
+inlet_i |> sf::st_geometry() |> plot(add=T, pch=16, col='green')
+
+
+
+
+
+
+
+
 
 
 # current data directory

@@ -4,14 +4,12 @@
 \alias{get_statsgo}
 \title{Fetch STATSGO2 or SSURGO data}
 \usage{
-get_statsgo(data_dir, model = "statsgo", s2 = FALSE)
+get_statsgo(data_dir, model = "statsgo")
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
 \item{model}{character either 'statsgo' or 'ssurgo'}
-
-\item{s2}{logical, controls whether to use spherical approximation}
 }
 \value{
 sf dataframe object containing a "MUKEY" field and polygon geometries
@@ -30,5 +28,6 @@ path to this storage directory by calling the following:
 
 SSURGO is very detailed, so when using this model the memory usage may be high,
 and the intermediate .gpkg file written to the "raw" sub-directory may be large.
-For example with the UYR the file is around 8 GB.
+For example with the Carter's Bridge example (Upper Yellowstone) the memory usage
+exceeds 10 GB and about 2 GB are written to disk.
 }

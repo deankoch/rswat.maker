@@ -58,7 +58,7 @@ get_nwis = function(data_dir,
   # path for outputs
   nwis_dir = data_dir |> file.path(nwis_nm)
   
-  # get stations list and write output
+  # get stations list and write to "raw"
   nwis_path = save_nwis(nwis_dir)[c('station', 'record')]
   if( !all(file.exists(nwis_path)) | refresh ) {
     
@@ -84,7 +84,7 @@ get_nwis = function(data_dir,
     save_nwis(nwis_dir, nwis, overwrite=TRUE)
   }
 
-  # get list of sites of interest
+  # load list of sites of interest
   site_fetch = sf::st_read(nwis_path['station'], quiet=TRUE)[['site_no']]
   
   # update/initialize stations data (writes to "raw")
