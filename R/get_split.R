@@ -21,16 +21,13 @@
 #' 
 #' The "true" outlet point for a sub-catchment (under the NHD model) lies at the
 #' intersection of the boundary of the NHD polygon for the outlet COMID, and its
-#' flow line. These points are calculated and returned in `outlet`.  
-#' 
-#' `gage` points from NWIS will often be located slightly upstream of the true outlet
-#' for an NHD polygon, but they are always "near" in the sense of being within the
-#' same outlet NHD polygon, and sharing the same COMID. Set `include_inlet=TRUE` to
-#' include this whole polygon when forming the downstream sub-catchment boundary. The
-#' result will no longer be a partition, but all resulting boundaries will be
-#' guaranteed to contain the full drainage around these problematic `gage` sites.
-#' This is useful when when preparing data for a model that will later on resolve
-#' boundaries with more precision (like TauDEM and QSWAT+).
+#' flow line. These points are calculated and returned in `outlet`. Note that `gage`
+#' points from NWIS will often be located slightly upstream of the true outlet for
+#' their NHD polygon. Thus two sets of boundary polygons are returned: `boundary_inner`
+#' is the partition; and `boundary` is a copy where the polygons for any inlets have
+#' been joined to the downstream sub-catchment boundaries. This introduces overlap,
+#' but it produces a boundary more suitable for masking a DEM on its way to TauDEM
+#' (or QSWAT+).
 #' 
 #' See also `split_catch`, which does most of the work of following flow-lines and
 #' building boundaries with set operations.
@@ -38,14 +35,12 @@
 #' @param data_dir character path to the directory to use for output files
 #' @param gage sf points data frame, point of interest at which to split the catchment
 #' @param snap_dist numeric with units, snapping distance to set "main" outlet
-#' @param include_inlet logical whether to include inlet polygons
 #'
 #' @return a list of 
 #' @export
 get_split = function(data_dir, 
                      gage = NULL, 
-                     snap_dist = units::set_units(100, m),
-                     include_inlet = FALSE) {
+                     snap_dist = units::set_units(100, m)) {
   
   # look for default USGS stream gage stations found by `get_nwis`
   if( is.null(gage) ) {
@@ -78,10 +73,10 @@ get_split = function(data_dir,
     
   } else {
     
-    # make a dummy row with mostly NA fields
+    # make a dummy row with mostly NA fields (Inf ensures main outlet always included)
     new_row = gage[0,] |> sf::st_drop_geometry()
     new_row[1,] = NA
-    new_row[['count']] = 0
+    new_row[['count']] = Inf
     new_row[['station_nm']] = 'main outlet created by rswat'
     
     # add it to the `gage` points and mark as the main 
@@ -125,6 +120,7 @@ get_split = function(data_dir,
     comid = outlet[['comid']][i]
     comid_check =  comid_up(comid, edge)
     boundary_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
+    boundary_inner_i = boundary_i
     
     # initialize data frame of inlets
     inlet_i = outlet[0,]
@@ -138,23 +134,21 @@ get_split = function(data_dir,
       
       # exclude all objects upstream of inlets
       comid_check = comid_check[ !( comid_check %in% comid_up(inlet_comid, edge) ) ]
-      if( include_inlet ) {
         
-        # on request include inlet in flow lines, catchment polygons, lakes 
-        comid_check = c(inlet_comid, comid_check)
-        
-        # append inlet polygon(s) to boundary
-        poly_add = catch[ catch[['FEATUREID']] %in% inlet_comid, ] |> sf::st_transform(crs_utm)
-        poly_new = poly_add |> 
-          sf::st_geometry() |> 
-          sf::st_make_valid() |>
-          c(sf::st_geometry(boundary_i)) |>
-          sf::st_union() |> 
-          biggest_poly()
-  
-        # overwrite the geometry
-        sf::st_geometry(boundary_i) = poly_new |> sf::st_transform(crs_utm)
-      }
+      # include inlet in flow lines, catchment polygons, lakes 
+      comid_check = c(inlet_comid, comid_check)
+      
+      # append inlet polygon(s) to boundary
+      poly_add = catch[ catch[['FEATUREID']] %in% inlet_comid, ] |> sf::st_transform(crs_utm)
+      poly_new = poly_add |> 
+        sf::st_geometry() |> 
+        sf::st_make_valid() |>
+        c(sf::st_geometry(boundary_i)) |>
+        sf::st_union() |> 
+        biggest_poly()
+
+      # overwrite the geometry in the projected boundary polygon
+      sf::st_geometry(boundary_i) = poly_new |> sf::st_transform(crs_utm)
     }
     
     # copy the relevant flow lines
@@ -175,6 +169,7 @@ get_split = function(data_dir,
     # transform spatial layers to WGS84
     spatial_out = list(outlet = outlet[i,],
                        inlet = inlet_i,
+                       boundary_inner = boundary_inner_i,
                        boundary = boundary_i,
                        lake = lake_sub,
                        flow = flow_sub,
@@ -185,9 +180,10 @@ get_split = function(data_dir,
                           site_no = site_no,
                           edge_sub = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
 
-  }) |> stats::setNames(outlet[['snail_name']])
-  
-  return(result_by_catch)
+  })
+    
+  # use file-name-friendly title for names
+  return( stats::setNames(result_by_catch, outlet[['snail_name']]) )
 }
 
 

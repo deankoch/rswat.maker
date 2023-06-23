@@ -4,12 +4,7 @@
 \alias{get_split}
 \title{Split a catchment into sub-catchments with an NWIS gage at each outlet}
 \usage{
-get_split(
-  data_dir,
-  gage = NULL,
-  snap_dist = units::set_units(100, m),
-  include_inlet = FALSE
-)
+get_split(data_dir, gage = NULL, snap_dist = units::set_units(100, m))
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -17,8 +12,6 @@ get_split(
 \item{gage}{sf points data frame, point of interest at which to split the catchment}
 
 \item{snap_dist}{numeric with units, snapping distance to set "main" outlet}
-
-\item{include_inlet}{logical whether to include inlet polygons}
 }
 \value{
 a list of
@@ -46,16 +39,13 @@ forms a partition of the whole catchment.
 
 The "true" outlet point for a sub-catchment (under the NHD model) lies at the
 intersection of the boundary of the NHD polygon for the outlet COMID, and its
-flow line. These points are calculated and returned in \code{outlet}.
-
-\code{gage} points from NWIS will often be located slightly upstream of the true outlet
-for an NHD polygon, but they are always "near" in the sense of being within the
-same outlet NHD polygon, and sharing the same COMID. Set \code{include_inlet=TRUE} to
-include this whole polygon when forming the downstream sub-catchment boundary. The
-result will no longer be a partition, but all resulting boundaries will be
-guaranteed to contain the full drainage around these problematic \code{gage} sites.
-This is useful when when preparing data for a model that will later on resolve
-boundaries with more precision (like TauDEM and QSWAT+).
+flow line. These points are calculated and returned in \code{outlet}. Note that \code{gage}
+points from NWIS will often be located slightly upstream of the true outlet for
+their NHD polygon. Thus two sets of boundary polygons are returned: \code{boundary_inner}
+is the partition; and \code{boundary} is a copy where the polygons for any inlets have
+been joined to the downstream sub-catchment boundaries. This introduces overlap,
+but it produces a boundary more suitable for masking a DEM on its way to TauDEM
+(or QSWAT+).
 
 See also \code{split_catch}, which does most of the work of following flow-lines and
 building boundaries with set operations.

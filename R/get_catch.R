@@ -86,7 +86,7 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
     
     # find upstream components
     message('')
-    result_list = get_upstream2(outlet, edge, catchment=catch_poly, fast=TRUE)
+    result_list = get_upstream(outlet, edge, catchment=catch_poly, fast=TRUE)
     
   } else {
   
@@ -97,13 +97,16 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
     message('loading NHD stream network geometries')
     flow_line = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDFlowline', quiet=TRUE)
     
+    # bug fix for variation in COMID field name
+    if( 'ComID' %in% names(flow_line) ) names(flow_line)[ names(flow_line) == 'ComID'] = 'COMID'
+    
     # open lake polygons
     message('loading NHD lake polygons')
     lake_poly = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDWaterbody', quiet=TRUE)
-    
+
     # find upstream components
     message('')
-    result_list = get_upstream2(outlet, edge, catchment=catch_poly, flow=flow_line, lake=lake_poly)
+    result_list = get_upstream(outlet, edge, catchment=catch_poly, flow=flow_line, lake=lake_poly)
   }
   
   # set up output names and projection
@@ -217,101 +220,11 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
 #' @param catchment the "Catchment" dataset from NHD from the "NHDPlusCatchment" component
 #' @param lake the "NHDWaterbody" dataset from NHD from the "NHDSnapshot" component
 #' @param edge data frame, the "PlusFlow" dataset from the "NHDPlusAttributes" component
-#' @param s2 logical if `FALSE` the function sets `sf::sf_use_s2(FALSE)` for computations
 #' @param fast logical if `TRUE` only the outlet, COMID, and boundary computed and returned
 #'
 #' @return list containing appropriate subsets of flow, catchment, lake, edge (see details) 
 #' @export
-get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, s2=FALSE, fast=FALSE) {
-
-  # turn off spherical approximation
-  if(!s2) {
-    
-    # for less chance of failure with corrupt geometries
-    if( sf::sf_use_s2() ) on.exit( sf::sf_use_s2(TRUE) |> suppressMessages() )
-    sf::sf_use_s2(FALSE) |> suppressMessages()
-  }
-  
-  # transform outlet coordinates to match catchments polygons
-  catch_crs = sf::st_crs(catchment) |> suppressMessages()
-  outlet_on_catch = sf::st_transform(outlet, catch_crs) |> suppressMessages()
-  
-  # find the (sub)catchment COMID for our outlet point
-  message('locating outlet')
-  covers_catch = catchment |> 
-    sf::st_geometry() |> 
-    sf::st_intersects(outlet_on_catch, sparse=FALSE) |> 
-    suppressMessages()
-  
-  # report the COMID for the point
-  if( sum(covers_catch) == 0 ) stop('outlet_point lies outside of all known catchments')
-  outlet_comid = catchment[['FEATUREID']][covers_catch][1]
-  message('outlet COMID: ', outlet_comid) 
-  
-  # find upstream COMIDs and sub-catchment polygons
-  message('following upstream tributaries')
-  sws_comid = comid_up(outlet_comid, edge)
-  sws_poly = catchment[catchment[['FEATUREID']] %in% sws_comid,] |> sf::st_make_valid()
-
-  # boundary polygon from union of associated sub-catchments - computations can be slow
-  message('merging ', length(sws_comid), ' sub-catchment polygons')
-  sws_poly_union = sws_poly |> 
-    sf::st_geometry() |>  
-    sf::st_union() |>
-    sf::st_cast('POLYGON') |> 
-    suppressMessages()
-
-  # cleaned up version representing sub-watershed boundary
-  boundary = sws_poly_union[[1]][[1]] |> 
-    list() |> 
-    sf::st_polygon() |> 
-    sf::st_sfc(crs=catch_crs) |> 
-    suppressMessages()
-  
-  # initialize output list
-  out_list = list(comid = as.character(outlet_comid),
-                  outlet = outlet,
-                  boundary = boundary)
-  
-  if(fast) {
-    
-    message('')
-    return(out_list)
-  }
-  
-  # copy edges and catchments subsets
-  is_sws_edge = edge[['TOCOMID']] %in% sws_comid
-  out_list[['edge']] = edge[is_sws_edge,]
-  out_list[['catchment']] = sws_poly
-  
-  # copy flow line subset
-  if( !is.null(flow) ) {
-    
-    # find subset of relevant flow-lines
-    is_sws_flow = flow[['COMID']] %in% sws_comid
-    message('found ', paste(sum(is_sws_flow), 'stream reach(es)'))
-    flow_out = flow[is_sws_flow,]
-    
-    # check for dangling stream reaches
-    is_inside = sf::st_intersects(flow_out, boundary, sparse=FALSE) |> suppressMessages()
-    out_list[['flow']] = flow_out[is_inside,]
-  }
-  
-  # copy lakes subset
-  if( !is.null(lake) ) {
-    
-    is_sws_lake = sf::st_intersects(lake, boundary, sparse=FALSE) |> suppressMessages()
-    message('found ', sum(is_sws_lake), ' lake(s)')
-    out_list[['lake']] = lake[is_sws_lake,]
-  }
-
-  return(out_list)
-}
-
-
-#' 
-#' 
-get_upstream2 = function(outlet, edge, catchment, flow=NULL, lake=NULL, fast=FALSE) {
+get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, fast=FALSE) {
 
   # project to UTM for computations
   crs_in = sf::st_crs(catchment)

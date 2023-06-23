@@ -4,15 +4,7 @@
 \alias{get_upstream}
 \title{Return a list of NHD geometry objects corresponding to the catchment for an outlet}
 \usage{
-get_upstream(
-  outlet,
-  edge,
-  catchment,
-  flow = NULL,
-  lake = NULL,
-  s2 = FALSE,
-  fast = FALSE
-)
+get_upstream(outlet, edge, catchment, flow = NULL, lake = NULL, fast = FALSE)
 }
 \arguments{
 \item{outlet}{an sfc_POINT object locating the outlet}
@@ -24,8 +16,6 @@ get_upstream(
 \item{flow}{the "NHDFlowline" dataset from the "NHDSnapshot" component}
 
 \item{lake}{the "NHDWaterbody" dataset from NHD from the "NHDSnapshot" component}
-
-\item{s2}{logical if \code{FALSE} the function sets \code{sf::sf_use_s2(FALSE)} for computations}
 
 \item{fast}{logical if \code{TRUE} only the outlet, COMID, and boundary computed and returned}
 }
