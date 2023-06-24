@@ -14,11 +14,13 @@ get_split(data_dir, gage = NULL, snap_dist = units::set_units(100, m))
 \item{snap_dist}{numeric with units, snapping distance to set "main" outlet}
 }
 \value{
-a list of
+a list with elements 'gage' and 'sub'
 }
 \description{
 This partitions the catchment in \code{data_dir} into a set of sub-catchments
-matching the layout of upstream NWIS gages.
+matching the layout of upstream NWIS gages, returning metadata about the
+gage points in \code{gage} and a nested list of geometries in \code{sub}, one for
+each sub-catchment.
 }
 \details{
 The inlets and outlets linking sub-catchments are placed on the same NHD
@@ -28,9 +30,8 @@ for this sub-catchment (if any) are themselves situated at \code{gage} points.
 
 Sub-catchments inherit name and ID fields from row of \code{gage} mapping to its
 outlet. If multiple elements in \code{gage} map to the same sub-catchment, the one
-with the highest 'count' field (most records) is used, and the others discarded.
-To find the sub-catchment associated with a \code{gage} element that was discarded,
-use the output data frame \code{gage_lookup}.
+with the highest 'count' field (most records) is used, and the others discarded
+when building outlet objects.
 
 If the main outlet of the catchment is not found within snapping distance
 \code{snap_dist} of a point in \code{gage}, the function appends the outlet point
@@ -41,8 +42,8 @@ The "true" outlet point for a sub-catchment (under the NHD model) lies at the
 intersection of the boundary of the NHD polygon for the outlet COMID, and its
 flow line. These points are calculated and returned in \code{outlet}. Note that \code{gage}
 points from NWIS will often be located slightly upstream of the true outlet for
-their NHD polygon. Thus two sets of boundary polygons are returned: \code{boundary_inner}
-is the partition; and \code{boundary} is a copy where the polygons for any inlets have
+their NHD polygon. Thus two sets of boundary polygons are returned: \code{boundary}
+is the partition; and \code{boundary_outer} is a copy where the polygons for any inlets have
 been joined to the downstream sub-catchment boundaries. This introduces overlap,
 but it produces a boundary more suitable for masking a DEM on its way to TauDEM
 (or QSWAT+).

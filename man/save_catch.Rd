@@ -2,9 +2,9 @@
 % Please edit documentation in R/get_catch.R
 \name{save_catch}
 \alias{save_catch}
-\title{Save the output of \code{get_catch} to disk}
+\title{Save the output of \code{get_catch} or \code{get_split} to disk}
 \usage{
-save_catch(data_dir, catch_list = NULL, overwrite = FALSE)
+save_catch(data_dir, catch_list = NULL, overwrite = FALSE, extra = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -12,6 +12,8 @@ save_catch(data_dir, catch_list = NULL, overwrite = FALSE)
 \item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
+
+\item{extra}{logical, if \code{TRUE} the function includes additional files used with \code{get_split}}
 }
 \value{
 the file names to write
@@ -19,13 +21,17 @@ the file names to write
 \description{
 When \code{overwrite=TRUE} the function writes 'outlet.geojson', 'catchment.geojson',
 'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
-objects to \code{sf::st_write}), and when \code{overwrite=FALSE} the function writes nothing
-but returns the file paths that would be written.
+objects to \code{sf::st_write}), and if \code{extra=TRUE}, \code{inlet.geojson}, \code{gage.geojson},
+and \code{boundary_outer.geojson} (from the output of \code{get_split}).
 }
 \details{
-The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-See \code{get_catch} and \code{get_upstream} for details on input datasets
+When \code{overwrite=FALSE} the function writes nothing but returns the file paths that
+would be written. All outputs are in WGS84 coordinates.
+
+See \code{get_catch} (and its helper \code{get_upstream}) and \code{get_split} (and its helper
+\code{split_catch}) for more details on input datasets.
 }
 \examples{
 save_catch('/example')
+save_catch('/example', extra=TRUE)
 }

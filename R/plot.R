@@ -1,82 +1,189 @@
-#' Plot the catchment for an outlet
+#' Plot catchment/sub-catchment features
 #' 
-#' This plots the catchment area, flow lines, and lakes/ponds upstream of
-#' the `outlet` passed to `get_catch`, along with the outlet itself (as a
-#' white circle).
+#' This plots one or more (sub)catchments listed in `sub_list`, drawing their
+#' features in sequence to a new or existing plot. Set a colour argument to
+#' `NULL` to not draw the associated feature.
 #' 
-#' The function adds a scale bar and sets the title automatically (as needed)
+#' `sub_list` should be the output of `get_catch` or `get_split` (or one of
+#' its sub-catchment elements). 
+#' 
+#' For a single (sub)catchment this draws, in order: the (sub)catchment interior
+#' and boundary; minor and main-stem flow lines; lakes; gages, outlets and inlets.
+#' The main outlet is plotted as a larger filled circle, and any inlets or gages
+#' as smaller filled circles. By default gages are plotted in grey and sub-catchment
+#' outlets in white.
+#' 
+#' When a list of sub-catchments is supplied the function combines them in a single
+#' plot by adding layers in the same order, but looping over all sub-catchments at
+#' each step. With inlets, this means the function paints the (sub)catchment areas
+#' twice - once including the NHD sub-catchment polygon(s) for the inlet(s) and once
+#' without. Flow lines downstream of any inlet(s) are also drawn twice, with
+#' `stem_col` specifying the color of the second layer.
+#' 
+#' Set a color argument to NULL to skip adding a feature.
+#' 
+#' The function adds a scale bar and sets the title automatically (when `main=NULL`)
 #' by copying the most frequently used name in the 'GNIS_NAME' field of the flow
 #' lines dataset and appending the COMID for the catchment polygon overlying the
 #' outlet.
 #' 
-#' All input geometries are transformed to coordinates in `crs_in` for plotting.
+#' All input geometries are transformed to coordinates in `crs_out` for plotting.
 #' By default this is set to UTM zone of the main outlet. 
+#' 
+#' The default transparent gray-scale color scheme is useful for layering on top
+#' of an existing color plot. For example you could plot a whole basin in color
+#' then use `plot_sub(..., add=TRUE)` to highlight a specific sub=catchment.
+#' Note that `add_scale` and `main` have no effect when adding to an existing plot
+#' with `add=TRUE`.
 #'
-#' @param catch_list list returned by `get_catch`
+#' @param sub_list list returned by `get_split` or `get_catch`
+#' @param crs_out CRS code accepted by `sf::st_crs` or NULL to use local UTM
+#' @param add logical whether to add to an existing plot, or (if `FALSE`) create a new one
+#' @param lwd line width for all lines drawn
+#' @param border_col character line color for catchment boundaries
+#' @param fill_col character fill color for catchment interiors
+#' @param stem_col character color for main stem flow lines
+#' @param stream_col character color for tributary flow lines
+#' @param lake_col character color for lakes
+#' @param outlet_col character fill color for outlet points
+#' @param inlet_col character fill color for inlet points
+#' @param add_scale logical, whether to add a scale bar
 #' @param main character, a title for the plot
-#'
-#' @return invisibly returns the scale bar line geometry from `draw_scale`
+#' 
+#' @return returns nothing but either creates a plot or adds to an existing one
 #' @export
-plot_catch = function(catch_list, main=NULL, crs_out=NULL) {
+plot_catch = function(sub_list, 
+                      crs_out = NULL,
+                      add = FALSE,
+                      lwd = 2,
+                      border_col = adjustcolor('white', alpha.f=0.8),
+                      fill_col = adjustcolor('black', alpha.f=0.2),
+                      stem_col = adjustcolor('black', alpha.f=0.5),
+                      stream_col = 'grey50',
+                      lake_col = 'grey20',
+                      gage_col = 'grey50',
+                      outlet_col = 'white',
+                      inlet_col = 'white',
+                      add_scale = TRUE,
+                      main = NULL) {
+                    
+  # sanity checks put first argument in list if needed
+  if( !is.list( sub_list[[1]] ) ) sub_list = sub_list |> list()
+  if( is.null(sub_list[[1]][['outlet']]) ) sub_list = sub_list |> list()
+  n_sub = length(sub_list)
   
-  # guess the name from a frequency table
-  if( is.null(main) ) {
+  # extract outlets (and possibly some inlets) and set default projection
+  outlet = do.call(rbind, lapply(unname(sub_list), \(x) x[['outlet']])) 
+  if( is.null(crs_out) ) crs_out = outlet |> head(1) |> to_utm() |> suppressMessages()
+  out = outlet |> sf::st_transform(crs_out)
+  
+  # pick the main outlet
+  is_out = out[['main_outlet']]
+  if( !any(is_out) & ( nrow(out) == 1 ) ) is_out = TRUE
+  
+  # extract inlet or gage objects, if any (ignore warnings about row-binding empty data frames)
+  gage = do.call(rbind, lapply(unname(sub_list), \(x) x[['gage']])) |> suppressWarnings()
+  inlet = do.call(rbind, lapply(unname(sub_list), \(x) x[['inlet']])) |> suppressWarnings()
+  if( !is.null(inlet) ) inlet = inlet |> sf::st_transform(crs_out) |> sf::st_geometry()
+  if( !is.null(gage) ) gage = gage |> sf::st_transform(crs_out) |> sf::st_geometry()
+  
+  # helper for next loop
+  merge_geo = function(nm, geo=TRUE) {
+   
+    # initialize to first list element
+    df_out = sub_list[[1]][[nm]]
     
-    main = catch_list[['flow']][['GNIS_NAME']] |> table() |> sort() |> tail(1) |> names()
-    main = main |> paste( paste('upstream of COMID', catch_list[['comid']]) )
+    # join the like named data frames in multiple elements case
+    if(n_sub > 1) df_out = do.call(rbind, lapply(sub_list, \(x) x[[nm]]))
+    if(!geo | is.null(df_out) ) return(df_out)
+    
+    # strip data frame leaving only geometry in output projection
+    df_out |> sf::st_geometry() |> sf::st_transform(crs_out)
+  }
+    
+  # copy and/or merge (and don't strip data frame from flow yet)
+  plot_list = list(boundary = merge_geo('boundary'),
+                   boundary_outer = merge_geo('boundary_outer'),
+                   edge = merge_geo('edge', geo=FALSE),
+                   lake = merge_geo('lake'),
+                   flow = merge_geo('flow', geo=FALSE))   
+  
+  # find and copy all COMIDs downstream of outlet/gage sites
+  comid_stem = c(outlet[['comid']], inlet[['comid']]) |> comid_down(plot_list[['edge']]) |> unique()
+  is_down = plot_list[['flow']][['COMID']] %in% comid_stem
+  
+  # copy and transform the flow lines
+  line_stream = plot_list[['flow']] |> sf::st_geometry() |> sf::st_transform(crs_out)
+  
+  # initialize the plot if needed
+  if( !add ) {
+   
+    # guess the name from a frequency table
+    if( is.null(main) ) {
+     
+      main = plot_list[['flow']][['GNIS_NAME']] |> table() |> sort() |> tail(1) |> names()
+      
+      # append COMID for main outlet (if there is one)
+      if( any(is_out) ) main = main |> paste( paste('upstream of COMID', out[['comid']][is_out]) ) 
+    }
+    plot_list[['boundary']] |> plot(main=main, border=NA) 
   }
   
-  # set default projection
-  if( is.null(crs_out) ) crs_out = to_utm(catch_list[['outlet']]) |> suppressMessages()
+  # fill sub-catchment interiors
+  if( !is.null(fill_col) ) {
+    
+    # fill sub-catchment interior first without then with inlet polygons
+    plot_list[['boundary']] |> plot(add=TRUE, col=fill_col, border=NA)
+    if( !is.null(plot_list[['boundary_outer']]) ) plot_list[['boundary_outer']] |> 
+      plot(add=TRUE, col=fill_col, border=NA)
+  }
   
-  # copy and transform the geo-referenced objects
-  nm_geo = c('boundary', 'flow', 'lake', 'outlet', 'inlet')
-  is_geo = names(catch_list) %in% nm_geo
-  plot_list = catch_list[is_geo] |> lapply(\(x) sf::st_transform(x, crs_out))
+  # draw sub-catchment boundaries
+  if( !is.null(border_col) ) plot_list[['boundary']] |> plot(add=TRUE, border=border_col, lwd=lwd)
   
-  # draw the plot objects
-  plot_list[['boundary']] |> sf::st_geometry() |> plot(main=main, col='grey90', border=NA)
-  plot_list[['flow']] |> sf::st_geometry() |> plot(add=TRUE, col='grey60')
-  plot_list[['lake']] |> sf::st_geometry() |> plot(add=TRUE, col='grey20', border=NA)
-  plot_list[['outlet']] |> sf::st_geometry() |> plot(add=T, cex=1.5, pch=16, col='white')
-  plot_list[['outlet']] |> sf::st_geometry() |> plot(add=T, cex=1.5, lwd=2, col='grey20')
-  
-  # add scale bar with position automatically set
-  scale_sf = plot_list[['boundary']] |> draw_scale(left=NULL)
-  return( invisible(scale_sf) )
-}
+  # draw the rest of the plot elements
+  if( !is.null(stream_col) ) line_stream |> plot(add=TRUE, col=stream_col)
+  if( !is.null(stem_col) ) line_stream[is_down] |> plot(add=TRUE, col=stem_col, lwd=lwd)
+  if( !is.null(lake_col) ) plot_list[['lake']] |> plot(add=TRUE, col=lake_col, border=NA)
+  if( !is.null(gage_col) ) gage |> draw_outlet(col_in=gage_col)
+  if( !is.null(outlet_col) ) out[is_out,] |> draw_outlet(col_in=outlet_col, cex=1.5)
+  if( !is.null(inlet_col) ) {
+    
+    # some inlets may be found in the `outlet` data frame
+    if( any(!is_out) ) out[!is_out,] |> draw_outlet(col_in=inlet_col)
+    if( !is.null(inlet) ) inlet |> draw_outlet(col_in=inlet_col)
+  }
 
-
-draw_sub_catch = function(sub_list, catch_list, stem=TRUE, crs_out=NULL) {
-  
-  # set default projection
-  if( is.null(crs_out) ) crs_out = to_utm(catch_list[['outlet']]) |> suppressMessages()
-  
-  # copy outlet/gage list and inner boundaries (partition)
-  outlet = do.call(rbind, lapply(sub_list, \(x) x[['outlet']])) |> sf::st_transform(crs_out)
-  boundary_sub = do.call(rbind, lapply(split_result, \(x) x[['boundary_inner']])) |> 
-    sf::st_geometry() |>
-    sf::st_transform(crs_out)
-
-  # find all flow lines downstream of outlet/gage sites
-  comid_stem = outlet[['comid']] |> comid_down(catch_list[['edge']]) |> unique()
-  line_stem = catch_list[['flow']][catch_list[['flow']][['COMID']] %in% comid_stem, ] |>
-    sf::st_geometry() |> sf::st_transform(crs_out)
-  
-  # highlight subcatchments by shading with transparent colors
-  boundary_col = adjustcolor('white', alpha.f=0.5)
-  fill_col = adjustcolor('black', alpha.f=0.3)
-  boundary_sub |> plot(add = T, col = fill_col, border = boundary_col, lwd = 2)
-  
-  # draw the plot objects
-  line_stem |> plot(add=TRUE, col=adjustcolor('black', 0.5), lwd=2)
-  outlet[ !outlet[['main_outlet']], ] |> sf::st_geometry() |> plot(add=T, pch=16, col='white')
-  outlet[ !outlet[['main_outlet']], ] |> sf::st_geometry() |> plot(add=T, lwd=2, col='grey20')
-  outlet[ outlet[['main_outlet']], ] |> sf::st_geometry() |> plot(add=T, cex=1.5, pch=16, col='white')
-  outlet[ outlet[['main_outlet']], ] |> sf::st_geometry() |> plot(add=T, cex=1.5, lwd=2, col='grey20')
+  # add a scale bar
+  scale_sf = NULL
+  if(!add & add_scale) scale_sf = plot_list[['boundary']] |> draw_scale(left=NULL)
+  return(invisible(scale_sf))
 }
   
+
+#' Draw one or more points with filled circles
+#' 
+#' Wrapper for `sf::plot.sf(p)`. This adds to an existing plot in the same
+#' coordinate system as `p`.
+#'
+#' @param p any POINT object understood by `sf::st_geometry()`
+#' @param cex passed to `plot`
+#' @param col_in character color of the border
+#' @param col_out character fill color
+#'
+#' @return nothing but draws on existing plot
+#' @export
+draw_outlet = function(p, cex=1, col_in='white', col_out='grey20') {
   
+  if( !is.null(p) ) { 
+   
+    # solid color for interior, then dark outline
+    p |> sf::st_geometry() |> plot(add=TRUE, pch=16, col=col_in, cex=cex)
+    p |> sf::st_geometry() |> plot(add=T, lwd=2, col=col_out, cex=cex) 
+  }
+  
+  return(invisible())
+}
   
 
 #' Create a scale bar and add it to an sf plot

@@ -22,20 +22,151 @@ data_dir = 'D:/rswat_data/nooksack'
 outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Deer Creek Reservoir, UT")
 
-
+# for rebuilding
 catch_list = outlet |> get_catch()
-save_catch(data_dir, catch_list, overwrite=TRUE)
+data_dir |> save_catch(catch_list, overwrite=TRUE)
 plot_catch(catch_list)
 
-# TODO plotter for all this
+catch_list = data_dir |> open_catch()
+plot_catch(catch_list)
+
+# split
 split_result = data_dir |> get_split()
+plot_catch(split_result)
+
+# # save a result test
+# data_dir_test = 'D:/rswat_data/yellowstone/split'
+# data_dir_test |> save_catch(catch_list=split_result[[1]], extra=TRUE, overwrite=TRUE)
+
+# example of two sub-catchments in context of larger basin
+catch_list |> plot_catch(stream_col=NULL)
+split_result |> plot_catch(stream_col=NULL, lake_col=NULL, fill_col=NULL, border_col=NULL, add=TRUE)
+split_result[c(3, 4)] |> plot_catch(stream_col='black', add=TRUE)
+
+# one of the examples, zoomed in
+i = 0
+i = i + 1
+split_result[[i]] |> plot_catch()
+
+sub_list = split_result[[i]]
+crs_out = NULL
+add = FALSE
+lwd = 2
+border_col = adjustcolor('white', alpha.f=0.8)
+fill_col = adjustcolor('black', alpha.f=0.2)
+stem_col = adjustcolor('black', alpha.f=0.5)
+stream_col = 'grey50'
+lake_col = 'grey20'
+gage_col = 'grey50'
+outlet_col = 'white'
+inlet_col = 'white'
+add_scale = TRUE
+main = NULL
+
+
+
+
+
+# overlay some context
+split_result |> plot_catch(add=T, fill_col=NULL)
+
+# plot showing overlap (inlet polygon) areas
+plot_catch(catch_list, stream_col=NULL)
+plot_catch(split_result, border_col=NULL, inlet_col=NULL, add=TRUE)
+
+
+plot_catch(split_result[c(3, 7, 5)])
+
+
+
 plot_catch(catch_list)
-draw_sub_catch(split_result, catch_list)
+
+plot_catch(catch_list)
+
+sub_list = split_result[[1]]
+crs_out = NULL
+add = FALSE
+lwd = 2
+border_col = adjustcolor('white', alpha.f=0.5)
+fill_col = adjustcolor('black', alpha.f=0.3)
+stem_col = adjustcolor('black', alpha.f=0.5)
+stream_col = 'grey60'
+lake_col = 'grey20'
+outlet_col = 'white'
+inlet_col = 'white'
+add_scale = TRUE
+main = NULL
 
 
+# gage = save_nwis(file.path(data_dir, 'nwis/flow_ft'))['station'] |> sf::st_read(quiet=TRUE)
+# 
+
+
+
+
+
+
+
+
+# split
+split_result = data_dir |> get_split()
+
+
+# plot result
+plot_catch(catch_list)
+plot_catch(split_result, add=T)
+
+plot_catch(split_result)
+
+plot_catch(split_result[1])
+
+sub_list = split_result[1]
+crs_out = NULL
+add = FALSE
+lwd = 2
+border_col = adjustcolor('white', alpha.f=0.5)
+fill_col = adjustcolor('black', alpha.f=0.3)
+stem_col = adjustcolor('black', alpha.f=0.5)
+outlet_col = 'white'
+inlet_col = 'white'
+add_scale = TRUE
+main = NULL
+
+bottom=TRUE
+left=FALSE
+above=bottom
+draw=TRUE
+size=1/5
+y_adj=0
+outer_adj=0
+lwd=2
+cex=1
+col='grey30'
+box_col=NA
+box_border=NA
+
+
+xx = obj |> sf::st_geometry() |> sf::st_transform(4326) |> head(1)
+
+sf::st_coordinates(xx)
+
+
+
+
+
+plot_catch(catch_list)
+plot_catch(split_result, add=TRUE)
 
 
 sub_list = split_result
+
+
+
+i = 0
+
+i = i + 1
+plot_catch(split_result[[i]])
+
 
 
 nwis_from = as.Date('2005-01-01')

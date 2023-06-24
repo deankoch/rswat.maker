@@ -14,7 +14,7 @@ split_catch(gage, edge, catchment)
 \item{catchment}{sf data frame of sub-catchment polygons ("Catchment" from "NHDPlusCatchment")}
 }
 \value{
-list with elements 'boundary', 'gage', 'gage_lookup'
+list with elements 'boundary', 'gage'
 }
 \description{
 This finds a partition of the union of the polygons in \code{catchment} based on the
@@ -39,7 +39,7 @@ in \code{gage}, and possibly one or more inlets (the upstream elements of \code{
 The output list has two elements
 \itemize{
 \item \code{boundary} is an sf data frame of sub-catchment polygons and flow directions
-\item \code{gage_lookup} is a data frame mapping points from \code{gage} to polygons in \code{boundary}
+\item \code{gage} is an sf points data frame including a mapping to polygons in \code{boundary}
 }
 
 Sub-catchments in \code{boundary} are assigned identifiers from their associated \code{gage}

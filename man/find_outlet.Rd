@@ -26,7 +26,4 @@ and its immediate downstream neighbour.
 The output is always in WGS84 coordinates. If there is no intersection, the
 function snaps the endpoint of the incomplete stream segment to the boundary
 and returns that point.
-
-Identifiers in the returned data frame (like 'site_no') are copied from \code{catch},
-so they describe the nearest gage site, which may be located
 }
