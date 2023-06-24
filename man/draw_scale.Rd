@@ -12,7 +12,7 @@ draw_scale(
   draw = TRUE,
   size = 1/5,
   y_adj = 0,
-  outer_adj = 0,
+  outer_adj = -0.01,
   lwd = 2,
   cex = 1,
   col = "grey30",
@@ -67,8 +67,8 @@ is applied to box the line and text. \code{box_col} causes the function to first
 rectangle of the requested color behind the scale bar (\code{box_border} is also passed to
 \code{rect} to set the border color).
 
-Calculations are done in the UTM projection but the results are returned in the
-coordinate system of the input \code{obj}. This means scale bars for plots in other
-coordinate systems (especially lon/lat) may look curved, but the reported path length
-of the line segment drawn will be accurate.
+Results are always returned in the coordinate system of the input \code{obj}, but if \code{obj}
+is in geographical coordinates (lon/lat) then computations are done in the UTM projection.
+This means scale bars in lon/lat plots may look curved, but the reported distance will
+be accurate for the path length of the line.
 }

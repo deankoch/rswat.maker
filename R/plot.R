@@ -8,7 +8,7 @@
 #' its sub-catchment elements). 
 #' 
 #' For a single (sub)catchment this draws, in order: the (sub)catchment interior
-#' and boundary; minor and main-stem flow lines; lakes; gages, outlets and inlets.
+#' and boundary; minor and main-stem flow lines; lakes; outlets, inlets and gages.
 #' The main outlet is plotted as a larger filled circle, and any inlets or gages
 #' as smaller filled circles. By default gages are plotted in grey and sub-catchment
 #' outlets in white.
@@ -39,7 +39,7 @@
 #' @param sub_list list returned by `get_split` or `get_catch`
 #' @param crs_out CRS code accepted by `sf::st_crs` or NULL to use local UTM
 #' @param add logical whether to add to an existing plot, or (if `FALSE`) create a new one
-#' @param lwd line width for all lines drawn
+#' @param lwd line width for stem lines and boundaries
 #' @param border_col character line color for catchment boundaries
 #' @param fill_col character fill color for catchment interiors
 #' @param stem_col character color for main stem flow lines
@@ -55,7 +55,7 @@
 plot_catch = function(sub_list, 
                       crs_out = NULL,
                       add = FALSE,
-                      lwd = 2,
+                      lwd = 1,
                       border_col = adjustcolor('white', alpha.f=0.8),
                       fill_col = adjustcolor('black', alpha.f=0.2),
                       stem_col = adjustcolor('black', alpha.f=0.5),
@@ -88,14 +88,16 @@ plot_catch = function(sub_list,
   if( !is.null(gage) ) gage = gage |> sf::st_transform(crs_out) |> sf::st_geometry()
   
   # helper for next loop
-  merge_geo = function(nm, geo=TRUE) {
+  merge_geo = function(nm, is_geo=TRUE) {
    
     # initialize to first list element
     df_out = sub_list[[1]][[nm]]
+    if( length(df_out) == 0 ) return(NULL)
     
-    # join the like named data frames in multiple elements case
-    if(n_sub > 1) df_out = do.call(rbind, lapply(sub_list, \(x) x[[nm]]))
-    if(!geo | is.null(df_out) ) return(df_out)
+    # join the like named data frames in multiple elements case (ignore warnings about empty dfs)
+    if( n_sub > 1 ) df_out = do.call(rbind, lapply(sub_list, \(x) x[[nm]]))
+    if( !is_geo ) return(df_out)
+    #if( nrow(df_out) == 0 ) return(NULL)
     
     # strip data frame leaving only geometry in output projection
     df_out |> sf::st_geometry() |> sf::st_transform(crs_out)
@@ -104,9 +106,9 @@ plot_catch = function(sub_list,
   # copy and/or merge (and don't strip data frame from flow yet)
   plot_list = list(boundary = merge_geo('boundary'),
                    boundary_outer = merge_geo('boundary_outer'),
-                   edge = merge_geo('edge', geo=FALSE),
+                   edge = merge_geo('edge', is_geo=FALSE),
                    lake = merge_geo('lake'),
-                   flow = merge_geo('flow', geo=FALSE))   
+                   flow = merge_geo('flow', is_geo=FALSE))   
   
   # find and copy all COMIDs downstream of outlet/gage sites
   comid_stem = c(outlet[['comid']], inlet[['comid']]) |> comid_down(plot_list[['edge']]) |> unique()
@@ -120,8 +122,8 @@ plot_catch = function(sub_list,
    
     # guess the name from a frequency table
     if( is.null(main) ) {
-     
-      main = plot_list[['flow']][['GNIS_NAME']] |> table() |> sort() |> tail(1) |> names()
+
+      main = most_frequent(plot_list[['flow']], 'GNIS_NAME')
       
       # append COMID for main outlet (if there is one)
       if( any(is_out) ) main = main |> paste( paste('upstream of COMID', out[['comid']][is_out]) ) 
@@ -138,14 +140,16 @@ plot_catch = function(sub_list,
       plot(add=TRUE, col=fill_col, border=NA)
   }
   
-  # draw sub-catchment boundaries
+  # draw sub-catchment boundaries and flow lines
   if( !is.null(border_col) ) plot_list[['boundary']] |> plot(add=TRUE, border=border_col, lwd=lwd)
-  
-  # draw the rest of the plot elements
   if( !is.null(stream_col) ) line_stream |> plot(add=TRUE, col=stream_col)
   if( !is.null(stem_col) ) line_stream[is_down] |> plot(add=TRUE, col=stem_col, lwd=lwd)
-  if( !is.null(lake_col) ) plot_list[['lake']] |> plot(add=TRUE, col=lake_col, border=NA)
-  if( !is.null(gage_col) ) gage |> draw_outlet(col_in=gage_col)
+  
+  # lakes may be absent
+  if( !is.null(lake_col) & !is.null(plot_list[['lake']]) ) plot_list[['lake']] |> 
+    plot(add=TRUE, col=lake_col, border=NA)
+  
+  # points
   if( !is.null(outlet_col) ) out[is_out,] |> draw_outlet(col_in=outlet_col, cex=1.5)
   if( !is.null(inlet_col) ) {
     
@@ -153,6 +157,7 @@ plot_catch = function(sub_list,
     if( any(!is_out) ) out[!is_out,] |> draw_outlet(col_in=inlet_col)
     if( !is.null(inlet) ) inlet |> draw_outlet(col_in=inlet_col)
   }
+  if( !is.null(gage_col) ) gage |> draw_outlet(col_in=gage_col)
 
   # add a scale bar
   scale_sf = NULL
@@ -205,10 +210,10 @@ draw_outlet = function(p, cex=1, col_in='white', col_out='grey20') {
 #' rectangle of the requested color behind the scale bar (`box_border` is also passed to
 #' `rect` to set the border color).
 #' 
-#' Calculations are done in the UTM projection but the results are returned in the
-#' coordinate system of the input `obj`. This means scale bars for plots in other
-#' coordinate systems (especially lon/lat) may look curved, but the reported path length
-#' of the line segment drawn will be accurate.
+#' Results are always returned in the coordinate system of the input `obj`, but if `obj`
+#' is in geographical coordinates (lon/lat) then computations are done in the UTM projection.
+#' This means scale bars in lon/lat plots may look curved, but the reported distance will
+#' be accurate for the path length of the line.
 #'
 #' @param obj the sf object that was used to create the plot
 #' @param bottom logical, whether to position the scale bar at top or bottom
@@ -226,25 +231,25 @@ draw_outlet = function(p, cex=1, col_in='white', col_out='grey20') {
 #' @return sf LINESTRING data frame describing and positioning the scale bar 
 #' @export
 draw_scale = function(obj, bottom=TRUE, left=FALSE, above=bottom, draw=TRUE,
-                      size=1/5, y_adj=0, outer_adj=0, lwd=2, cex=1,
+                      size=1/5, y_adj=0, outer_adj=-0.01, lwd=2, cex=1,
                       col='grey30', box_col=NA, box_border=NA) {
   
-  # take bounding box polygon and project to UTM coordinates
+  # take bounding box polygon and project to UTM coordinates if needed
   crs_in = sf::st_crs(obj)
-  crs_utm = to_utm(obj) |> suppressMessages()
-  bbox_utm = sf::st_geometry(obj) |> sf::st_bbox() |> sf::st_as_sfc() |> sf::st_transform(crs_utm)
+  crs_out = if( !sf::st_is_longlat(obj) ) crs_in else to_utm(obj) |> suppressMessages()
+  bbox_out = sf::st_geometry(obj) |> sf::st_bbox() |> sf::st_as_sfc() |> sf::st_transform(crs_out)
   
   # set default left/right choice based on distance
   if( is.null(left) ) {
     
     # project the whole input object (slow)
-    obj_utm = obj |> sf::st_geometry() |> sf::st_transform(crs_utm)
+    obj_out = obj |> sf::st_geometry() |> sf::st_transform(crs_out)
     
     # recursive call to get the two location options
     left_option = c(TRUE, FALSE)
     line_option = do.call(c, lapply(left_option, \(x) {
       
-      sf::st_geometry( draw_scale(obj_utm,
+      sf::st_geometry( draw_scale(obj_out,
                                   bottom=bottom, 
                                   left=x, 
                                   draw=FALSE, 
@@ -256,13 +261,13 @@ draw_scale = function(obj, bottom=TRUE, left=FALSE, above=bottom, draw=TRUE,
     }) )
     
     # pick the position that maximizes distance to obj
-    idx_best = sf::st_distance(line_option, obj_utm) |> apply(1, min) |> which.max()
+    idx_best = sf::st_distance(line_option, obj_out) |> apply(1, min) |> which.max()
     left = left_option[idx_best]
   }
   
   # add padding then take bounding box of result
-  pad_dist = outer_adj * sqrt( sf::st_area(bbox_utm) )
-  bbox_pad = sf::st_buffer(bbox_utm, pad_dist) |> sf::st_bbox() |> sf::st_as_sfc()
+  pad_dist = outer_adj * sqrt( sf::st_area(bbox_out) )
+  bbox_pad = sf::st_buffer(bbox_out, pad_dist) |> sf::st_bbox() |> sf::st_as_sfc()
   
   # extract line geometry from bounding box
   bbox_line = bbox_pad |> sf::st_cast('LINESTRING') 
@@ -270,7 +275,7 @@ draw_scale = function(obj, bottom=TRUE, left=FALSE, above=bottom, draw=TRUE,
   # copy the horizontal line segment of the padded bounding box - scale-bar gets drawn here
   idx_draw = if(bottom) 1:2 else 4:3
   if(!left) idx_draw = rev(idx_draw)
-  origin_line = bbox_line[[1]][idx_draw,] |> sf::st_linestring() |> sf::st_sfc(crs=crs_utm)
+  origin_line = bbox_line[[1]][idx_draw,] |> sf::st_linestring() |> sf::st_sfc(crs=crs_out)
   
   # measure whole side length then scale down to a lower and prettier number (based on `size`)
   origin_len = origin_line |> sf::st_cast('POINT') |> sf::st_distance() |> max()
@@ -280,7 +285,7 @@ draw_scale = function(obj, bottom=TRUE, left=FALSE, above=bottom, draw=TRUE,
   size_as_p =  output_len / units::drop_units(origin_len)
   output_xy = origin_line |> sf::st_cast('POINT') |> sf::st_coordinates()
   output_xy[2,'X'] = output_xy[1,'X'] + ifelse(left, 1, -1) * size_as_p * diff(sort(output_xy[,'X'])) 
-  output_line = sf::st_linestring(output_xy) |> sf::st_sfc(crs=crs_utm) |> sf::st_transform(crs_in)
+  output_line = sf::st_linestring(output_xy) |> sf::st_sfc(crs=crs_out) |> sf::st_transform(crs_in)
   
   # text label and units
   output_m = output_len |> units::set_units('m') |> units::drop_units()
