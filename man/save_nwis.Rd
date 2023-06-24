@@ -4,13 +4,7 @@
 \alias{save_nwis}
 \title{Save NWIS files to disk}
 \usage{
-save_nwis(
-  data_dir,
-  nwis_nm = "flow_ft",
-  nwis_list = NULL,
-  station_data = NULL,
-  overwrite = FALSE
-)
+save_nwis(data_dir, nwis_nm = "flow_ft", nwis_list = NULL, overwrite = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the output files directory}
@@ -19,23 +13,22 @@ save_nwis(
 
 \item{nwis_list}{list returned from \code{list_nwis}}
 
-\item{station_data}{data frame of station data (eg the result of \code{data_nwis})}
-
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 }
 \value{
 the file names to write
 }
 \description{
-This writes the output of \code{list_nwis} (to geoJSON and CSV) and \code{data_nwis} (to CSV),
-or reports the files that would be written.
+This writes the output of \code{list_nwis} (to geoJSON) or reports the files that would be written.
 }
 \details{
-When \code{overwrite=TRUE} the function writes non-NULL objects passed to \code{nwis_list} and
-\code{station_data} to disk. When \code{overwrite=FALSE} (the default) the function writes nothing
-but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes non-NULL objects in \code{nwis_list} to disk. When
+\code{overwrite=FALSE} (the default) the function writes nothing but returns the file paths
+that would be written.
 
-Files are written to the path \code{data_dir |> file.path('nwis', nwis_nm)}
+All files written by this function go in the directory \code{data_dir |> file.path('nwis', nwis_nm)}.
+Note that these are point location files, whereas the data values themselves are stored in the
+"raw" subdirectory (and they are written by a different function, \code{update_nwis})
 }
 \examples{
 save_nwis('/example')

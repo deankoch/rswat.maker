@@ -4,7 +4,13 @@
 \alias{save_split}
 \title{Save results of \code{get_split}}
 \usage{
-save_split(data_dir, sub_list = NULL, overwrite = FALSE, complete = TRUE)
+save_split(
+  data_dir,
+  sub_list = NULL,
+  overwrite = FALSE,
+  param_code = "00060",
+  stat_code = "00003"
+)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -12,21 +18,37 @@ save_split(data_dir, sub_list = NULL, overwrite = FALSE, complete = TRUE)
 \item{sub_list}{list returned from \code{get_split}}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
+
+\item{param_code}{character, passed to \code{nwis_split}}
+
+\item{stat_code}{character, passed to \code{nwis_split}}
 }
 \value{
-the directory paths to write
+list of two: the gage file path and a vector of directory paths
 }
 \description{
-This saves the list of sub-catchment features returned by \code{get_split} by calling
-\code{save_catch} in loop and writing the output to sub-directories of the "split" directory
-in \code{data_dir}. Directory names are taken from \code{names(sub_list)}
+This saves the sub-catchments returned by \code{get_split} to sub-directories of
+\code{file.path(data_dir, 'split')} with directory names copied from \code{names(sub_list)}.
+The applicable subset of outputs from \code{get_dem}, \code{get_land}, \code{get_soils}, and \code{get_nwis}
+are then copied to each sub-catchment in a loop. A single points data frame is also
+written to 'split/gage.geojson', mapping gages to sub-directories.
 }
 \details{
-The function returns a vector of paths to the sub-catchment directories. Pass any of these
-paths to \code{save_catch(overwrite=FALSE, extra=TRUE)} to get a list of the files written there.
+All raster files are cropped and masked to the union of the sub-catchment boundary
+and the inlet NHD polygon(s) (if any. See \code{?get_split}). Note that \code{gage}
 
-If no sub-catchment directories are found in the expected location and \code{overwrite=FALSE},
-the function returns an empty character.
+The function returns a list with: \code{gage}, the path to the mapping file; and \code{sub},
+a vector of paths to the sub-catchment directories. Pipe any of these directories to
+\code{save_catch}, \code{save_dem}, \code{save_land}, \code{save_soils}, or \code{save_nwis} to get a list of the
+files saved in each category.
+
+Once 'split/gage.geojson' has been written by this function, subsequent calls to
+\code{update_nwis(data_dir)} will distribute copies of relevant NWIS files to the
+sub-catchment directories of "split" so that each one is individually also up to date.
+
+\code{param_code} and \code{stat_code} select the stream gage variable to copy from the NWIS
+dataset for the catchment. They have no effect when listing directory paths with
+\code{overwrite=FALSE}, and can be left at their defaults to select discharge in ft3/s.
 }
 \examples{
 save_split('/example')

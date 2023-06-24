@@ -11,7 +11,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   
   # subdirectory for stream flow records and starting date
   nwis_from = as.Date('2005-01-01')
-  nwis_nm = 'nwis/flow_ft'
+  nwis_nm = 'flow_ft'
   
   # get paths written by the function
   nhd_path = data_dir |> save_catch()
@@ -44,7 +44,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
     
     # small batch of downloads, should complete in < 5 min  
-    get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
+    get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
   }
   
   # get land use data from GAP/LANDFIRE

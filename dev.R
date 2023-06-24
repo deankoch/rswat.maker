@@ -23,6 +23,9 @@ outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
 
+nwis_from = as.Date('2005-01-01')
+nwis_nm = 'flow_ft'
+
 # for rebuilding
 if(FALSE) {
   
@@ -30,17 +33,25 @@ if(FALSE) {
   data_dir |> save_catch(catch_list, overwrite=TRUE)
   plot_catch(catch_list)
   
-  nwis_from = as.Date('2005-01-01')
-  nwis_nm = 'nwis/flow_ft'
-  get_nwis(data_dir, nwis_nm=nwis_nm, from_initial=nwis_from)
-  
-  catch_list = data_dir |> open_catch()
-  plot_catch(catch_list)
+  get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+  update_nwis(data_dir, nwis_nm)
 }
+
+# open previously saved data
+catch_list = data_dir |> open_catch()
+plot_catch(catch_list)
 
 # split
 split_result = data_dir |> get_split()
 plot_catch(split_result)
+
+# save split datasets
+data_dir |> save_split(split_result, overwrite=TRUE)
+
+
+
+
+
 
 
 # new function split_nwis
@@ -53,7 +64,7 @@ update_nwis()
 
 catch_list$outlet |> to_utm()
 
-data_dir |> save_split(split_result, overwrite=TRUE)
+
 
 
 

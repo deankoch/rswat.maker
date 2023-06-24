@@ -234,7 +234,7 @@ open_catch = function(data_dir, extra=NULL) {
   # sanity check
   path_open = save_catch(data_dir, extra=extra)
   path_missing = !file.exists(path_open)
-  if( any(path_missing) ) warning('missing files ', paste(path_open[path_missing], collapse=', '))
+  if( any(path_missing) ) warning('missing file(s): ', paste(path_open[path_missing], collapse='\n'))
   
   # load non-geometry separately
   is_edge = names(path_open) == 'edge'

@@ -84,24 +84,26 @@ get_nwis = function(data_dir,
   # update/initialize stations data (writes to "raw")
   update_nwis(data_dir, nwis_nm, from=from_initial, param_code=param_code, stat_code=stat_code)
   
-  # load all station data
-  output_path = save_nwis(data_dir, nwis_nm)['data']
-  message('updating records from ', length(site_fetch), ' stations in ', output_path)
-  data_list = site_fetch |> lapply(\(s) {
-    
-      load_nwis(site = s,
-                data_dir,
-                nwis_nm,
-                output = 'data',
-                param_code = param_code,
-                stat_code = stat_code)
-  })
+  # TODO: check for split and distribute copies 
+  # split_nwis
   
-  # combine into a single data-frame and remove duplicates
-  data_df = do.call(rbind, data_list)
+  # # load all station data
+  # output_path = save_nwis(data_dir, nwis_nm)['data']
+  # message('updating records from ', length(site_fetch), ' stations in ', output_path)
+  # data_list = site_fetch |> lapply(\(s) {
+  #   
+  #     load_nwis(site = s,
+  #               data_dir,
+  #               nwis_nm,
+  #               output = 'data',
+  #               param_code = param_code,
+  #               stat_code = stat_code)
+  # })
+  # 
+  # # combine into a single data-frame and remove duplicates
+  # data_df = do.call(rbind, data_list)
 
-  # write to disk then return file paths written above
-  save_nwis(data_dir, nwis_nm, station_data=data_df, overwrite=TRUE)
+  # return file paths written above
   message('up to date')
   return(save_nwis(data_dir, nwis_nm, overwrite=FALSE))
 }
@@ -109,19 +111,19 @@ get_nwis = function(data_dir,
 
 #' Save NWIS files to disk
 #' 
-#' This writes the output of `list_nwis` (to geoJSON and CSV) and `data_nwis` (to CSV),
-#' or reports the files that would be written.
+#' This writes the output of `list_nwis` (to geoJSON) or reports the files that would be written.
 #' 
-#' When `overwrite=TRUE` the function writes non-NULL objects passed to `nwis_list` and
-#' `station_data` to disk. When `overwrite=FALSE` (the default) the function writes nothing
-#' but returns the file paths that would be written.
+#' When `overwrite=TRUE` the function writes non-NULL objects in `nwis_list` to disk. When
+#' `overwrite=FALSE` (the default) the function writes nothing but returns the file paths
+#' that would be written.
 #' 
-#' Files are written to the path `data_dir |> file.path('nwis', nwis_nm)`
+#' All files written by this function go in the directory `data_dir |> file.path('nwis', nwis_nm)`.
+#' Note that these are point location files, whereas the data values themselves are stored in the
+#' "raw" subdirectory (and they are written by a different function, `update_nwis`) 
 #' 
 #' @param data_dir character path to the output files directory
 #' @param nwis_nm character name of the output data sub-directory in "nwis"
 #' @param nwis_list list returned from `list_nwis`
-#' @param station_data data frame of station data (eg the result of `data_nwis`)
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #'
 #' @return the file names to write
@@ -129,27 +131,24 @@ get_nwis = function(data_dir,
 #'
 #' @examples
 #' save_nwis('/example')
-save_nwis = function(data_dir, nwis_nm='flow_ft', nwis_list=NULL,
-                     station_data=NULL, overwrite=FALSE) {
+save_nwis = function(data_dir, nwis_nm='flow_ft', nwis_list=NULL, overwrite=FALSE) {
 
   # catch invalid calls and switch to file list mode
-  if( is.null(nwis_list) & is.null(station_data) & overwrite ) {
+  if( is.null(nwis_list) & overwrite ) {
     
-    warning('overwrite=TRUE but nwis_list and station_data were NULL')
+    warning('overwrite=TRUE but nwis_list was NULL')
     overwrite = FALSE
   }
   
-  # output filenames
-  dest_fname = c(station = 'station.geojson',
-                 record = 'raw/all_station.csv',
-                 raw_dir = 'raw')
+  # output filenames and paths
+  dest_fname = c(station = 'station.geojson', record = 'raw/all_station.csv')
+  dest_path = file.path(data_dir, 'nwis', nwis_nm, dest_fname) |> stats::setNames(names(dest_fname))
   
-  # output paths
-  dest_path = data_dir |> file.path(nwis_nm, dest_fname) |> stats::setNames(names(dest_fname))
   if( !overwrite ) return(dest_path)
   
   # make the directories if necessary and remove any existing output files
-  if( !dir.exists(dest_path[['raw_dir']]) ) dir.create(dest_path[['raw_dir']], recursive=TRUE)
+  raw_dir = dest_path['record'] |> dirname()
+  if( !dir.exists(raw_dir) ) dir.create(raw_dir, recursive=TRUE)
   is_over = file.exists(dest_path[['record']])
   
   # write raw station metadata table
@@ -167,15 +166,84 @@ save_nwis = function(data_dir, nwis_nm='flow_ft', nwis_list=NULL,
     if( file.exists(dest_path[['station']]) ) unlink( dest_path[['station']] )
     nwis_list[['catch']] |> sf::st_write(dest_path[['station']])
   }
-
-  # write CSV of data at stations of interest
-  if( !is.null(station_data) ) {
-    
-    if( file.exists(dest_path[['data']]) ) unlink( dest_path[['data']] )
-    station_data |> write.csv(dest_path[['data']], row.names=FALSE)
-  }
   
   return( invisible(dest_path) )
+}
+
+
+#' Distribute copies of NWIS data files to the relevant sub-catchments
+#' 
+#' This is a helper for the `get_split` workflow, where sub-catchment data is saved
+#' to sub-directories of `file.path(data_dir, 'split')`. This function copies data from
+#' gages located at/near the outlet of each catchment, as well as any inlets, to the 'nwis'
+#' sub-directory for that catchment.
+#' 
+#' The function returns a vector of paths to the directories modified. Once the
+#' function has been called, users can pass any of these sub-directories to
+#' `update_nwis` to update only the gages associated with that catchment, or
+#' pass `data_dir` to update them all.
+#'
+#' @param data_dir character path to the output files directory
+#' @param nwis_nm character name of the output data sub-directory in "nwis"
+#' @param param_code character, the parameter code to update
+#' @param stat_code character, the statistic code to update
+#'
+#' @return character vector, paths to the directories modified
+#' @export
+split_nwis = function(data_dir, nwis_nm, param_code='00060', stat_code='00003') {
+  
+  # input all-station csv path
+  record_path = save_nwis(data_dir, nwis_nm)['record']
+
+  # load input gage file
+  gage_path = save_split(data_dir, param_code=param_code, stat_code=stat_code)[['gage']]
+  if( !file.exists(gage_path) ) stop('file not found: ', gage_path)
+  gage = gage_path |> sf::st_read(quiet=TRUE)
+  dest_dir = file.path(data_dir, 'split', unique(gage[['dir_name']]))
+  
+  # destination sub-catchment paths
+  sub_path = save_split(data_dir, param_code=param_code, stat_code=stat_code)[['sub']]
+  is_valid = dest_dir %in% sub_path
+  if( any(!is_valid) ) stop('missing directory: ', paste(dest_dir[!is_valid], collapse='\n'))
+  
+  # loop over sub-catchments
+  for( i in seq_along(dest_dir) ) {
+    
+    # input/output files 
+    record_in = save_nwis(data_dir, nwis_nm)['record']
+    record_out = save_nwis(dest_dir[i], nwis_nm)['record']
+    station_out = save_nwis(dest_dir[i], nwis_nm)['station']
+    
+    # directory tree
+    raw_dir = dirname(record_out)
+    if( !dir.exists(raw_dir) ) dir.create(raw_dir, recursive=TRUE)
+    
+    # load and join input outlets and inlets files 
+    point_in = save_catch(dest_dir[i], extra=TRUE)[c('outlet', 'inlet')]
+    station = do.call(rbind, lapply(point_in, \(p) sf::st_read(p, quiet=TRUE))) |> sf::st_sf()
+    
+    # find source paths for data files matching these site codes
+    site_in = station[['site_no']] |> 
+      sapply( \(s) load_nwis(s, data_dir, nwis_nm, param_code=param_code, stat_code=stat_code) )
+    
+    # and the destination paths
+    site_out = station[['site_no']] |> 
+      sapply( \(s) load_nwis(s, dest_dir[i], nwis_nm, param_code=param_code, stat_code=stat_code) )
+    
+    # helper for copying
+    my_copy = function(x, y) if(!file.exists(x)) stop('file not found: ', x) else x |> file.copy(y)
+
+    # copy files (delete any existing)
+    is_over = c(site_out, record_out) |> file.exists()
+    if( any(is_over) ) unlink( c(site_out, record_out)[is_over] )
+    Map(my_copy, x=c(site_in, record_in), y=c(site_out, record_out) )
+
+    # save station data
+    if( file.exists(station_out) ) unlink( station_out )
+    station |> sf::st_write(station_out, quiet=TRUE)
+  }
+  
+  return(dest_dir)
 }
 
 
@@ -290,14 +358,15 @@ update_nwis = function(data_dir, nwis_nm='flow_ft', from=NULL,
 #'
 #' @return either the file path (character), date range (length-2 POSIXct vector), or data frame
 #' @export
-load_nwis = function(site, data_dir, nwis_nm='flow_ft',
-                     output='path', param_code='00060', stat_code='00003') {
+load_nwis = function(site, data_dir, nwis_nm='flow_ft', output='path',
+                     param_code='00060', stat_code='00003') {
   
   # unique name for the this series
   output_nm = c(site, param_code, stat_code) |> paste(collapse='_') |> paste0('.csv') 
   
   # build file path from "raw"
-  output_path = save_nwis(data_dir, nwis_nm, overwrite=FALSE)['raw_dir'] |> file.path(output_nm)
+  raw_dir = save_nwis(data_dir, nwis_nm)['record'] |> dirname()
+  output_path = file.path(raw_dir, output_nm)
   
   # return from path mode then initialize date mode
   if(output=='path') return(output_path)
