@@ -46,7 +46,7 @@ get_split = function(data_dir,
   # look for default USGS stream gage stations found by `get_nwis`
   if( is.null(gage) ) {
     
-    gage_path = save_nwis(file.path(data_dir, 'nwis/flow_ft'))['station']
+    gage_path = save_nwis(data_dir, 'flow_ft')['station']
     message('loading gage points in ', gage_path)
     gage = sf::st_read(gage_path, quiet=TRUE)
   }
@@ -180,18 +180,99 @@ get_split = function(data_dir,
                           edge = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
 
   })
-
+  
+  # use shorter GNIS names whenever they are unique
+  nm_short = tolower(sapply(result_by_catch, \(x) most_frequent(x[['flow']], 'GNIS_NAME')))
+  nm_short = gsub('[^A-z]+', '_', nm_short)
+  nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
+  
   # use file-name-friendly title for names
-  return(stats::setNames(result_by_catch, outlet[['snail_name']]))
+  return(stats::setNames(result_by_catch, nm_short))
 }
 
 
-save_split = function(split_result) {
-  
-  
-  
-}
 
+#' Save results of `get_split`
+#' 
+#' This saves the list of sub-catchment features returned by `get_split` by calling
+#' `save_catch` in loop and writing the output to sub-directories of the "split" directory
+#' in `data_dir`. Directory names are taken from `names(sub_list)`
+#' 
+#' The function returns a vector of paths to the sub-catchment directories. Pass any of these
+#' paths to `save_catch(overwrite=FALSE, extra=TRUE)` to get a list of the files written there.
+#' 
+#' If no sub-catchment directories are found in the expected location and `overwrite=FALSE`,
+#' the function returns an empty character.
+#'
+#' @param data_dir character path to the directory to use for output files
+#' @param sub_list list returned from `get_split`
+#' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#'
+#' @return the directory paths to write
+#' @export
+#'
+#' @examples
+#' save_split('/example')
+#' save_split('/example', extra=TRUE)
+save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, complete=TRUE) {
+    
+  # check output directory for existing sub-catchments
+  dest_base = file.path(data_dir, 'split')
+  dest_dir = list.dirs(dest_base)
+  
+  # catch invalid calls
+  if( is.null(sub_list) ) {
+    
+    # switch to file path list mode when no data supplied
+    if( overwrite ) {
+      
+      warning('overwrite=TRUE but sub_list was NULL')
+      overwrite = FALSE
+    }
+    
+  } else {
+    
+    # set destination file paths based on list names
+    if( any( is.null( names(sub_list) ) ) ) stop('sub_list must be named')
+    dest_dir = file.path(dest_base, names(sub_list))
+  }
+  
+  # write the data in a loop
+  if( overwrite ) {
+    
+    # load the raster data needed for all iterations
+    dem = save_dem(data_dir)['dem'] |> terra::rast()
+    land = save_land(data_dir)['rast'] |> terra::rast()
+    soils = save_soils(data_dir)[['soils']]['rast'] |> terra::rast()
+
+    # loop over sub-catchments (and sub-directories)
+    n_sub = length(sub_list)
+    for(i in seq(n_sub)) {
+      
+      # save a copy of NHD catchment features
+      message('copying sub-catchment ', i, '/', n_sub, ' : ', gsub('_', ' ', basename(dest_dir[i])))
+      save_catch(dest_dir[i], sub_list[[i]], overwrite=TRUE, extra=TRUE)
+      
+      # use outer boundary to ensure aren't missing part of the DEM
+      bou = sub_list[[i]][['boundary_outer']] |> sf::st_geometry()
+      
+      # helper function for the rasters
+      clipr = function(r, bou) {
+        
+        bou_r = sf::st_transform(bou, sf::st_crs(r)) |> as('SpatVector')
+        r |> terra::crop(bou_r) |> terra::mask(bou_r)
+      }
+      
+      # mask the rasters and write output to disk
+      dest_dir[i] |> save_dem(clipr(dem, bou), overwrite=TRUE)
+      dest_dir[i] |> save_land(clipr(land, bou), overwrite=TRUE)
+      dest_dir[i] |> save_soils(clipr(soils, bou), overwrite=TRUE)
+    } 
+  }
+ 
+  # return all directories written
+  return( invisible(dest_dir) )
+}
 
 
 
