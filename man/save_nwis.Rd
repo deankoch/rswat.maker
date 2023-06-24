@@ -4,10 +4,18 @@
 \alias{save_nwis}
 \title{Save NWIS files to disk}
 \usage{
-save_nwis(nwis_dir, nwis_list = NULL, station_data = NULL, overwrite = FALSE)
+save_nwis(
+  data_dir,
+  nwis_nm = "flow_ft",
+  nwis_list = NULL,
+  station_data = NULL,
+  overwrite = FALSE
+)
 }
 \arguments{
-\item{nwis_dir}{character path to the directory to use for output files}
+\item{data_dir}{character path to the output files directory}
+
+\item{nwis_nm}{character name of the output data sub-directory in "nwis"}
 
 \item{nwis_list}{list returned from \code{list_nwis}}
 
@@ -26,6 +34,8 @@ or reports the files that would be written.
 When \code{overwrite=TRUE} the function writes non-NULL objects passed to \code{nwis_list} and
 \code{station_data} to disk. When \code{overwrite=FALSE} (the default) the function writes nothing
 but returns the file paths that would be written.
+
+Files are written to the path \code{data_dir |> file.path('nwis', nwis_nm)}
 }
 \examples{
 save_nwis('/example')

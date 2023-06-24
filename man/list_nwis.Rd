@@ -5,7 +5,8 @@
 \title{Fetch records of point data from stations at the National Water Information System (NWIS)}
 \usage{
 list_nwis(
-  nwis_dir,
+  data_dir,
+  nwis_nm = "flow_ft",
   param_code = "00060",
   stat_code = "00003",
   n_min = 10,
@@ -13,7 +14,9 @@ list_nwis(
 )
 }
 \arguments{
-\item{nwis_dir}{character path to the directory to look for output files}
+\item{data_dir}{character path to the output files directory}
+
+\item{nwis_nm}{character name of the output data sub-directory in "nwis"}
 
 \item{param_code}{character, the 5-digit NWIS parameter code (see \code{?usgs_lookup})}
 
@@ -28,17 +31,16 @@ list with data frames 'catch' and 'all'
 }
 \description{
 This calls \code{dataRetrieval::whatNWISdata} to get a list of available service records
-for the area of interest in \code{nwis_dir}. The area of interest is defined by the catchment
-boundary file at \code{save_catch(data_dir)['boundary']} extended outwards by \code{buff_m} metres
-(to allow for some innacuracy in positions).
+for the area of interest. This is defined by the catchment boundary file at
+\code{save_catch(data_dir)['boundary']}, extended outwards by \code{buff_m} metres.
 }
 \details{
 Currently this only checks for daily values (having \code{data_type_cd='dv'}). Records with
 fewer than \code{n_min} observations are skipped.
 
-The function retuns a list with two data frames: 'all' the output from
+The function retuns a list with two data frames: 'all' is the output from
 \code{dataRetrieval::whatNWISdata} before filtering for observation count and variable name;
-and 'catch' is an sf points data frame describing the station sites.
+and 'catch' is an sf points data frame describing the station sites of interest.
 
 Specify the statistic of interest by its stat code \code{stat_code} (see \code{?points_nwis}).
 Specify the variables of interest by supplying \code{param_code}. A lookup table for these

@@ -5,17 +5,20 @@
 \title{Load NWIS data from a file on disk, or return the date range within, or the file path}
 \usage{
 load_nwis(
-  nwis_dir,
   site,
+  data_dir,
+  nwis_nm = "flow_ft",
   output = "path",
   param_code = "00060",
   stat_code = "00003"
 )
 }
 \arguments{
-\item{nwis_dir}{character path to the directory to look for output files}
-
 \item{site}{character, the site code to fetch}
+
+\item{data_dir}{character path to the output files directory}
+
+\item{nwis_nm}{character name of the output data sub-directory in "nwis"}
 
 \item{output}{character, either 'path', 'date' , or 'values'}
 
@@ -28,7 +31,7 @@ either the file path (character), date range (length-2 POSIXct vector), or data 
 }
 \description{
 This function organizes the storage of bulk data downloads from NWIS. The data are
-stored in CSV files in the "raw" sub-directory of \code{nwis_dir}. File names are constructed
+stored in CSV files in the "raw" sub-directory of \code{nwis_nm}. File names are constructed
 by joining the site, parameter and statistic codes (in that order) separated by an
 underscore.
 }

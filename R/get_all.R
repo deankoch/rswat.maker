@@ -18,7 +18,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   dem_path = data_dir |> save_dem()
   land_path = data_dir |> save_land()
   soils_path = data_dir |> save_soils()
-  nwis_path = data_dir |> file.path(nwis_nm) |> save_nwis()
+  nwis_path = data_dir |> save_nwis(nwis_nm)
   
   # concatenate paths in list and return from list mode
   all_path = list(nhd=nhd_path, ned=dem_path, soils=soils_path)
