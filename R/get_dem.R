@@ -84,7 +84,7 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE) {
   sf::st_bbox(dem) |> 
     sf::st_as_sfc() |> 
     sf::st_transform(4326) |> 
-    sf::st_write(dest_path[['bbox']])
+    sf::st_write(dest_path[['bbox']], quiet=TRUE)
   
   # save dem data
   dem |> terra::writeRaster(dest_path[['dem']])

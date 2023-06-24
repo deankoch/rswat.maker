@@ -8,7 +8,7 @@ plot_catch(
   sub_list,
   crs_out = NULL,
   add = FALSE,
-  lwd = 2,
+  lwd = 1,
   border_col = adjustcolor("white", alpha.f = 0.8),
   fill_col = adjustcolor("black", alpha.f = 0.2),
   stem_col = adjustcolor("black", alpha.f = 0.5),
@@ -28,7 +28,7 @@ plot_catch(
 
 \item{add}{logical whether to add to an existing plot, or (if \code{FALSE}) create a new one}
 
-\item{lwd}{line width for all lines drawn}
+\item{lwd}{line width for stem lines and boundaries}
 
 \item{border_col}{character line color for catchment boundaries}
 
@@ -61,24 +61,17 @@ features in sequence to a new or existing plot. Set a colour argument to
 its sub-catchment elements).
 
 For a single (sub)catchment this draws, in order: the (sub)catchment interior
-and boundary; minor and main-stem flow lines; lakes; outlets and inlets.
-The main outlet is plotted as a larger filled circle, and any inlets as smaller
-filled circles.
+and boundary; minor and main-stem flow lines; lakes; outlets, inlets and gages.
+The main outlet is plotted as a larger filled circle, and any inlets or gages
+as smaller filled circles. By default gages are plotted in grey and sub-catchment
+outlets in white.
 
 When a list of sub-catchments is supplied the function combines them in a single
 plot by adding layers in the same order, but looping over all sub-catchments at
-each step.
-
-If an inlet is present, its NHD sub-catchment polygon is highlighted, along
-with all flow lines downstream of the inlet(s), which I am calling the "main-stem"
-flow lines.
-
-With inlets, the function paints the (sub)catchment areas twice - once
-including the NHD sub-catchment polygon(s) for the inlet(s) and once without.
-Since inlet polygons are shared by both upstream and downstream sub-catchments,
-this means (when using default colors) the polygon will have a relatively light
-tone on a single sub-catchment plot, whereas it will appear relatively dark on a
-multi-catchment plot (where it is drawn twice).
+each step. With inlets, this means the function paints the (sub)catchment areas
+twice - once including the NHD sub-catchment polygon(s) for the inlet(s) and once
+without. Flow lines downstream of any inlet(s) are also drawn twice, with
+\code{stem_col} specifying the color of the second layer.
 
 Set a color argument to NULL to skip adding a feature.
 

@@ -93,6 +93,7 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 #' `save_soils(overwrite=TRUE)` to write this merged layer to disk.
 #'
 #' @param data_dir character path to the directory to use for output files
+#' @param soils SpatRaster of soil MUKey values
 #' @param overwrite logical if `FALSE` the function just returns the file that would be written
 #'
 #' @return the file name to write

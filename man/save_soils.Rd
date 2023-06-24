@@ -9,6 +9,8 @@ save_soils(data_dir, soils = NULL, overwrite = FALSE)
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
+\item{soils}{SpatRaster of soil MUKey values}
+
 \item{overwrite}{logical if \code{FALSE} the function just returns the file that would be written}
 }
 \value{

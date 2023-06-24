@@ -176,3 +176,22 @@ biggest_poly = function(poly_list) {
 }
 
 
+#' Return the most frequent string a column of a data frame
+#'
+#' Counts appearances of unique strings in `x[[nm]]` and returns the most frequent
+#' one. If there is a tie, the function returns the one appearing first in the data
+#' frame. If there are no non-empty strings, the function returns `alt`
+#'
+#' @param x data frame with character column at `nm`
+#' @param nm character or integer identifying the column to check
+#' @param alt character, returned when in place of `NA`
+#'
+#' @return character
+#' @export
+most_frequent = function(df_nm, nm=1, alt='unnamed') {
+  
+  char_out = df_nm[[nm]] |> table(useNA='no') |> sort() |> tail(1) |> names()
+  if( is.null(char_out) ) char_out = alt
+  if( nchar(char_out) == 0 ) char_out = alt
+  return(char_out)
+}

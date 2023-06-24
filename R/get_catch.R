@@ -204,7 +204,7 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE, extra=FALSE) {
     if( is.null(x_out) ) { warning('nothing to write in element: ', nm) } else {
     
       # write the geometry
-      x_out |> sf::st_transform(4326) |> sf::st_write(dest_path[[nm]])
+      x_out |> sf::st_transform(4326) |> sf::st_write(dest_path[[nm]], quiet=TRUE)
     }
   }
 
