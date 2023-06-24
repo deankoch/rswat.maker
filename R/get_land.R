@@ -67,8 +67,11 @@ save_land = function(data_dir, land=NULL, overwrite=FALSE) {
 
   # save as CSV a lookup table of names and descriptions for each ID code in the raster
   land_lvl = land[] |> unique()
-  land_use_df = land_use_lookup |> dplyr::filter(id %in% land_lvl) |> dplyr::select(-description)
-  land_use_df |> write.csv(dest_path[['lookup']], row.names=FALSE, quote=FALSE)
+  land_use_lookup |> 
+    dplyr::filter(!is.na(id)) |> 
+    dplyr::filter(id %in% land_lvl) |> 
+    dplyr::select(-description) |> 
+    write.csv(dest_path[['lookup']], row.names=FALSE, quote=FALSE)
   
   return(dest_path)
 }
