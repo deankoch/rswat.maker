@@ -12,8 +12,8 @@
 #' c(-110, 45) |> sf::st_point() |> to_utm()
 to_utm = function(x) {
   
-  # longitude and latitude
-  xy = x |> sf::st_geometry() |> sf::st_transform(4326) |> sf::st_coordinates()
+  # longitude and latitude from first element in the geometry collection
+  xy = x |> sf::st_geometry() |> sf::st_transform(4326) |> head(1) |> sf::st_coordinates()
   lon = xy[1]
   lat = xy[2]
   
