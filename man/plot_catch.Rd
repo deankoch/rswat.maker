@@ -2,28 +2,97 @@
 % Please edit documentation in R/plot.R
 \name{plot_catch}
 \alias{plot_catch}
-\title{Plot the catchment for an outlet}
+\title{Plot catchment/sub-catchment features}
 \usage{
-plot_catch(catch_list, main = NULL, crs_out = NULL)
+plot_catch(
+  sub_list,
+  crs_out = NULL,
+  add = FALSE,
+  lwd = 2,
+  border_col = adjustcolor("white", alpha.f = 0.8),
+  fill_col = adjustcolor("black", alpha.f = 0.2),
+  stem_col = adjustcolor("black", alpha.f = 0.5),
+  stream_col = "grey50",
+  lake_col = "grey20",
+  gage_col = "grey50",
+  outlet_col = "white",
+  inlet_col = "white",
+  add_scale = TRUE,
+  main = NULL
+)
 }
 \arguments{
-\item{catch_list}{list returned by \code{get_catch}}
+\item{sub_list}{list returned by \code{get_split} or \code{get_catch}}
+
+\item{crs_out}{CRS code accepted by \code{sf::st_crs} or NULL to use local UTM}
+
+\item{add}{logical whether to add to an existing plot, or (if \code{FALSE}) create a new one}
+
+\item{lwd}{line width for all lines drawn}
+
+\item{border_col}{character line color for catchment boundaries}
+
+\item{fill_col}{character fill color for catchment interiors}
+
+\item{stem_col}{character color for main stem flow lines}
+
+\item{stream_col}{character color for tributary flow lines}
+
+\item{lake_col}{character color for lakes}
+
+\item{outlet_col}{character fill color for outlet points}
+
+\item{inlet_col}{character fill color for inlet points}
+
+\item{add_scale}{logical, whether to add a scale bar}
 
 \item{main}{character, a title for the plot}
 }
 \value{
-invisibly returns the scale bar line geometry from \code{draw_scale}
+returns nothing but either creates a plot or adds to an existing one
 }
 \description{
-This plots the catchment area, flow lines, and lakes/ponds upstream of
-the \code{outlet} passed to \code{get_catch}, along with the outlet itself (circled).
+This plots one or more (sub)catchments listed in \code{sub_list}, drawing their
+features in sequence to a new or existing plot. Set a colour argument to
+\code{NULL} to not draw the associated feature.
 }
 \details{
-The function adds a scale bar and sets the title automatically (as needed)
+\code{sub_list} should be the output of \code{get_catch} or \code{get_split} (or one of
+its sub-catchment elements).
+
+For a single (sub)catchment this draws, in order: the (sub)catchment interior
+and boundary; minor and main-stem flow lines; lakes; outlets and inlets.
+The main outlet is plotted as a larger filled circle, and any inlets as smaller
+filled circles.
+
+When a list of sub-catchments is supplied the function combines them in a single
+plot by adding layers in the same order, but looping over all sub-catchments at
+each step.
+
+If an inlet is present, its NHD sub-catchment polygon is highlighted, along
+with all flow lines downstream of the inlet(s), which I am calling the "main-stem"
+flow lines.
+
+With inlets, the function paints the (sub)catchment areas twice - once
+including the NHD sub-catchment polygon(s) for the inlet(s) and once without.
+Since inlet polygons are shared by both upstream and downstream sub-catchments,
+this means (when using default colors) the polygon will have a relatively light
+tone on a single sub-catchment plot, whereas it will appear relatively dark on a
+multi-catchment plot (where it is drawn twice).
+
+Set a color argument to NULL to skip adding a feature.
+
+The function adds a scale bar and sets the title automatically (when \code{main=NULL})
 by copying the most frequently used name in the 'GNIS_NAME' field of the flow
 lines dataset and appending the COMID for the catchment polygon overlying the
 outlet.
 
-All input geometries are transformed to coordinates in \code{crs_in} for plotting.
+All input geometries are transformed to coordinates in \code{crs_out} for plotting.
 By default this is set to UTM zone of the main outlet.
+
+The default transparent gray-scale color scheme is useful for layering on top
+of an existing color plot. For example you could plot a whole basin in color
+then use \code{plot_sub(..., add=TRUE)} to highlight a specific sub=catchment.
+Note that \code{add_scale} and \code{main} have no effect when adding to an existing plot
+with \code{add=TRUE}.
 }

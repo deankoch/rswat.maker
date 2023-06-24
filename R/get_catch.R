@@ -24,8 +24,8 @@
 #' 
 #' The function returns a list with the following
 #' 
-#' * `comid` integer COMID associated with the outlet 
-#' * `outlet` sfc_POINT, the outlet location
+#' * `comid` integer  associated with the outlet 
+#' * `outlet` sf points data frame, the outlet point and some metadata
 #' * `boundary` sfc_POLYGON, the catchment boundary inscribing all areas draining to `outlet`
 #' 
 #' If `fast=FALSE`, the returned list also includes
@@ -109,6 +109,17 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
     result_list = get_upstream(outlet, edge, catchment=catch_poly, flow=flow_line, lake=lake_poly)
   }
   
+  # outlet metadata for later use
+  outlet_df = data.frame(comid = result_list[['comid']],
+                         main_outlet = TRUE,
+                         count = 0,
+                         station_nm = 'main') 
+  
+  # copy outlet point along with some metadata for later use
+  station_nm = 'main outlet created by rswat'
+  result_list[['outlet']] = outlet_df |> 
+    sf::st_sf(geometry=result_list[['outlet']])
+  
   # set up output names and projection
   if( is.null(crs_out) ) crs_out = epsg_utm 
   if( !anyNA(crs_out) ) {
@@ -123,26 +134,31 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
 }
 
 
-#' Save the output of `get_catch` to disk
+#' Save the output of `get_catch` or `get_split` to disk
 #' 
 #' When `overwrite=TRUE` the function writes 'outlet.geojson', 'catchment.geojson',
 #' 'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
-#' objects to `sf::st_write`), and when `overwrite=FALSE` the function writes nothing
-#' but returns the file paths that would be written.
+#' objects to `sf::st_write`), and if `extra=TRUE`, `inlet.geojson`, `gage.geojson`,
+#' and `boundary_outer.geojson` (from the output of `get_split`). 
 #' 
-#' The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-#' See `get_catch` and `get_upstream` for details on input datasets 
+#' When `overwrite=FALSE` the function writes nothing but returns the file paths that
+#' would be written. All outputs are in WGS84 coordinates.
+#' 
+#' See `get_catch` (and its helper `get_upstream`) and `get_split` (and its helper
+#' `split_catch`) for more details on input datasets.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#' @param extra logical, if `TRUE` the function includes additional files used with `get_split`
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_catch('/example')
-save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
+#' save_catch('/example', extra=TRUE)
+save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE, extra=FALSE) {
   
   # catch invalid calls and switch to file list mode
   if( is.null(catch_list) & overwrite ) {
@@ -154,15 +170,21 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
   # output directory
   dest_dir = file.path(data_dir, 'nhd')
   
-  # output filenames (outlet and edge listed first on purpose)
-  dest_fname = c(outlet = 'outlet.geojson',
-                 edge = 'edge.csv',
+  # output filenames (edge listed first on purpose)
+  dest_fname = c(edge = 'edge.csv',
+                 outlet = 'outlet.geojson',
                  catchment = 'catchment.geojson',
                  flow = 'flow.geojson',
                  lake = 'lake.geojson',
                  boundary = 'boundary.geojson')
   
+  # extra filenames when saving results of `get_split`
+  extra_fname = c(inlet = 'inlet.geojson',
+                  gage = 'gage.geojson',
+                  boundary_outer = 'boundary_outer.geojson')
+                 
   # output paths
+  if(extra) dest_fname = c(dest_fname, extra_fname)
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
   if( !overwrite ) return(dest_path)
   
@@ -171,26 +193,57 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE) {
   is_over = file.exists(dest_path)
   if( any(is_over) ) unlink(dest_path[is_over])
   
-  # save COMID and outlet point in the same geoJSON object
-  data.frame(comid=catch_list[['comid']]) |> 
-    sf::st_sf(geometry=catch_list[['outlet']]) |>
-    sf::st_transform(4326) |>
-    sf::st_write(dest_path[['outlet']])
-  
   # save edge data as CSV
   catch_list[['edge']] |> write.csv(dest_path[['edge']], row.names=FALSE, quote=FALSE)
   
-  # save everything else in a distinct geoJSON
-  names(dest_fname[-(1:2)]) |> lapply(\(x) {
+  # save everything else in geoJSON files
+  for( nm in names(dest_fname[-1]) ) {
     
-    sf::st_sf(geometry=catch_list[[x]]) |>
-      sf::st_transform(4326) |>
-      sf::st_write(dest_path[[x]])
-
-    })
+    # check for unexpectedly empty list element
+    x_out = catch_list[[nm]]
+    if( is.null(x_out) ) { warning('nothing to write in element: ', nm) } else {
+    
+      # write the geometry
+      x_out |> sf::st_transform(4326) |> sf::st_write(dest_path[[nm]])
+    }
+  }
 
   # return all paths
   return(dest_path)
+}
+
+
+#' Open catchment model geometries saved by `save_catch`
+#' 
+#' With default `extra=NULL` the function loads the extra files only if they all exist.
+#' The function will otherwise proceed with some/all files missing and simply omit the
+#' missing object (with a warning) or, in the case of `edge`, returning a `NULL` in its place
+#' 
+#' See `get_catch` for more detail on the output elements
+#'
+#' @param data_dir character path to the output files directory
+#' @param extra logical, if `TRUE` the function includes additional files used with `get_split
+#'
+#' @return a list with elements 'edge', 'outlet', 'catchment', 'flow', 'lake', 'boundary'
+#' @export
+open_catch = function(data_dir, extra=NULL) {
+  
+  # set default extra 
+  if( is.null(extra) ) extra = save_catch(data_dir, extra=TRUE) |> file.exists() |> all() 
+  
+  # sanity check
+  path_open = save_catch(data_dir, extra=extra)
+  path_missing = !file.exists(path_open)
+  if( any(path_missing) ) warning('missing files ', paste(path_open[path_missing], collapse=', '))
+  
+  # load non-geometry separately
+  is_edge = names(path_open) == 'edge'
+  edge = if( !any(is_edge) ) NULL else path_open[is_edge] |> read.csv()
+  
+  # return everything in one list
+  is_pending = !is_edge & !path_missing
+  if( !any(is_pending) ) return( list(edge=edge) )
+  list(edge=edge) |> c(lapply(path_open[is_pending], \(x) sf::st_read(x, quiet=TRUE)))
 }
 
 #' Return a list of NHD geometry objects corresponding to the catchment for an outlet

@@ -1,7 +1,9 @@
 #' Split a catchment into sub-catchments with an NWIS gage at each outlet 
 #'
 #' This partitions the catchment in `data_dir` into a set of sub-catchments
-#' matching the layout of upstream NWIS gages.
+#' matching the layout of upstream NWIS gages, returning metadata about the
+#' gage points in `gage` and a nested list of geometries in `sub`, one for
+#' each sub-catchment.
 #' 
 #' The inlets and outlets linking sub-catchments are placed on the same NHD
 #' catchment polygons as the `gage` points. This ensures that each gage is
@@ -10,9 +12,8 @@
 #' 
 #' Sub-catchments inherit name and ID fields from row of `gage` mapping to its
 #' outlet. If multiple elements in `gage` map to the same sub-catchment, the one
-#' with the highest 'count' field (most records) is used, and the others discarded.
-#' To find the sub-catchment associated with a `gage` element that was discarded,
-#' use the output data frame `gage_lookup`.
+#' with the highest 'count' field (most records) is used, and the others discarded
+#' when building outlet objects.
 #' 
 #' If the main outlet of the catchment is not found within snapping distance
 #' `snap_dist` of a point in `gage`, the function appends the outlet point
@@ -23,8 +24,8 @@
 #' intersection of the boundary of the NHD polygon for the outlet COMID, and its
 #' flow line. These points are calculated and returned in `outlet`. Note that `gage`
 #' points from NWIS will often be located slightly upstream of the true outlet for
-#' their NHD polygon. Thus two sets of boundary polygons are returned: `boundary_inner`
-#' is the partition; and `boundary` is a copy where the polygons for any inlets have
+#' their NHD polygon. Thus two sets of boundary polygons are returned: `boundary`
+#' is the partition; and `boundary_outer` is a copy where the polygons for any inlets have
 #' been joined to the downstream sub-catchment boundaries. This introduces overlap,
 #' but it produces a boundary more suitable for masking a DEM on its way to TauDEM
 #' (or QSWAT+).
@@ -36,7 +37,7 @@
 #' @param gage sf points data frame, point of interest at which to split the catchment
 #' @param snap_dist numeric with units, snapping distance to set "main" outlet
 #'
-#' @return a list of 
+#' @return a list with elements 'gage' and 'sub'
 #' @export
 get_split = function(data_dir, 
                      gage = NULL, 
@@ -108,7 +109,7 @@ get_split = function(data_dir,
   flow_utm[['COMID']] = as.character(flow_utm[['COMID']])
   
   # compute true outlet locations and bind with metadata from nearest gage
-  outlet = split_result[['boundary']] |> find_outlet(edge, flow_utm)
+  outlet = split_result[['boundary']] |> find_outlet(edge, flow=flow_utm)
 
   # load lakes
   lake_utm = save_catch(data_dir)['lake'] |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
@@ -119,8 +120,8 @@ get_split = function(data_dir,
     # avoid slow spatial query by following the COMIDs
     comid = outlet[['comid']][i]
     comid_check =  comid_up(comid, edge)
-    boundary_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
-    boundary_inner_i = boundary_i
+    boundary_outer_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
+    boundary_inner_i = boundary_outer_i
     
     # initialize data frame of inlets
     inlet_i = outlet[0,]
@@ -143,12 +144,12 @@ get_split = function(data_dir,
       poly_new = poly_add |> 
         sf::st_geometry() |> 
         sf::st_make_valid() |>
-        c(sf::st_geometry(boundary_i)) |>
+        c(sf::st_geometry(boundary_outer_i)) |>
         sf::st_union() |> 
         biggest_poly()
 
       # overwrite the geometry in the projected boundary polygon
-      sf::st_geometry(boundary_i) = poly_new |> sf::st_transform(crs_utm)
+      sf::st_geometry(boundary_outer_i) = poly_new |> sf::st_transform(crs_utm)
     }
     
     # copy the relevant flow lines
@@ -157,36 +158,32 @@ get_split = function(data_dir,
     # filter to COMIDs that appear in flow
     catch_sub = catch[ catch[['FEATUREID']] %in% comid_check, ] |> sf::st_transform(crs_utm)
     
-    # spatial filter
-    is_lake_touching = lake_utm |> sf::st_geometry() |> sf::st_intersection(boundary_i, sparse=FALSE)
-    lake_sub = lake_utm[is_lake_touching, ]
-
-    # copy all site numbers (in case of duplicates)
-    site_no = split_result[['gage_lookup']] |> 
-      dplyr::filter(comid==outlet[['comid']][i]) |> 
-      dplyr::pull('site_no')
+    # spatial filter for lakes
+    is_in = sf::st_geometry(lake_utm) |> sf::st_intersection(boundary_outer_i, sparse=FALSE)
+    lake_sub = lake_utm[is_in, ]
+    
+    # copy relevant gages
+    gage_i = split_result[['gage']][ split_result[['gage']][['comid']] %in% comid, ]
     
     # transform spatial layers to WGS84
     spatial_out = list(outlet = outlet[i,],
                        inlet = inlet_i,
-                       boundary_inner = boundary_inner_i,
-                       boundary = boundary_i,
+                       gage = gage_i,
+                       boundary = boundary_inner_i,
+                       boundary_outer = boundary_outer_i,
                        lake = lake_sub,
                        flow = flow_sub,
                        catchment = catch_sub) |> lapply(\(x) sf::st_transform(x, 4326))
     
-    # combine with non-spatial outputs
+    # combine with non-spatial output
     spatial_out |> c(list(comid = comid,
-                          site_no = site_no,
-                          edge_sub = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
+                          edge = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
 
   })
-    
+
   # use file-name-friendly title for names
-  return( stats::setNames(result_by_catch, outlet[['snail_name']]) )
+  return(stats::setNames(result_by_catch, outlet[['snail_name']]))
 }
-
-
 
 
 save_split = function(split_result) {
@@ -221,7 +218,7 @@ save_split = function(split_result) {
 #' The output list has two elements
 #' 
 #' * `boundary` is an sf data frame of sub-catchment polygons and flow directions
-#' * `gage_lookup` is a data frame mapping points from `gage` to polygons in `boundary`
+#' * `gage` is an sf points data frame including a mapping to polygons in `boundary`
 #' 
 #' Sub-catchments in `boundary` are assigned identifiers from their associated `gage`
 #' ('station_nm' and 'comid'). If multiple `gage` points lie on the same `catchment`
@@ -233,7 +230,7 @@ save_split = function(split_result) {
 #' @param edge data frame of flow line directed edges ("PlusFlow" from "NHDPlusAttributes")
 #' @param catchment sf data frame of sub-catchment polygons ("Catchment" from "NHDPlusCatchment")
 #'
-#' @return list with elements 'boundary', 'gage', 'gage_lookup'
+#' @return list with elements 'boundary', 'gage'
 #' @export
 split_catch = function(gage, edge, catchment) {
 
@@ -267,7 +264,7 @@ split_catch = function(gage, edge, catchment) {
   sub_poly = do.call(c, lapply(gage_result, \(x) x[['boundary']]))
   
   # for each gage point, find nearest downstream neighbour
-  gage[['downstream']] = seq(n_gage) |> sapply(\(i) {
+  downstream_list = seq(n_gage) |> sapply(\(i) {
     
     # find all downstream COMIDs (in order) and return the first nontrivial match
      data.frame(comid = comid_down(gage[['comid']][i], edge)) |>
@@ -276,22 +273,24 @@ split_catch = function(gage, edge, catchment) {
       dplyr::pull(comid) |> 
       head(1)
   })
+  
+  # copy downstream key
+  gage[['downstream']] = downstream_list |> sapply(\(x) ifelse(is.null(x), NA, x))
 
   # flag headwaters sub-catchments
   gage[['headwater']] = !( gage[['comid']] %in% gage[['downstream']] )
   
   # add name in snail case - slightly simpler (but still long) version of station_nm
   gage[['snail_name']] = gsub('[^A-z]+', '_', gage[['station_nm']], perl=TRUE) |> tolower()
-  
-  # copy NWIS site key for later finding catchment of a duplicate record
-  lu_nm = c('station_nm', 'snail_name', 'site_no', 'comid')
-  gage_lookup = gage[lu_nm] |> sf::st_drop_geometry()
 
+  # columns to keep
+  poly_nm = c('station_nm', 'snail_name', 'site_no', 'comid',
+              'downstream', 'headwater', 'main_outlet', 'geometry')
+  
   # make sf data frame from polygons
-  poly_nm = c('downstream', 'headwater', 'main_outlet', 'geometry')
   sub_sf = sf::st_sf(gage, geometry=do.call(c, lapply(gage_result, \(x) x[['boundary']]))) |>
     dplyr::arrange( dplyr::desc(count) ) |>
-    dplyr::select( dplyr::all_of( c(lu_nm, poly_nm) ) )
+    dplyr::select( dplyr::all_of(poly_nm) )
   
   # omit (any) duplicate sub-catchments and re-order
   sub_sf = sub_sf[!duplicated(sub_sf[['comid']]), ]
@@ -325,8 +324,7 @@ split_catch = function(gage, edge, catchment) {
   }
 
   # st_sf sets geometry column properly
-  return(result_list = list(boundary = sub_sf |> sf::st_sf(),
-                            gage_lookup = gage_lookup))
+  return(result_list = list(boundary = sf::st_sf(sub_sf), gage=sf::st_sf(gage)))
 }
 
 
@@ -340,9 +338,6 @@ split_catch = function(gage, edge, catchment) {
 #' The output is always in WGS84 coordinates. If there is no intersection, the
 #' function snaps the endpoint of the incomplete stream segment to the boundary
 #' and returns that point.
-#' 
-#' Identifiers in the returned data frame (like 'site_no') are copied from `catch`,
-#' so they describe the nearest gage site, which may be located 
 #'
 #' @param catch sf data frame of sub-catchment polygons with 'comid' field
 #' @param edge data frame of flow line directed edges ("PlusFlow" from "NHDPlusAttributes")

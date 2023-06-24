@@ -42,8 +42,8 @@ zone overlying the \code{outlet},
 
 The function returns a list with the following
 \itemize{
-\item \code{comid} integer COMID associated with the outlet
-\item \code{outlet} sfc_POINT, the outlet location
+\item \code{comid} integer  associated with the outlet
+\item \code{outlet} sf points data frame, the outlet point and some metadata
 \item \code{boundary} sfc_POLYGON, the catchment boundary inscribing all areas draining to \code{outlet}
 }
 
