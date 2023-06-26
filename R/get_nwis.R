@@ -335,6 +335,16 @@ update_nwis = function(data_dir, nwis_nm='flow_ft', from=NULL,
     site_df |> write.csv(site_path, row.names=FALSE)
     message('')
   }
+  
+  # check for sub-catchment directories in "split"
+  sub_path = save_split(data_dir, param_code=param_code, stat_code=stat_code)[['sub']]
+  is_valid = dir.exists(sub_path)
+  if( all(is_valid) ) {
+    
+    # copy only if all sub-catchments are found
+    message('copying NWIS data to ', sum(is_valid), ' sub-catchments')
+    split_nwis(data_dir, nwis_nm, param_code=param_code, stat_code=stat_code)
+  } else {return(invisible())}
 }
 
 

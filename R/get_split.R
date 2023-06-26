@@ -212,12 +212,13 @@ get_split = function(data_dir,
 #' sub-catchment directories of "split" so that each one is individually also up to date.
 #' 
 #' `param_code` and `stat_code` select the stream gage variable to copy from the NWIS
-#' dataset for the catchment. They have no effect when listing directory paths with
-#' `overwrite=FALSE`.
+#' dataset for the catchment, and `nwis_nm` is a name for it. These arguments have no effect
+#' when listing the (parent) directory paths with `overwrite=FALSE`.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param sub_list list returned from `get_split`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#' @param nwis_nm character, passed to `nwis_split`
 #' @param param_code character, passed to `nwis_split`
 #' @param stat_code character, passed to `nwis_split`
 #' 
@@ -228,7 +229,7 @@ get_split = function(data_dir,
 #' save_split('/example')
 #' save_split('/example', extra=TRUE)
 save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, 
-                      param_code='00060', stat_code='00003') {
+                      nwis_nm='flow_ft', param_code='00060', stat_code='00003') {
     
   # output paths
   dest_base = file.path(data_dir, 'split')

@@ -47,6 +47,22 @@ plot_catch(split_result)
 
 # save split datasets
 data_dir |> save_split(split_result, overwrite=TRUE)
+data_dir |> update_nwis(nwis_nm)
+
+
+
+  
+  
+  
+
+save_nwis(data_dir, nwis_nm)
+
+# TODO: prepare QSWAT+ input files:
+
+# 1. shapefile for inlets/outlets with specific fields ("RES" etc)
+# 2. shapefile for stream network burn-in with specific fields (?)
+# 3. landuse lookup GeoTIFF with WATR use from lakes
+# 4. landuse lookup table with specific fields 
 
 
 

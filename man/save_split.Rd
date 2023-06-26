@@ -8,6 +8,7 @@ save_split(
   data_dir,
   sub_list = NULL,
   overwrite = FALSE,
+  nwis_nm = "flow_ft",
   param_code = "00060",
   stat_code = "00003"
 )
@@ -18,6 +19,8 @@ save_split(
 \item{sub_list}{list returned from \code{get_split}}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
+
+\item{nwis_nm}{character, passed to \code{nwis_split}}
 
 \item{param_code}{character, passed to \code{nwis_split}}
 
@@ -47,8 +50,8 @@ Once 'split/gage.geojson' has been written by this function, subsequent calls to
 sub-catchment directories of "split" so that each one is individually also up to date.
 
 \code{param_code} and \code{stat_code} select the stream gage variable to copy from the NWIS
-dataset for the catchment. They have no effect when listing directory paths with
-\code{overwrite=FALSE}, and can be left at their defaults to select discharge in ft3/s.
+dataset for the catchment, and \code{nwis_nm} is a name for it. These arguments have no effect
+when listing the (parent) directory paths with \code{overwrite=FALSE}.
 }
 \examples{
 save_split('/example')
