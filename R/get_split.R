@@ -129,8 +129,8 @@ get_split = function(data_dir,
     # skip on headwater catchments
     if( !outlet[['headwater']][i] ) {
 
-      # find inlets
-      inlet_comid = outlet[['comid']][ outlet[['downstream']] == comid ]
+      # find inlets (uses %in% instead of == to turn NA into FALSE)
+      inlet_comid = outlet[['comid']][ outlet[['downstream']] %in% comid ]
       inlet_i = outlet[outlet[['comid']] %in% inlet_comid, ]
       
       # exclude all objects upstream of inlets
@@ -301,8 +301,8 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
     split_nwis(data_dir, nwis_nm, param_code=param_code, stat_code=stat_code)
   }
  
-  # return all paths without printing them
-  return( invisible( list(gage=gage_path, sub=dest_dir) ) )
+  # return all paths 
+  return( list(gage=gage_path, sub=dest_dir) )
 }
 
 
@@ -428,7 +428,7 @@ split_catch = function(gage, edge, catchment) {
   gage[['comid']] = gage_result |> sapply(\(x) x[['comid']])
   
   # create sf data frame of sub-catchment boundary polygons (likely overlapping)
-  message('computing stream flow order for ', nrow(gage), ' COMIDs')
+  message('resolving stream order for ', nrow(gage), ' COMIDs')
   sub_poly = do.call(c, lapply(gage_result, \(x) x[['boundary']]))
   
   # for each gage point, find nearest downstream neighbour
