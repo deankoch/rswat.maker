@@ -165,8 +165,11 @@ biggest_poly = function(poly_list) {
 
     # selects max area polygon from the set than transforms back to WGS84
     p = poly_list[i] |> sf::st_cast('POLYGON') |> sf::st_make_valid()
-    p = p[ which.max( sf::st_area(p) ) ] |> sf::st_transform(4326) |> sf::st_make_valid() 
-    
+    p = p[ which.max( sf::st_area(p) ) ] |> 
+      sf::st_transform(4326) |> 
+      sf::st_make_valid() |> 
+      sf::st_cast('POLYGON')
+
     # remove holes from result (using the trick in `mapsf::mf_scale`)
     p = sf::st_multipolygon(lapply(p, function(x) x[1])) |> sf::st_geometry()
     sf::st_crs(p) = 4326
