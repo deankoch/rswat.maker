@@ -126,7 +126,7 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
     
     nm_transform = c('outlet', 'flow', 'catchment', 'lake', 'boundary')
     nm_transform = nm_transform[ nm_transform %in% names(result_list) ]
-    message('\ntransforming results to output projection') 
+    message('transforming to output projection') 
     result_list[nm_transform] = result_list[nm_transform] |> lapply(\(x) sf::st_transform(x, crs_out))
   }
 

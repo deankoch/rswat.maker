@@ -229,7 +229,7 @@ get_statsgo = function(data_dir, model='statsgo') {
     # loop over available states and download/load the data
     n_get = nrow(statsgo_fetch)
     poly_list = vector(mode='list', length=n_get)
-    message('bounding box overlapped with ', nrow(statsgo_fetch), ' states (', msg_over, ')')
+    message('bounding box overlapped with ', nrow(statsgo_fetch), ' state(s) (', msg_over, ')')
     for(i in seq(n_get) ) {
       
       message('fetching data for ', us_states[['full']][is_over][i])
@@ -300,7 +300,7 @@ get_statsgo = function(data_dir, model='statsgo') {
                                       label = 'uyr_pad',
                                       raw.dir = raw_dir,
                                       extraction.dir = raw_dir,
-                                      force.redo = FALSE)
+                                      force.redo = FALSE) |> suppressWarnings()
     
     # split by SSA to reduce memory demands for intersection
     ssa = soil_result[['spatial']][['AREASYMBOL']] |> unique()
