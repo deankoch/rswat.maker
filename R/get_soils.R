@@ -15,6 +15,10 @@
 #' underlying STATSGO2 polygons. In some cases (eg with the default 2485736) there
 #' can more detail in the STATSGO2 layer. This may change in the future as SSURGO
 #' continues to be updated.
+#' 
+#' If you have called this function previously (in another project), you can save some
+#' time and bandwidth by copying the "ssurgo/raw" from the old `data_dir` to the new one.
+#' The function will only download files that it doesn't already find in "raw"
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param force_overwrite logical if TRUE the function overwrites a fresh copy of outputs 
@@ -44,8 +48,8 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 
   # load the two soil key rasters
   message('opening STATSGO2 and SSURGO layers')
-  ssurgo = model_path[['ssurgo']][['soil']] |> terra::rast()
   statsgo = model_path[['statsgo']][['soil']] |> terra::rast()
+  ssurgo = model_path[['ssurgo']][['soil']] |> terra::rast()
   
   # copy the unique mukeys found in each raster as string
   ssurgo_mukey = ssurgo[] |> unique() |> as.character()
@@ -184,6 +188,8 @@ save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads
 #' and the intermediate .gpkg file written to the "raw" sub-directory may be large.
 #' For example with the Carter's Bridge example (Upper Yellowstone) the memory usage
 #' exceeds 10 GB and about 2 GB are written to disk.
+#' 
+#' 
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param model character either 'statsgo' or 'ssurgo'
@@ -375,12 +381,13 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   if( any(is_over) ) unlink(dest_path[is_over], recursive=FALSE)
   
   # write polygons to disk
-  soils |> sf::st_write(dest_path[['poly']])
+  soils |> sf::st_write(dest_path[['poly']], quiet=TRUE)
   
-  # load the DEM
-  dem = save_dem(data_dir, overwrite=FALSE)[['dem']] |> terra::rast()
+  # load the DEM (must be in WGS84 to avoid transforming the very large `soils`)
+  dem = save_dem(data_dir, overwrite=FALSE)[['dem_src']] |> terra::rast()
 
   # coerce to SpatVector with integer values then rasterize to DEM grid
+  message('rasterizing MUKEYs for ', model)
   soils[['MUKEY']] = soils[['MUKEY']] |> as.integer()
   soils_sv = as(soils['MUKEY'], 'SpatVector')
   soils_sv |> terra::rasterize(dem,

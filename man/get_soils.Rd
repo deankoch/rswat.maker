@@ -40,4 +40,8 @@ default value (-99) is understood by SWAT+ to mean missing.
 underlying STATSGO2 polygons. In some cases (eg with the default 2485736) there
 can more detail in the STATSGO2 layer. This may change in the future as SSURGO
 continues to be updated.
+
+If you have called this function previously (in another project), you can save some
+time and bandwidth by copying the "ssurgo/raw" from the old \code{data_dir} to the new one.
+The function will only download files that it doesn't already find in "raw"
 }
