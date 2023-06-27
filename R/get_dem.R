@@ -58,8 +58,8 @@ get_dem = function(data_dir, pad_size=NULL) {
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
-#' @param r integer > 0, the resolution in metres (point spacing in both directions)
-#' @param b numeric > 0, padding distance in metres (for masking to boundary)
+#' @param res integer > 0, the resolution in metres (point spacing in both directions)
+#' @param buffer numeric > 0, padding distance in metres (for masking to boundary)
 #' @param threads logical, passed to `terra::project`
 #'
 #' @return the file names to write
@@ -78,7 +78,9 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=res, thr
   
   # output directory and file names
   dest_dir = file.path(data_dir, 'ned')
-  dest_fname = c(dem_src = 'ned_dem.tif', dem='dem.tif', bbox = 'bbox.geojson')
+  dest_fname = c(dem_src = 'ned_dem.tif',
+                 dem='dem.tif',
+                 bbox = 'bbox.geojson')
   
   # output paths
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))

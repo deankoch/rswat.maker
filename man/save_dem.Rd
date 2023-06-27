@@ -18,26 +18,30 @@ save_dem(
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
+\item{res}{integer > 0, the resolution in metres (point spacing in both directions)}
+
+\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+
 \item{threads}{logical, passed to \code{terra::project}}
 
 \item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
-
-\item{r}{integer > 0, the resolution in metres (point spacing in both directions)}
-
-\item{b}{numeric > 0, padding distance in metres (for masking to boundary)}
 }
 \value{
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes a bounding box polygon ('bbox.geojson') and two
+When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and two
 copies of the DEM: 'ned_dem.tif', the unchanged source DEM; and 'dem.tif', a version warped
 to the UTM zone of the main outlet (by bilinear averaging). When \code{overwrite=FALSE} the
 function writes nothing but returns the file paths that would be written.
 }
 \details{
 The output UTM zone is selected based on the location of the main outlet point. The
-bounding box is always in WGS84 coordinates
+bounding box is always in WGS84 coordinates.
+
+Note that \code{terra::project} can be slow with large rasters. The default \code{threads=TRUE} is
+the faster option. Higher \code{res} will also speed computation, but results in less detail in
+(SWAT+) HRUs and stream networks, and less precision in land use and soil type assignment.
 }
 \examples{
 save_dem('/example')
