@@ -72,14 +72,17 @@ plot_catch = function(sub_list,
   if( is.null(sub_list[[1]][['outlet']]) ) sub_list = sub_list |> list()
   n_sub = length(sub_list)
   
-  # extract outlets (and possibly some inlets) and set default projection
-  outlet = do.call(rbind, lapply(unname(sub_list), \(x) x[['outlet']])) 
-  if( is.null(crs_out) ) crs_out = outlet |> head(1) |> to_utm() |> suppressMessages()
-  out = outlet |> sf::st_transform(crs_out)
+  # extract outlets (and possibly some inlets) 
+  outlet = do.call(rbind, lapply(unname(sub_list), \(x) x[['outlet']]))
   
-  # pick the main outlet
-  is_out = out[['main_outlet']]
-  if( !any(is_out) & ( nrow(out) == 1 ) ) is_out = TRUE
+  # identify the main outlet (when there is only one it is automatically the main)
+  is_out = outlet[['main_outlet']]
+  if( !any(is_out) & ( nrow(outlet) == 1 ) ) is_out = TRUE
+  idx_main = ifelse(any(is_out), which(is_out), 1)
+  
+  # set default projection
+  if( is.null(crs_out) ) crs_out = outlet[idx_main,] |> to_utm() |> suppressMessages()
+  out = outlet |> sf::st_transform(crs_out)
   
   # extract inlet or gage objects, if any (ignore warnings about row-binding empty data frames)
   gage = do.call(rbind, lapply(unname(sub_list), \(x) x[['gage']])) |> suppressWarnings()
@@ -97,7 +100,6 @@ plot_catch = function(sub_list,
     # join the like named data frames in multiple elements case (ignore warnings about empty dfs)
     if( n_sub > 1 ) df_out = do.call(rbind, lapply(sub_list, \(x) x[[nm]]))
     if( !is_geo ) return(df_out)
-    #if( nrow(df_out) == 0 ) return(NULL)
     
     # strip data frame leaving only geometry in output projection
     df_out |> sf::st_geometry() |> sf::st_transform(crs_out)

@@ -1,13 +1,24 @@
 #' Fetches all required data for a QSWAT+ model build
+#' 
+#' By default (`overwrite=FALSE`) this returns a list of the file paths written by the
+#' function, in the order they are processed. With `overwrite=TRUE` the function generates
+#' each group of files in sequence by downloading data (from USGS and USDA) on various
+#' upstream catchment features.
+#' 
+#' The function produces a set of files in `data_dir` sufficient for building a SWAT+ model
+#' for the basin draining to `outlet`. Output files are ready to use with QSWAT+.
+#' 
+#' Steps can be run individually, and if any fails you should be able to try again by
+#' deleting to sub-directory for that step. 
 #'
+#' @param outlet geo-referenced point object passed to `sf::st_geometry`, the main outlet
 #' @param data_dir character path to the directory to use for output files
-#' @param outlet point object accepted by `sf::st_geometry`
 #' @param overwrite logical, should the function create missing files in `data_dir`?
 #' @param force_overwrite logical, should the function overwrite existing files in `data_dir`?
 #'
 #' @return a list of file paths to write
 #' @export
-fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FALSE,
+fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
                      nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01')) {
   
   # get paths written by the function
@@ -20,7 +31,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   # TODO: last step - make shapefiles for qswat
   
   # concatenate paths in list and return from list mode
-  all_path = list(nhd=nhd_path, ned=dem_path, soils=soils_path)
+  all_path = list(catch=nhd_path, dem=dem_path, soils=soils_path)
   if( !overwrite ) return(all_path)
   
   # get watershed geometries from NHD if necessary (using `nhdR`)
