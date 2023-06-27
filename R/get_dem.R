@@ -43,13 +43,17 @@ get_dem = function(data_dir, pad_size=NULL) {
 
 #' Save the output of `get_dem` to disk
 #' 
-#' When `overwrite=TRUE` the function writes a bounding box polygon ('bbox.geojson') and two
+#' When `overwrite=TRUE` the function writes a bounding box polygon, 'bbox.geojson', and two
 #' copies of the DEM: 'ned_dem.tif', the unchanged source DEM; and 'dem.tif', a version warped
 #' to the UTM zone of the main outlet (by bilinear averaging). When `overwrite=FALSE` the
 #' function writes nothing but returns the file paths that would be written.
 #' 
 #' The output UTM zone is selected based on the location of the main outlet point. The
-#' bounding box is always in WGS84 coordinates 
+#' bounding box is always in WGS84 coordinates.
+#' 
+#' Note that `terra::project` can be slow with large rasters. The default `threads=TRUE` is
+#' the faster option. Higher `res` will also speed computation, but results in less detail in
+#' (SWAT+) HRUs and stream networks, and less precision in land use and soil type assignment.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catch(..., fast=FALSE)`
