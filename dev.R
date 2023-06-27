@@ -10,21 +10,50 @@ library(devtools)
 load_all()
 document()
 
-data_dir = 'D:/rswat_data/yellowstone'
+# It's easy to find new examples like this. Just browse web app at
+# https://dashboard.waterdata.usgs.gov/ and look for small headwater
+# basins with active gages (paying attention to the total size of the
+# catchment)
+
+data_dir = 'D:/rswat_data/salmon'
+#data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/ausable'
 
-
-outlet = nominatim_point("Carter's Bridge, MT")
+outlet = nominatim_point("Clayton, ID")
+#outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
 #outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
 
-nwis_from = as.Date('2005-01-01')
-nwis_nm = 'flow_ft'
+outlet |> fetch_all(data_dir, overwrite=TRUE)
+
+
+# open previously saved data
+catch_list = data_dir |> open_catch()
+plot_catch(catch_list)
+
+# open the previously saved sub-catchments data
+sub_list = save_split(data_dir)[['sub']] |> lapply(open_catch)
+plot_catch(sub_list)
+
+
+i = 0
+
+i = i + 1
+plot_catch(sub_list[[i]])
+
+
+
+
+
+
+
+
+
 
 # TODO: save DEM (and other rasters) in UTM (zone from outlet point) then rebuild
 # for rebuilding
@@ -33,41 +62,36 @@ if(FALSE) {
   # catch_list = outlet |> get_catch()
   # data_dir |> save_catch(catch_list, overwrite=TRUE)
   # plot_catch(catch_list)
-
+  
   # dem = get_dem(data_dir)
   # dem = save_dem(data_dir)['dem_src'] |> terra::rast()
   # data_dir |> save_dem(dem, overwrite=TRUE)
   
+  # land = get_land(data_dir)
+  # data_dir |> save_land(land, overwrite=TRUE)
   
-  land = get_land(data_dir)
-  data_dir |> save_land(land, overwrite=TRUE)
+  # soil = get_soils(data_dir)
+  # data_dir |> save_soils(soil, overwrite=TRUE)
   
   #land = save_land(data_dir)['land_src'] |> terra::rast()
-  overwrite=TRUE
-  buffer=NULL
-  threads=TRUE
-  
   
   # get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
   # update_nwis(data_dir, nwis_nm)
 }
 
-# open previously saved data
-catch_list = data_dir |> open_catch()
-plot_catch(catch_list)
-
-# split
-split_result = data_dir |> get_split()
-plot_catch(split_result)
-
 # save split datasets
-data_dir |> save_split(split_result, overwrite=TRUE)
+data_dir |> save_split(sub_list, overwrite=TRUE)
 
 # later on, we can update weather like this
 data_dir |> update_nwis(nwis_nm)
 
 # TODO: prepare QSWAT+ input files:
 sub_dir = save_split(data_dir)[['sub']] |> head(1)
+
+save_soils(sub_dir)[['soil']]['soil'] |> terra::rast() |> terra::plot()
+save_land(sub_dir)[['land']] |> terra::rast() |> terra::plot()
+save_dem(sub_dir)[['dem']] |> terra::rast() |> terra::plot()
+
 
 # 1. shapefile for inlets/outlets with specific fields ("RES" etc)
 # 2. shapefile for stream network burn-in with specific fields (?)
