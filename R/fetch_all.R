@@ -7,11 +7,8 @@
 #'
 #' @return a list of file paths to write
 #' @export
-fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FALSE) {
-  
-  # subdirectory for stream flow records and starting date
-  nwis_from = as.Date('2005-01-01')
-  nwis_nm = 'flow_ft'
+fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FALSE,
+                     nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01')) {
   
   # get paths written by the function
   nhd_path = data_dir |> save_catch()
@@ -20,6 +17,7 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
   soils_path = data_dir |> save_soils()
   nwis_path = data_dir |> save_nwis(nwis_nm)
   split_path = data_dir |> save_split()
+  # TODO: last step - make shapefiles for qswat
   
   # concatenate paths in list and return from list mode
   all_path = list(nhd=nhd_path, ned=dem_path, soils=soils_path)
@@ -81,6 +79,8 @@ fetch_all = function(data_dir, outlet=NULL, overwrite=FALSE, force_overwrite=FAL
     message('')
     message('splitting at gages...')
     sub_list = get_split(data_dir)
-    save_split(data_dir, sub_list, overwrite=TRUE,  nwis_nm=nwis_nm)
+    save_split(data_dir, sub_list, overwrite=TRUE, nwis_nm=nwis_nm)
   }
+  
+  # TODO: last step - make shapefiles for qswat
 }
