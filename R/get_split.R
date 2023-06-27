@@ -74,10 +74,10 @@ get_split = function(data_dir,
     
   } else {
     
-    # make a dummy row with mostly NA fields (Inf ensures main outlet always included)
+    # make a dummy row with mostly NA fields
     new_row = gage[0,] |> sf::st_drop_geometry()
     new_row[1,] = NA
-    new_row[['count']] = Inf
+    new_row[['count']] = 0
     new_row[['station_nm']] = 'main outlet created by rswat'
     
     # add it to the `gage` points and mark as the main 
@@ -261,7 +261,7 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
     land = save_land(data_dir)['land'] |> terra::rast()
     soils = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
 
-    # loop over sub-catchments (and sub-directories)
+    # loop over sub-catchments (ie sub-directories)
     n_sub = length(sub_list)
     for(i in seq(n_sub)) {
       
@@ -452,7 +452,7 @@ split_catch = function(gage, edge, catchment) {
   gage[['snail_name']] = gsub('[^A-z]+', '_', gage[['station_nm']], perl=TRUE) |> tolower()
 
   # columns to keep
-  poly_nm = c('station_nm', 'snail_name', 'site_no', 'comid',
+  poly_nm = c('station_nm', 'snail_name', 'site_no', 'comid', 
               'downstream', 'headwater', 'main_outlet', 'geometry')
   
   # make sf data frame from polygons
