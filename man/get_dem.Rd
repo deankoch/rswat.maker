@@ -16,7 +16,8 @@ SpatRaster of elevation data for the catchment area
 }
 \description{
 This opens the boundary polygon created by \code{get_catch} and passes (a
-buffered version of) it to \code{FedData::get_ned}.
+buffered version of) it to \code{FedData::get_ned}, returning the result as
+SpatRaster (instead of RasterLayer)
 }
 \details{
 The buffer size default is 10\% of the square root of the polygon area. For

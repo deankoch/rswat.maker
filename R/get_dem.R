@@ -1,7 +1,8 @@
 #' Wrapper for `FedData::get_ned`
 #' 
 #' This opens the boundary polygon created by `get_catch` and passes (a
-#' buffered version of) it to `FedData::get_ned`. 
+#' buffered version of) it to `FedData::get_ned`, returning the result as 
+#' SpatRaster (instead of RasterLayer)
 #' 
 #' The buffer size default is 10% of the square root of the polygon area. For
 #' a square domain this is equal to 1/10 of the side length.
@@ -38,7 +39,7 @@ get_dem = function(data_dir, pad_size=NULL) {
   boundary_pad = boundary_utm |> sf::st_buffer(pad_size) |> sf::st_transform(4326)
   
   # fetch NED tiles (default 1 arc-second) and merge into one SpatRaster
-  FedData::get_ned(template = boundary_pad, label = basename(data_dir))
+  FedData::get_ned(template = boundary_pad, label = basename(data_dir)) |> terra::rast()
 }
 
 #' Save the output of `get_dem` to disk
