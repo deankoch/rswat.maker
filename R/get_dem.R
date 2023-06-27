@@ -121,9 +121,10 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=res, thr
   # make a copy of DEM masked and cropped to padded boundary
   dem_mask = dem |> terra::crop(boundary_pad) |> terra::mask(boundary_pad)
   
-  # make a template output raster in outlet UTM zone
+  # make a template output raster in outlet UTM zone (coerce via sp object)
   rast_out = dem_bbox |> 
-    sf::st_transform(epsg_out) |> 
+    sf::st_transform(epsg_out) |>
+    as('Spatial') |> 
     as('SpatVector') |> 
     terra::rast(resolution=res)
   
