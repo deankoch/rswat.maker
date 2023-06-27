@@ -75,6 +75,7 @@ get_nwis = function(data_dir,
     }
 
     # overwrites existing result on disk
+    message('')
     save_nwis(data_dir, nwis_nm, nwis, overwrite=TRUE)
   }
 
@@ -83,25 +84,6 @@ get_nwis = function(data_dir,
   
   # update/initialize stations data (writes to "raw")
   update_nwis(data_dir, nwis_nm, from=from_initial, param_code=param_code, stat_code=stat_code)
-  
-  # TODO: check for split and distribute copies 
-  # split_nwis
-  
-  # # load all station data
-  # output_path = save_nwis(data_dir, nwis_nm)['data']
-  # message('updating records from ', length(site_fetch), ' stations in ', output_path)
-  # data_list = site_fetch |> lapply(\(s) {
-  #   
-  #     load_nwis(site = s,
-  #               data_dir,
-  #               nwis_nm,
-  #               output = 'data',
-  #               param_code = param_code,
-  #               stat_code = stat_code)
-  # })
-  # 
-  # # combine into a single data-frame and remove duplicates
-  # data_df = do.call(rbind, data_list)
 
   # return file paths written above
   message('up to date')
@@ -164,7 +146,7 @@ save_nwis = function(data_dir, nwis_nm='flow_ft', nwis_list=NULL, overwrite=FALS
     
     # first remove existing output file
     if( file.exists(dest_path[['station']]) ) unlink( dest_path[['station']] )
-    nwis_list[['catch']] |> sf::st_write(dest_path[['station']])
+    nwis_list[['catch']] |> sf::st_write(dest_path[['station']], quiet=TRUE)
   }
   
   return( invisible(dest_path) )
@@ -223,11 +205,11 @@ split_nwis = function(data_dir, nwis_nm, param_code='00060', stat_code='00003') 
     station = do.call(rbind, lapply(point_in, \(p) sf::st_read(p, quiet=TRUE))) |> sf::st_sf()
     
     # find source paths for data files matching these site codes
-    site_in = station[['site_no']] |> 
+    site_in = station[['site_no']] |> na.omit() |> 
       sapply( \(s) load_nwis(s, data_dir, nwis_nm, param_code=param_code, stat_code=stat_code) )
     
     # and the destination paths
-    site_out = station[['site_no']] |> 
+    site_out = station[['site_no']] |> na.omit() |> 
       sapply( \(s) load_nwis(s, dest_dir[i], nwis_nm, param_code=param_code, stat_code=stat_code) )
     
     # helper for copying
@@ -339,7 +321,7 @@ update_nwis = function(data_dir, nwis_nm='flow_ft', from=NULL,
   # check for sub-catchment directories in "split"
   sub_path = save_split(data_dir, param_code=param_code, stat_code=stat_code)[['sub']]
   is_valid = dir.exists(sub_path)
-  if( all(is_valid) ) {
+  if( all(is_valid) & any(is_valid) ) {
     
     # copy only if all sub-catchments are found
     message('copying NWIS data to ', sum(is_valid), ' sub-catchments')
@@ -462,7 +444,7 @@ list_nwis = function(data_dir, nwis_nm='flow_ft',
   # crop results to catchment
   is_in = nwis_pt |> sf::st_transform(crs_utm) |> sf::st_intersects(boundary_utm, sparse=FALSE)
   nwis_catch_pt = nwis_pt[is_in,]
-  message( paste(sum(is_in), 'station(s) in catchment for', nwis_nm) )
+  message( paste(sum(is_in), 'station(s) in catchment reporting', nwis_nm) )
   
   return( list(catch=nwis_catch_pt, all=nwis_info_all) )
 }
