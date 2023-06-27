@@ -258,8 +258,8 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
     
     # load the raster data needed for all iterations
     dem = save_dem(data_dir)['dem'] |> terra::rast()
-    land = save_land(data_dir)['rast'] |> terra::rast()
-    soils = save_soils(data_dir)[['soils']]['rast'] |> terra::rast()
+    land = save_land(data_dir)['land'] |> terra::rast()
+    soils = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
 
     # loop over sub-catchments (and sub-directories)
     n_sub = length(sub_list)
