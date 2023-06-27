@@ -39,6 +39,9 @@ get_dem = function(data_dir, pad_size=NULL) {
   boundary_pad = boundary_utm |> sf::st_buffer(pad_size) |> sf::st_transform(4326)
   
   # fetch NED tiles (default 1 arc-second) and merge into one SpatRaster
+  FedData::get_ned(template = boundary_pad, label = basename(data_dir))
+  
+  # second call to ensure we get the values returned
   FedData::get_ned(template = boundary_pad, label = basename(data_dir)) |> terra::rast()
 }
 
