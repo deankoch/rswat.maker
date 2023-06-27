@@ -23,5 +23,7 @@ The buffer size default is 10\% of the square root of the polygon area. For
 a square domain this is equal to 1/10 of the side length.
 
 Note that \code{FedData} downloads tiles to a temporary folder so I don't think
-we can cache them easily for later use. Save a copy with \code{save_dem}
+we can cache them easily for later use. Save a copy with \code{save_dem}. Later on
+you can open an existing copy by passing the file path \code{get_dem(data_dir)['dem_src']}
+to \code{terra::rast()}
 }

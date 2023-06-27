@@ -26,12 +26,17 @@ outlet = nominatim_point("Carter's Bridge, MT")
 nwis_from = as.Date('2005-01-01')
 nwis_nm = 'flow_ft'
 
+# TODO: save DEM (and other rasters) in UTM (zone from outlet point) then rebuild
 # for rebuilding
 if(FALSE) {
   
   catch_list = outlet |> get_catch()
   data_dir |> save_catch(catch_list, overwrite=TRUE)
   plot_catch(catch_list)
+
+  # dem = get_dem(data_dir)
+  # dem = save_dem(data_dir)['dem_src'] |> terra::rast()
+  # data_dir |> save_dem(dem, overwrite=TRUE)
   
   get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
   update_nwis(data_dir, nwis_nm)
@@ -47,24 +52,58 @@ plot_catch(split_result)
 
 # save split datasets
 data_dir |> save_split(split_result, overwrite=TRUE)
+
+# later on, we can update weather like this
 data_dir |> update_nwis(nwis_nm)
 
-
-
-  
-  
-  
-
-save_nwis(data_dir, nwis_nm)
-
 # TODO: prepare QSWAT+ input files:
+sub_dir = save_split(data_dir)[['sub']] |> head(1)
 
 # 1. shapefile for inlets/outlets with specific fields ("RES" etc)
 # 2. shapefile for stream network burn-in with specific fields (?)
-# 3. landuse lookup GeoTIFF with WATR use from lakes
-# 4. landuse lookup table with specific fields 
+# 3. ?? shapefile for lakes (reduced to single shape) - these must have single outlet crossing into lake
+# 4. landuse lookup GeoTIFF ?? with WATR field <- check if this actually works
+# 5. landuse lookup table with specific fields - filename must contain string "landuse" to show up in QSWAT+ - fields 'LANDUSE_ID', 'SWAT_CODE'
+# 6. rasters: DEM, landuse, soils (we use SSURGO/STATSGO)
+#
+# * transform the shapefiles to match DEM (done already for the other rasters)
+# * overwrite DEM with WATR at lakes
+
+# output filenames (these will be overwritten!)
+out_nm = c(outlet='outlet.shp', 
+           stream='stream.shp', 
+           dem='dem.tif', 
+           soil='soil.tif', 
+           land='landuse.tif', 
+           land_lookup='landuse.csv')
+
+# output directories
+dest_dir = sub_dir |> file.path('qswatplus')
+out_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
+
+# load input files
+catch_list = sub_dir |> open_catch()
+dem = save_dem(sub_dir)['dem'] |> terra::rast()
+
+# all geo-referenced outputs will by in coordinate system of the DEM
+crs_out = dem |> sf::st_crs()
 
 
+# initialize outlet data frame
+outlet = catch_list[['outlet']]
+
+
+# select main inlet(s) in cases of duplicates
+if( !is.null(catch_list[['inlet']]) ) {
+  
+  
+  
+  
+}
+
+
+
+# TODO: filter to "main" inlet in case of duplicates (check outlet table for unique site_no)
 
 
 

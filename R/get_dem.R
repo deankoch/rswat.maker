@@ -7,7 +7,9 @@
 #' a square domain this is equal to 1/10 of the side length.
 #' 
 #' Note that `FedData` downloads tiles to a temporary folder so I don't think
-#' we can cache them easily for later use. Save a copy with `save_dem`
+#' we can cache them easily for later use. Save a copy with `save_dem`. Later on 
+#' you can open an existing copy by passing the file path `get_dem(data_dir)['dem_src']`
+#' to `terra::rast()`
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param pad_size units object, the width of padding (or NULL to set default)
@@ -41,24 +43,27 @@ get_dem = function(data_dir, pad_size=NULL) {
 
 #' Save the output of `get_dem` to disk
 #' 
-#' When `overwrite=TRUE` the function writes 'outlet.geojson', 'catchment.geojson',
-#' 'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
-#' objects to `sf::st_write`), and when `overwrite=FALSE` the function writes nothing
-#' but returns the file paths that would be written.
+#' When `overwrite=TRUE` the function writes a bounding box polygon ('bbox.geojson') and two
+#' copies of the DEM: 'ned_dem.tif', the unchanged source DEM; and 'dem.tif', a version warped
+#' to the UTM zone of the main outlet (by bilinear averaging). When `overwrite=FALSE` the
+#' function writes nothing but returns the file paths that would be written.
 #' 
-#' The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-#' See `get_catch` and `get_upstream` for details on input datasets 
+#' The output UTM zone is selected based on the location of the main outlet point. The
+#' bounding box is always in WGS84 coordinates 
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#' @param r integer > 0, the resolution in metres (point spacing in both directions)
+#' @param b numeric > 0, padding distance in metres (for masking to boundary)
+#' @param threads logical, passed to `terra::project`
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_dem('/example')
-save_dem = function(data_dir, dem=NULL, overwrite=FALSE) {
+save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=res, threads=TRUE) {
   
   # catch invalid calls and switch to file list mode
   if( is.null(dem) & overwrite ) {
@@ -69,24 +74,54 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE) {
   
   # output directory and file names
   dest_dir = file.path(data_dir, 'ned')
-  dest_fname = c(dem = 'ned_dem.tif', bbox = 'ned_bbox.geojson')
+  dest_fname = c(dem_src = 'ned_dem.tif', dem='dem.tif', bbox = 'bbox.geojson')
   
   # output paths
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
   if( !overwrite ) return(dest_path)
   
-  # make the directory if necessary and remove any existing output files
+  # make the directory if necessary
   if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
   is_over = file.exists(dest_path)
+  
+  # make sure the DEM is in RAM
+  message('copying raster data to RAM')
+  dem = dem + 0
+  
+  # remove any existing output files then write a fresh copy of the source raster
   if( any(is_over) ) unlink(dest_path[is_over])
+  dem |> terra::writeRaster(dest_path[['dem_src']])
   
-  # save dem bounding box
-  sf::st_bbox(dem) |> 
-    sf::st_as_sfc() |> 
-    sf::st_transform(4326) |> 
-    sf::st_write(dest_path[['bbox']], quiet=TRUE)
+  # save DEM bounding box of source
+  dem_bbox = sf::st_bbox(dem) |> sf::st_as_sfc() |> sf::st_transform(4326) 
+  dem_bbox |> sf::st_write(dest_path[['bbox']], quiet=TRUE)
+    
+  # open required input files saved by `save_catch`
+  boundary = save_catch(data_dir)['boundary'] |> sf::st_read(quiet=TRUE) 
+  outlet = save_catch(data_dir)['outlet'] |> sf::st_read(quiet=TRUE) 
   
-  # save dem data
-  dem |> terra::writeRaster(dest_path[['dem']])
+  # two version of boundary for masking, one padded
+  message('masking and cropping')
+  epsg_out = to_utm(outlet) |> suppressMessages()
+  boundary_out = sf::st_transform(boundary, epsg_out)
+  boundary_pad = boundary_out |> 
+    sf::st_buffer(units::set_units(buffer, m)) |>
+    sf::st_transform(sf::st_crs(dem))
+  
+  # make a copy of DEM masked and cropped to padded boundary
+  dem_mask = dem |> terra::crop(boundary_pad) |> terra::mask(boundary_pad)
+  
+  # make a template output raster in outlet UTM zone
+  rast_out = dem_bbox |> 
+    sf::st_transform(epsg_out) |> 
+    as('SpatVector') |> 
+    terra::rast(resolution=res)
+  
+  # warp the DEM to this template 
+  message('warping')
+  dem_out = dem_mask |> terra::project(rast_out, threads=threads)
+
+  # save new DEM data
+  dem_out |> terra::writeRaster(dest_path[['dem']])
   return(dest_path)
 }

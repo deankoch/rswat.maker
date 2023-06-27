@@ -4,27 +4,40 @@
 \alias{save_dem}
 \title{Save the output of \code{get_dem} to disk}
 \usage{
-save_dem(data_dir, dem = NULL, overwrite = FALSE)
+save_dem(
+  data_dir,
+  dem = NULL,
+  overwrite = FALSE,
+  res = 90,
+  buffer = res,
+  threads = TRUE
+)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
+\item{threads}{logical, passed to \code{terra::project}}
+
 \item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
+
+\item{r}{integer > 0, the resolution in metres (point spacing in both directions)}
+
+\item{b}{numeric > 0, padding distance in metres (for masking to boundary)}
 }
 \value{
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes 'outlet.geojson', 'catchment.geojson',
-'flow.geojson', 'lake.geojson', and 'boundary.geojson' (by passing the like-named
-objects to \code{sf::st_write}), and when \code{overwrite=FALSE} the function writes nothing
-but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes a bounding box polygon ('bbox.geojson') and two
+copies of the DEM: 'ned_dem.tif', the unchanged source DEM; and 'dem.tif', a version warped
+to the UTM zone of the main outlet (by bilinear averaging). When \code{overwrite=FALSE} the
+function writes nothing but returns the file paths that would be written.
 }
 \details{
-The outlet file contains the COMID as a field. All outputs are in WGS84 coordinates.
-See \code{get_catch} and \code{get_upstream} for details on input datasets
+The output UTM zone is selected based on the location of the main outlet point. The
+bounding box is always in WGS84 coordinates
 }
 \examples{
 save_dem('/example')
