@@ -14,5 +14,6 @@ SpatRaster, land use data for the catchment area (direct from \code{FedData::get
 }
 \description{
 This loads the bounding box for the DEM created by \code{get_dem} and passes it
-to \code{FedData::get_nlcd}, which handles downloading and ETL.
+to \code{FedData::get_nlcd}, which handles downloading and ETL. The result is returned
+as a SpatRaster rather than a RasterLayer.
 }

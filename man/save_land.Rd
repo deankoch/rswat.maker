@@ -4,7 +4,13 @@
 \alias{save_land}
 \title{Save the output of \code{get_land} to disk}
 \usage{
-save_land(data_dir, land = NULL, overwrite = FALSE)
+save_land(
+  data_dir,
+  land = NULL,
+  overwrite = FALSE,
+  buffer = NULL,
+  threads = TRUE
+)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -12,12 +18,28 @@ save_land(data_dir, land = NULL, overwrite = FALSE)
 \item{land}{list returned from \code{get_catch(..., fast=FALSE)}}
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
+
+\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+
+\item{threads}{logical, passed to \code{terra::project}}
 }
 \value{
 the file names to write
 }
 \description{
-Save the output of \code{get_land} to disk
+When \code{overwrite=TRUE} the function writes 'landuse_lookup.csv', a lookup table,
+and two copies of the land use raster: 'nlcd_land.tif', the unchanged output from
+\code{FedData::get_nlcd}; and 'land.tif', a version warped to the UTM zone of the main
+outlet (by nearest neighbour). When \code{overwrite=FALSE} the function writes nothing
+but returns the file paths that would be written.
+}
+\details{
+The lookup table provides the SWAT+ codes mapping to the integer values of the
+rasters. This CSV file should be compatible with QSWAT+ without additional formatting.
+
+Warping can be CPU-intensive See \code{save_dem} for more on \code{buffer} and \code{threads}
+and note that the preceding \code{save_dem} call establishes the output resolution used
+by this function.
 }
 \examples{
 save_land('/example')

@@ -30,16 +30,26 @@ nwis_nm = 'flow_ft'
 # for rebuilding
 if(FALSE) {
   
-  catch_list = outlet |> get_catch()
-  data_dir |> save_catch(catch_list, overwrite=TRUE)
-  plot_catch(catch_list)
+  # catch_list = outlet |> get_catch()
+  # data_dir |> save_catch(catch_list, overwrite=TRUE)
+  # plot_catch(catch_list)
 
   # dem = get_dem(data_dir)
   # dem = save_dem(data_dir)['dem_src'] |> terra::rast()
   # data_dir |> save_dem(dem, overwrite=TRUE)
   
-  get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
-  update_nwis(data_dir, nwis_nm)
+  
+  land = get_land(data_dir)
+  data_dir |> save_land(land, overwrite=TRUE)
+  
+  #land = save_land(data_dir)['land_src'] |> terra::rast()
+  overwrite=TRUE
+  buffer=NULL
+  threads=TRUE
+  
+  
+  # get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+  # update_nwis(data_dir, nwis_nm)
 }
 
 # open previously saved data
