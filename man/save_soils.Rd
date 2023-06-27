@@ -4,27 +4,41 @@
 \alias{save_soils}
 \title{Save the output of \code{get_soils} to disk}
 \usage{
-save_soils(data_dir, soils = NULL, overwrite = FALSE)
+save_soils(
+  data_dir,
+  soil = NULL,
+  overwrite = FALSE,
+  buffer = NULL,
+  threads = TRUE
+)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{soils}{SpatRaster of soil MUKey values}
-
 \item{overwrite}{logical if \code{FALSE} the function just returns the file that would be written}
+
+\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+
+\item{threads}{logical, passed to \code{terra::project}}
+
+\item{soils}{SpatRaster of soil MUKey values}
 }
 \value{
-the file name to write
+the file names to write
 }
 \description{
 With default \code{overwrite=FALSE} the function returns in a list the three sets
 of soils files that are written by this package. If \code{overwrite=TRUE} the one-layer
-combined output from STATSGO2 and SSURGO is written to disk.
+combined output from STATSGO2 and SSURGO is written to disk in two versions:
+'soil_src.tif' is directly copied from the source rasters; and 'soil.tif' is
+a version warped to match the DEM grid, then cropped/masked to the basin boundary.
 }
 \details{
 In a normal workflow you should call \code{get_soils(...)} to write the two source
 datasets to disk and generate the merged layer in memory. then call
 \code{save_soils(overwrite=TRUE)} to write this merged layer to disk.
+
+See \code{?save_land}, where \code{buffer} and \code{threads} have the same meaning.
 }
 \examples{
 save_soils('/example')

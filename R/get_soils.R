@@ -23,13 +23,12 @@
 get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), na_out=-99L) {
   
   # set up input/output names
-  input_nm = c('statsgo', 'ssurgo')
-  model_nm = stats::setNames(nm=c(input_nm, 'soils'))
-  model_path = model_nm |> lapply(\(x) save_statsgo(data_dir, model=x, overwrite=FALSE))
-  model_path[['soils']] = model_path[['soils']]['rast']
+  model_path = save_soils(data_dir)
+  model_nm = stats::setNames(nm=names(model_path))
+  input_nm = model_nm[1:2]
   
   # delete old files if requested
-  if(force_overwrite) model_path[input_nm] |> sapply(\(x) unlink(x[c('rast', 'poly')]))
+  if(force_overwrite) model_path[input_nm] |> sapply(\(x) unlink(x[c('soil', 'poly')]))
   
   # fetch data as needed (writes source files to "raw")
   is_done = model_path[input_nm] |> sapply(\(x) all(file.exists(x)) )
@@ -42,8 +41,8 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 
   # load the two soil key rasters
   message('opening STATSGO2 and SSURGO layers')
-  ssurgo = model_path[['ssurgo']][['rast']] |> terra::rast()
-  statsgo = model_path[['statsgo']][['rast']] |> terra::rast()
+  ssurgo = model_path[['ssurgo']][['soil']] |> terra::rast()
+  statsgo = model_path[['statsgo']][['soil']] |> terra::rast()
   
   # copy the unique mukeys found in each raster as string
   ssurgo_mukey = ssurgo[] |> unique() |> as.character()
@@ -86,47 +85,77 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 #' 
 #' With default `overwrite=FALSE` the function returns in a list the three sets
 #' of soils files that are written by this package. If `overwrite=TRUE` the one-layer
-#' combined output from STATSGO2 and SSURGO is written to disk.
+#' combined output from STATSGO2 and SSURGO is written to disk in two versions:
+#' 'soil_src.tif' is directly copied from the source rasters; and 'soil.tif' is
+#' a version warped to match the DEM grid, then cropped/masked to the basin boundary.
 #' 
 #' In a normal workflow you should call `get_soils(...)` to write the two source
 #' datasets to disk and generate the merged layer in memory. then call
 #' `save_soils(overwrite=TRUE)` to write this merged layer to disk.
+#' 
+#' See `?save_land`, where `buffer` and `threads` have the same meaning.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param soils SpatRaster of soil MUKey values
 #' @param overwrite logical if `FALSE` the function just returns the file that would be written
-#'
-#' @return the file name to write
+#' @param buffer numeric > 0, padding distance in metres (for masking to boundary)
+#' @param threads logical, passed to `terra::project`
+#' 
+#' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_soils('/example')
-save_soils = function(data_dir, soils=NULL, overwrite=FALSE) {
+save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads=TRUE) {
   
   # catch invalid calls and switch to file list mode
-  if( is.null(soils) & overwrite ) {
+  if( is.null(soil) & overwrite ) {
     
     warning('overwrite=TRUE but soils was NULL')
     overwrite = FALSE
   }
   
   # set up input/output names
-  input_nm = c('statsgo', 'ssurgo')
-  model_nm = stats::setNames(nm=c(input_nm, 'soils'))
+  model_nm = stats::setNames(nm=c('statsgo', 'ssurgo'))
   model_path = model_nm |> lapply(\(x) save_statsgo(data_dir, model=x, overwrite=FALSE))
-  model_path[['soils']] = model_path[['soils']]['rast']
+  model_path[['soil']] = data_dir |> file.path(c(soil_src='soil_src.tif', soil='soil.tif'))
   if( !overwrite ) return(model_path)
   
   # this function only writes the one output file
-  dest_path = model_path[['soils']]
-  dest_dir = dirname(dest_path)
+  dest_path = model_path[['soil']]
+  dest_dir = dest_path |> head(1) |> dirname()
 
   # make the directory if necessary and remove any existing output file
   if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
-  if( file.exists(dest_path) ) unlink(dest_path)
+  if( any( file.exists(dest_path) ) ) unlink(dest_path)
   
-  # write the layer
-  soils |> terra::writeRaster(dest_path)
+  # write the source layer
+  soil |> terra::writeRaster(dest_path['soil_src'])
+  
+  # open required input files saved by `save_catch`
+  boundary = save_catch(data_dir)['boundary'] |> sf::st_read(quiet=TRUE) 
+  dem = save_dem(data_dir)['dem'] |> terra::rast()
+  
+  # output projection 
+  crs_out = sf::st_crs(dem)
+  boundary_out = sf::st_transform(boundary, crs_out)
+  
+  # set default buffer for masking
+  if(is.null(buffer)) buffer = terra::res(dem)[1]
+  
+  # two version of boundary for masking, one padded
+  message('masking and cropping')
+  boundary_pad = boundary_out |> 
+    sf::st_buffer(units::set_units(buffer, m)) |>
+    sf::st_transform(sf::st_crs(soil))
+  
+  # make a copy of soil masked and cropped to padded boundary
+  soil_mask = soil |> terra::crop(boundary_pad) |> terra::mask(boundary_pad)
+  
+  # warp to this template and write to disk
+  message('warping to match DEM')
+  soil_out = soil_mask |> terra::project(dem, method='near', threads=threads)
+  soil_out |> terra::writeRaster(dest_path['soil'])
   return(dest_path)
 }
 
@@ -321,7 +350,7 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   dest_dir = file.path(data_dir, model)
   
   # output filenames
-  dest_fname = c(rast = paste0(model, '.tif'),
+  dest_fname = c(soil = paste0(model, '.tif'),
                  poly = paste0(model, '.geojson'),
                  raw_dir = 'raw')
   
@@ -349,7 +378,7 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
                                field = 'MUKEY',
                                fun = 'min',
                                touches = TRUE,
-                               filename = dest_path[['rast']])
+                               filename = dest_path[['soil']])
                                  
   return(dest_path)
 }
