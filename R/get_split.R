@@ -272,10 +272,10 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
       # use outer boundary to ensure aren't missing part of the DEM
       bou = sub_list[[i]][['boundary_outer']] |> sf::st_geometry()
       
-      # helper function for the rasters
+      # helper function for the rasters (intentionally coerce via sp class to avoid bugs)
       clipr = function(r, bou) {
         
-        bou_r = sf::st_transform(bou, sf::st_crs(r)) |> as('SpatVector')
+        bou_r = sf::st_transform(bou, sf::st_crs(r)) |> as('Spatial') |> as('SpatVector')
         r |> terra::crop(bou_r) |> terra::mask(bou_r)
       }
       
