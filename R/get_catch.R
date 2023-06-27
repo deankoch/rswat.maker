@@ -69,7 +69,7 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
   
   ## fetch data
   
-  # download required NHD data for the VPU
+  # required NHD data for the VPU
   nhdR::nhd_plus_get(vpu=uid, 'NHDPlusAttributes', temporary=FALSE)
   nhdR::nhd_plus_get(vpu=uid, 'NHDPlusCatchment', temporary=FALSE)
   
@@ -213,20 +213,40 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE, extra=FALSE) {
 }
 
 
-#' Open catchment model geometries saved by `save_catch`
+#' Open catchment model geometries saved by `save_catch` or `save_split`
 #' 
-#' With default `extra=NULL` the function loads the extra files only if they all exist.
-#' The function will otherwise proceed with some/all files missing and simply omit the
-#' missing object (with a warning) or, in the case of `edge`, returning a `NULL` in its place
+#' This opens the catchment data in `data_dir`, returning a list of data frames
+#' and geometries.  If `sub=TRUE` the function loads the sub-catchments in
+#' sub-directory "split" of `data_dir`. If `data_dir` is a vector, the function
+#' ignores `sub` and returns a nested list with results from each of the paths.
 #' 
-#' See `get_catch` for more detail on the output elements
+#' `extra` refers to the files 'boundary_outer.geojson', 'inlet.geojson', 'gage.geojson'.
+#' For now, these are only written by `save_split` and not `save_catch` (since initial
+#' catchment delineation is for the entire basin). With default `extra=NULL` the function
+#' loads the extra files only if they all exist. The function will otherwise proceed with
+#' some/all files missing and simply omit the missing object (with a warning) or, in the
+#' case of `edge`, returning a `NULL` in its place
+#' 
+#' See `?get_catch` and `?get_split` for more on the individual output objects
 #'
 #' @param data_dir character path to the output files directory
 #' @param extra logical, if `TRUE` the function includes additional files used with `get_split
+#' @param sub logical, if `TRUE` the function opens sub-catchments in "split/"
 #'
 #' @return a list with elements 'edge', 'outlet', 'catchment', 'flow', 'lake', 'boundary'
 #' @export
-open_catch = function(data_dir, extra=NULL) {
+open_catch = function(data_dir, extra=NULL, sub=FALSE) {
+  
+  # vectorized call returns a list (and ignores `sub`)
+  if( length(data_dir) > 1 ) return( lapply(data_dir, \(d) open_catch(d, extra=extra)) )
+  
+  # check for sub-catchments if requested
+  if( sub ) {
+   
+    # if none found, we just continue as if `sub=FALSE`
+    sub_dir = save_split(data_dir)[['sub']]
+    if( length(sub_dir) > 0 ) return( lapply(\(d) open_catch(d, extra=extra)) )
+  }
   
   # set default extra 
   if( is.null(extra) ) extra = save_catch(data_dir, extra=TRUE) |> file.exists() |> all() 
@@ -249,24 +269,31 @@ open_catch = function(data_dir, extra=NULL) {
 #' Return a list of NHD geometry objects corresponding to the catchment for an outlet
 #' 
 #' This returns a list of geometries and other information describing the catchment for the
-#' supplied outlet point `outlet`. It first identifies the element of `catchment` containing
+#' supplied `outlet` point. It first identifies the element of `catchment` containing
 #' the outlet and exhaustively traces all upstream paths by following the directed paths in
 #' `edge` and collecting the corresponding elements of `catchment` and `flow`.
 #' 
-#' The function returns the relevant subsets of these four datasets, along with a copy
-#' of `outlet`, the COMID for outlet, and a new polygon representing the boundary of
-#' the entire catchment. 
+#' The function returns the relevant subsets of `lake`, `edge`, `catchment` and `flow`, along
+#' with a copy of `outlet`, the COMID for `outlet`, and a new polygon representing the boundary
+#' of the entire catchment.
 #' 
 #' Arguments `edge`, `catchment`, `flow`, and `lake` should all be created using calls to
-#' `nhdR::nhd_plus_load` with arguments "dsn" and "component" set appropriately (see code
-#' in `get_upstream` for example). Arguments `flow` and/or `lake` can be `NULL`, in which
-#' case the corresponding output objects are omitted. Set `fast=TRUE` to omit all four,
-#' and only return the outlet, COMID, and boundary.
+#' `nhdR::nhd_plus_load` with "dsn" and "component" set appropriately. This is
+#' done automatically in `get_catch`. Arguments `flow` and/or `lake` can be `NULL`, in which
+#' case the corresponding output objects are omitted. Set `fast=TRUE` to omit everything
+#' except the outlet, COMID, and boundary.
 #' 
-#' Having encountered duplicate vertex issues in NHD data while using the S2 Geometry
-#' Library (terra's default) we now include the `s2` argument to allow switching this
-#' off temporarily during the function call. This causes terra to switch to the higher-
-#' precision GeographicLib library for the problematic intersection calculations.
+#' It is assumed that the basin for `outlet` lies entirely within a single NHD Vector
+#' Processing Unit (VPU). These are based on the 4-digit Hydrologic Unit Code (HUC) system,
+#' which delineates watersheds on a large scale, effectively limiting the size of the catchment
+#' that can be queried with this function. 
+#' 
+#' There can be many thousands of small catchment polygons within a VPU, so finding
+#' the one that intersects with the outlet is slow. To speed things up, we avoid projecting
+#' the VPU-level data and do the intersection in geographical coordinates. This can lead to
+#' duplicate vertex errors in S2 (terra's default), so we temporarily switch off S2 for this
+#' step and use the GeographicLib library instead. All other spatial set operations are done
+#' in UTM coordinates, and the result is returned in the coordinate system of the input.
 #'
 #' @param outlet an sfc_POINT object locating the outlet
 #' @param flow the "NHDFlowline" dataset from the "NHDSnapshot" component
@@ -328,6 +355,7 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, fast=FALS
                   outlet = sf::st_transform(outlet, crs_utm),
                   boundary = boundary)
   
+  # line break in messages for clarity
   if(fast) {
     
     message('')
@@ -345,13 +373,7 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, fast=FALS
     # find subset of relevant flow-lines
     is_sws_flow = flow[['COMID']] %in% sws_comid
     message('processing ', paste(sum(is_sws_flow), 'stream reach(es)'))
-    flow_out = flow[is_sws_flow,]
-    
-    # check for dangling stream reaches
-    # is_inside = flow_out |> sf::st_transform(crs_utm) |> sf::st_intersects(boundary_utm, sparse=FALSE)
-    # out_list[['flow']] = flow_out[is_inside,] |> sf::st_transform(crs_in)
-    # 
-    out_list[['flow']] = flow_out |> sf::st_transform(crs_in)
+    out_list[['flow']] = flow[is_sws_flow,] |> sf::st_transform(crs_in)
   }
   
   # copy lakes subset

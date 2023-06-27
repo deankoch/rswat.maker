@@ -2,23 +2,33 @@
 % Please edit documentation in R/get_catch.R
 \name{open_catch}
 \alias{open_catch}
-\title{Open catchment model geometries saved by \code{save_catch}}
+\title{Open catchment model geometries saved by \code{save_catch} or \code{save_split}}
 \usage{
-open_catch(data_dir, extra = NULL)
+open_catch(data_dir, extra = NULL, sub = FALSE)
 }
 \arguments{
 \item{data_dir}{character path to the output files directory}
 
 \item{extra}{logical, if \code{TRUE} the function includes additional files used with `get_split}
+
+\item{sub}{logical, if \code{TRUE} the function opens sub-catchments in "split/"}
 }
 \value{
 a list with elements 'edge', 'outlet', 'catchment', 'flow', 'lake', 'boundary'
 }
 \description{
-With default \code{extra=NULL} the function loads the extra files only if they all exist.
-The function will otherwise proceed with some/all files missing and simply omit the
-missing object (with a warning) or, in the case of \code{edge}, returning a \code{NULL} in its place
+This opens the catchment data in \code{data_dir}, returning a list of data frames
+and geometries.  If \code{sub=TRUE} the function loads the sub-catchments in
+sub-directory "split" of \code{data_dir}. If \code{data_dir} is a vector, the function
+ignores \code{sub} and returns a nested list with results from each of the paths.
 }
 \details{
-See \code{get_catch} for more detail on the output elements
+\code{extra} refers to the files 'boundary_outer.geojson', 'inlet.geojson', 'gage.geojson'.
+For now, these are only written by \code{save_split} and not \code{save_catch} (since initial
+catchment delineation is for the entire basin). With default \code{extra=NULL} the function
+loads the extra files only if they all exist. The function will otherwise proceed with
+some/all files missing and simply omit the missing object (with a warning) or, in the
+case of \code{edge}, returning a \code{NULL} in its place
+
+See \code{?get_catch} and \code{?get_split} for more on the individual output objects
 }

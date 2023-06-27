@@ -24,23 +24,30 @@ list containing appropriate subsets of flow, catchment, lake, edge (see details)
 }
 \description{
 This returns a list of geometries and other information describing the catchment for the
-supplied outlet point \code{outlet}. It first identifies the element of \code{catchment} containing
+supplied \code{outlet} point. It first identifies the element of \code{catchment} containing
 the outlet and exhaustively traces all upstream paths by following the directed paths in
 \code{edge} and collecting the corresponding elements of \code{catchment} and \code{flow}.
 }
 \details{
-The function returns the relevant subsets of these four datasets, along with a copy
-of \code{outlet}, the COMID for outlet, and a new polygon representing the boundary of
-the entire catchment.
+The function returns the relevant subsets of \code{lake}, \code{edge}, \code{catchment} and \code{flow}, along
+with a copy of \code{outlet}, the COMID for \code{outlet}, and a new polygon representing the boundary
+of the entire catchment.
 
 Arguments \code{edge}, \code{catchment}, \code{flow}, and \code{lake} should all be created using calls to
-\code{nhdR::nhd_plus_load} with arguments "dsn" and "component" set appropriately (see code
-in \code{get_upstream} for example). Arguments \code{flow} and/or \code{lake} can be \code{NULL}, in which
-case the corresponding output objects are omitted. Set \code{fast=TRUE} to omit all four,
-and only return the outlet, COMID, and boundary.
+\code{nhdR::nhd_plus_load} with "dsn" and "component" set appropriately. This is
+done automatically in \code{get_catch}. Arguments \code{flow} and/or \code{lake} can be \code{NULL}, in which
+case the corresponding output objects are omitted. Set \code{fast=TRUE} to omit everything
+except the outlet, COMID, and boundary.
 
-Having encountered duplicate vertex issues in NHD data while using the S2 Geometry
-Library (terra's default) we now include the \code{s2} argument to allow switching this
-off temporarily during the function call. This causes terra to switch to the higher-
-precision GeographicLib library for the problematic intersection calculations.
+It is assumed that the basin for \code{outlet} lies entirely within a single NHD Vector
+Processing Unit (VPU). These are based on the 4-digit Hydrologic Unit Code (HUC) system,
+which delineates watersheds on a large scale, effectively limiting the size of the catchment
+that can be queried with this function.
+
+There can be many thousands of small catchment polygons within a VPU, so finding
+the one that intersects with the outlet is slow. To speed things up, we avoid projecting
+the VPU-level data and do the intersection in geographical coordinates. This can lead to
+duplicate vertex errors in S2 (terra's default), so we temporarily switch off S2 for this
+step and use the GeographicLib library instead. All other spatial set operations are done
+in UTM coordinates, and the result is returned in the coordinate system of the input.
 }
