@@ -280,16 +280,16 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
       }
       
       # mask the rasters and write output to disk
-      dest_dir[i] |> save_dem(clipr(dem, bou), overwrite=TRUE)
-      dest_dir[i] |> save_land(clipr(land, bou), overwrite=TRUE)
-      dest_dir[i] |> save_soils(clipr(soils, bou), overwrite=TRUE)
+      dest_dir[i] |> save_dem(clipr(dem, bou), overwrite=TRUE) |> suppressMessages()
+      dest_dir[i] |> save_land(clipr(land, bou), overwrite=TRUE)  |> suppressMessages()
+      dest_dir[i] |> save_soils(clipr(soils, bou), overwrite=TRUE)  |> suppressMessages()
     } 
     
     # find mapping from outlet COMID to directory name
-    comid = do.call(c, lapply(split_result, \(x) x[['comid']]))
+    comid = do.call(c, lapply(sub_list, \(x) x[['comid']]))
     
     # compile gages dataset, append directory names field
-    gage = do.call(rbind, lapply(split_result, \(x) x[['gage']]))
+    gage = do.call(rbind, lapply(sub_list, \(x) x[['gage']]))
     gage[['dir_name']] = names(comid)[ match(gage[['comid']], comid) ]
     row.names(gage) = NULL
     

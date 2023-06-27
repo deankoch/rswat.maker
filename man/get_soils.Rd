@@ -24,11 +24,14 @@ get_soils(
 SpatRaster of STATSGO2 and/or SSURGO MUKeys
 }
 \description{
+This downloads STATSGO2 and SSURGO data to the 'statsgo' and 'ssurgo' sub-directories
+of \code{data_dir} then creates a merged copy in the 'soils' sub-directory.
+}
+\details{
 SSURGO tends to be the more precise map but it also tends to have less complete
 coverage than STATSGO2. In cases where there is no SSURGO map unit key (mukey),
 this function assigns the STATSGO2 key.
-}
-\details{
+
 If a SSURGO key is not found in the SWAT+ soils database, the STATSGO2 key is
 assigned. If that key is not found, then the value \code{na_out} is assigned. The
 default value (-99) is understood by SWAT+ to mean missing.

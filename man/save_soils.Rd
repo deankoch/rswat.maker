@@ -27,13 +27,15 @@ save_soils(
 the file names to write
 }
 \description{
+This writes output to the 'soils' sub-directory of \code{data_dir}
+}
+\details{
 With default \code{overwrite=FALSE} the function returns in a list the three sets
 of soils files that are written by this package. If \code{overwrite=TRUE} the one-layer
 combined output from STATSGO2 and SSURGO is written to disk in two versions:
 'soil_src.tif' is directly copied from the source rasters; and 'soil.tif' is
 a version warped to match the DEM grid, then cropped/masked to the basin boundary.
-}
-\details{
+
 In a normal workflow you should call \code{get_soils(...)} to write the two source
 datasets to disk and generate the merged layer in memory. then call
 \code{save_soils(overwrite=TRUE)} to write this merged layer to disk.

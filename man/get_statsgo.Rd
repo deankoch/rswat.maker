@@ -21,8 +21,9 @@ system at the USDA (see ?statsgo_url). For SSURGO we use \code{FedData::get_ssur
 download SSA tile archives and handle ETL with \code{sf} and \code{terra}.
 }
 \details{
-The function saves its source files to the 'raw' sub-directory. Get the
-path to this storage directory by calling the following:
+The function saves its source files to the 'raw' sub-directory of the 'statsgo' and
+'ssurgo' sub-directories of \code{data_dir}. Get the path to this storage directory for the
+SSURGO model by calling the following:
 
 \code{save_statsgo(data_dir, model='ssurgo', overwrite=FALSE)[['raw_dir']]}
 

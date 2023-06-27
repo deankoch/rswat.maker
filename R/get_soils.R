@@ -1,5 +1,8 @@
 #' Download/open soil map unit key rasters from STATSGO2 and SSURGO and combine them
 #' 
+#' This downloads STATSGO2 and SSURGO data to the 'statsgo' and 'ssurgo' sub-directories
+#' of `data_dir` then creates a merged copy in the 'soils' sub-directory.
+#' 
 #' SSURGO tends to be the more precise map but it also tends to have less complete
 #' coverage than STATSGO2. In cases where there is no SSURGO map unit key (mukey),
 #' this function assigns the STATSGO2 key.
@@ -35,7 +38,7 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
   if( any(!is_done) ) model_nm[input_nm][!is_done] |> lapply(\(x) { 
     
     soils = get_statsgo(data_dir, model=x) 
-    save_statsgo(data_dir, soils, model=x, overwrite=TRUE)
+    data_dir |> save_statsgo(soils, model=x, overwrite=TRUE)
     
     })
 
@@ -83,6 +86,8 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 
 #' Save the output of `get_soils` to disk
 #' 
+#' This writes output to the 'soils' sub-directory of `data_dir`
+#' 
 #' With default `overwrite=FALSE` the function returns in a list the three sets
 #' of soils files that are written by this package. If `overwrite=TRUE` the one-layer
 #' combined output from STATSGO2 and SSURGO is written to disk in two versions:
@@ -116,9 +121,12 @@ save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads
   }
   
   # set up input/output names
+  dest_dir = file.path(data_dir, 'soils')
   model_nm = stats::setNames(nm=c('statsgo', 'ssurgo'))
   model_path = model_nm |> lapply(\(x) save_statsgo(data_dir, model=x, overwrite=FALSE))
-  model_path[['soil']] = data_dir |> file.path(c(soil_src='soil_src.tif', soil='soil.tif'))
+  model_path[['soil']] = c(soil_src = file.path(dest_dir, 'soil_src.tif'),
+                           soil = file.path(dest_dir, 'soil.tif'))
+
   if( !overwrite ) return(model_path)
   
   # this function only writes the one output file
@@ -166,8 +174,9 @@ save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads
 #' system at the USDA (see ?statsgo_url). For SSURGO we use `FedData::get_ssurgo` to
 #' download SSA tile archives and handle ETL with `sf` and `terra`.
 #' 
-#' The function saves its source files to the 'raw' sub-directory. Get the
-#' path to this storage directory by calling the following:
+#' The function saves its source files to the 'raw' sub-directory of the 'statsgo' and
+#' 'ssurgo' sub-directories of `data_dir`. Get the path to this storage directory for the
+#' SSURGO model by calling the following:
 #' 
 #' `save_statsgo(data_dir, model='ssurgo', overwrite=FALSE)[['raw_dir']]`
 #' 
