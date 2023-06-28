@@ -92,7 +92,7 @@ get_split = function(data_dir,
   
   # sanity checking
   msg_invalid = paste(which(!is_valid), collapse=', ')
-  if( !all(is_valid) ) stop('point(s) at index ', msg_invalid, ' lie outside catchment boundary')
+  if( !all(is_valid) ) stop('gage point(s) at index ', msg_invalid, ' lie outside catchment boundary')
   if( !is.data.frame(gage) ) stop('gage must be a data frame, or NULL')
   
   # load sub-catchment polygons and edge data frame (as character to avoid COMID as integer)
@@ -104,7 +104,6 @@ get_split = function(data_dir,
   
   # load boundary and flow lines (slow)
   message('collecting sub-catchment features')
-  boundary_utm = split_result[['boundary']] |> sf::st_geometry() |> sf::st_transform(crs_utm)
   flow_utm = save_catch(data_dir)['flow'] |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
   flow_utm[['COMID']] = as.character(flow_utm[['COMID']])
   
@@ -120,8 +119,10 @@ get_split = function(data_dir,
     # avoid slow spatial query by following the COMIDs
     comid = outlet[['comid']][i]
     comid_check =  comid_up(comid, edge)
-    boundary_outer_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
-    boundary_inner_i = boundary_outer_i
+    
+    # two boundaries: "outer" includes inlet polygon(s), so it encloses "inner"
+    boundary_inner_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
+    boundary_outer_i = boundary_inner_i
     
     # initialize data frame of inlets
     inlet_i = outlet[0,]
@@ -162,9 +163,12 @@ get_split = function(data_dir,
     is_in = sf::st_geometry(lake_utm) |> sf::st_intersection(boundary_outer_i, sparse=FALSE)
     lake_sub = lake_utm[is_in, ]
     
-    # copy relevant gages
-    gage_i = split_result[['gage']][ split_result[['gage']][['comid']] %in% comid, ]
-    
+    # copy relevant gages and indicate inlets
+    is_outlet = split_result[['gage']][['comid']] %in% comid 
+    is_inlet = split_result[['gage']][['downstream']] %in% comid 
+    gage_i = rbind(dplyr::mutate(split_result[['gage']][is_inlet,], inlet=TRUE),
+                   dplyr::mutate(split_result[['gage']][is_outlet,], inlet=FALSE))
+
     # transform spatial layers to WGS84
     spatial_out = list(outlet = outlet[i,],
                        inlet = inlet_i,
@@ -195,9 +199,9 @@ get_split = function(data_dir,
 #' 
 #' This saves the sub-catchments returned by `get_split` to sub-directories of
 #' `file.path(data_dir, 'split')` with directory names copied from `names(sub_list)`.
-#' The applicable subset of outputs from `get_dem`, `get_land`, `get_soils`, and `get_nwis`
-#' are then copied to each sub-catchment in a loop. A single points data frame is also
-#' written to 'split/gage.geojson', mapping gages to sub-directories.
+#' The final outputs from `get_dem`, `get_land`, `get_soils`, and `get_nwis` are then
+#' filtered to each sub-catchment and written to disk in a loop. A single points data
+#' frame is also written to 'split/gage.geojson', mapping gages to sub-directories.
 #' 
 #' All raster files are cropped and masked to the union of the sub-catchment boundary
 #' and the inlet NHD polygon(s) (if any. See `?get_split`). Note that `gage`
@@ -256,10 +260,12 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
   # save to disk
   if( overwrite ) {
     
-    # load the raster data needed for all iterations
-    dem = save_dem(data_dir)['dem'] |> terra::rast()
+    # load lookup table and raster data needed for all iterations
+    land_lookup = save_land(data_dir)['lookup'] |> read.csv()
     land = save_land(data_dir)['land'] |> terra::rast()
+    dem = save_dem(data_dir)['dem'] |> terra::rast()
     soils = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
+    
 
     # loop over sub-catchments (ie sub-directories)
     n_sub = length(sub_list)
@@ -269,27 +275,25 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
       message('copying sub-catchment ', i, '/', n_sub, ' : ', gsub('_', ' ', basename(dest_dir[i])))
       save_catch(dest_dir[i], sub_list[[i]], overwrite=TRUE, extra=TRUE)
       
-      # use outer boundary to ensure aren't missing part of the DEM
+      # use outer boundary to ensure we have the full catchment up to inlets in the DEM
       bou = sub_list[[i]][['boundary_outer']] |> sf::st_geometry()
-      
-      # helper function for the rasters (intentionally coerce via sp class to avoid bugs)
-      clipr = function(r, bou) {
-        
-        bou_r = sf::st_transform(bou, sf::st_crs(r)) |> as('Spatial') |> as('SpatVector')
-        r |> terra::crop(bou_r) |> terra::mask(bou_r)
-      }
-      
+
       # mask the rasters and write output to disk
-      dest_dir[i] |> save_dem(clipr(dem, bou), overwrite=TRUE) |> suppressMessages()
-      dest_dir[i] |> save_land(clipr(land, bou), overwrite=TRUE)  |> suppressMessages()
-      dest_dir[i] |> save_soils(clipr(soils, bou), overwrite=TRUE)  |> suppressMessages()
+      dem |> clipr(bou, save_dem(dest_dir[i])['dem'])
+      land |> clipr(bou, save_land(dest_dir[i])['land']) 
+      soils |> clipr(bou, save_soils(dest_dir[i])[['soil']]['soil']) 
+      
+      # read back unique land use id codes for the catchment and write a copy
+      land_id = terra::rast( save_land(dest_dir[i])['land'] )[] |> unique()
+      land_lookup = land_lookup[land_lookup[['LANDUSE_ID']] %in% land_id, ]
+      land_lookup |> write.csv(save_land(dest_dir[i])['lookup'], row.names=FALSE, quote=FALSE)
     } 
     
     # find mapping from outlet COMID to directory name
     comid = do.call(c, lapply(sub_list, \(x) x[['comid']]))
-    
-    # compile gages dataset, append directory names field
-    gage = do.call(rbind, lapply(sub_list, \(x) x[['gage']]))
+
+    # compile outlet gages dataset, append directory names field
+    gage = do.call(rbind, lapply(sub_list, \(x) x[['gage']][ !x[['gage']][['inlet']], ] ))
     gage[['dir_name']] = names(comid)[ match(gage[['comid']], comid) ]
     row.names(gage) = NULL
     
@@ -315,7 +319,8 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
 #' 
 #' The output is always in WGS84 coordinates. If there is no intersection, the
 #' function snaps the endpoint of the incomplete stream segment to the boundary
-#' and returns that point.
+#' and returns that point. If there is more than one intersection, the function
+#' returns the one further downstream.
 #'
 #' @param catch sf data frame of sub-catchment polygons with 'comid' field
 #' @param edge data frame of flow line directed edges ("PlusFlow" from "NHDPlusAttributes")
@@ -342,14 +347,21 @@ find_outlet = function(catch, edge, flow) {
     boundary = catch |> sf::st_geometry() |> sf::st_transform(crs_utm) |> sf::st_boundary()
     out_line = flow[ flow[['COMID']] %in% comid_check, ] |> 
       sf::st_geometry() |> 
-      sf::st_transform(crs_utm) |>
-      sf::st_union()
-    
-    # deal with non-intersecting lines separately
-    is_complete = sf::st_intersects(out_line, boundary, sparse=FALSE)
-    out_point = if(is_complete) { sf::st_intersection(out_line, boundary, sparse=FALSE) } else {
+      sf::st_transform(crs_utm)
+
+    # check if the flow line intersects the boundary
+    is_complete = out_line |> sf::st_union() |> sf::st_intersects(boundary, sparse=FALSE) |> c()
+    out_point =  if(is_complete) { 
       
-      out_line |> sf::st_nearest_points(boundary) |> sf::st_cast('POINT') |> tail(1)
+      # get point(s) of intersection in order downstream, upstream
+      sf::st_intersection(out_line, boundary, sparse=FALSE) |> 
+        sf::st_cast('POINT') |> head(1)
+
+    } else {
+      
+      # deal with non-intersecting lines separately
+      out_point = sf::st_union(out_line) |> sf::st_nearest_points(boundary) |> 
+        sf::st_cast('POINT') |> tail(1)
     }
     
     # transform back to WGS84

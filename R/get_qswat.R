@@ -22,32 +22,41 @@
 #' @param data_dir character path to the directory for input/output files
 #' @param sub logical, if `TRUE` the function processes sub-catchments in "split/"
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
-#' @param threshold numeric (in km2), lakes with area lower than threshold are omitted
+#' @param lake_area numeric (in km2), lakes with area lower than `lake_area` are omitted
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_qswat('/example')
-save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, threshold=0.5) {
+save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet=FALSE) {
+  
+  # template for inlet/outlet shapefile fields
+  io_temp = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)
   
   # the land use code to write to lake pixels
   watr = 11L
   
-  # handle sub-catchment case
+  # handle sub-catchments with recursion
   if( sub ) {
     
+    # get directories of sub-catchments (or length-0 character)
     split_dir = save_split(data_dir)[['gage']] |> dirname()
     sub_dir = save_split(data_dir)[['sub']]
-    sub_dir = sub_dir |> stats::setNames(basename(sub_dir))
-    
-    # replace base directory with vector of sub-directories
+    msg_error = paste('no sub-catchments directories in ', split_dir)
     msg_empty = '\nHave you run `save_split` yet?'
-    if( length(sub_dir) == 0 ) stop('no sub-catchments directories in ', split_dir, msg_empty)
+    if( overwrite & ( length(sub_dir) == 0 ) ) stop(msg_error, msg_empty)
     
-    # vectorized case
-    return( lapply(sub_dir, \(d) save_qswat(d, overwrite=overwrite)) )
+    # vectorized case returns a named list
+    sub_dir = sub_dir |> stats::setNames(basename(sub_dir))
+    if( overwrite & !quiet ) message('writing inputs for ', length(sub_dir), ' sub-catchments')
+    
+    for(d in sub_dir) save_qswat(d, overwrite=overwrite, quiet=TRUE)
+    
+    return( lapply(sub_dir, \(d) save_qswat(d, overwrite=overwrite, quiet=TRUE)) )
   }
+  
+  if(!quiet) message('writing ', basename(data_dir))
   
   # set output directory
   dest_dir = data_dir |> file.path('qswat')
@@ -69,7 +78,6 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, threshold=0.5) {
   soil_path = save_soils(data_dir)[['soil']]['soil']
   
   # load input files
-  message('loading raster data')
   catch_list = data_dir |> open_catch()
   land = save_land(data_dir)['land'] |> terra::rast()
   land_df = save_land(data_dir)['lookup'] |> read.csv()
@@ -81,13 +89,16 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, threshold=0.5) {
   flow = catch_list[['flow']] |> sf::st_geometry() |> sf::st_transform(crs_out) |> sf::st_union()
   
   # copy lakes meeting area criterion
-  lake_src = catch_list[['lake']] |> dplyr::filter(AREASQKM >= threshold)
+  if( nrow(catch_list[['lake']]) == 0 ) { n_lake = 0 } else {
+    
+    lake = catch_list[['lake']] |> sf::st_geometry() |> sf::st_transform(crs_out)
+    n_lake = length(lake)
+  }
   
   # add lakes that intersect with a flow line
-  if( nrow(lake_src) > 0 ) {
+  if( n_lake > 0 ) {
 
     # look for intersections in target coordinate system
-    lake = lake_src |> sf::st_geometry() |> sf::st_transform(crs_out)
     is_burned = lake |> sf::st_intersects(flow, sparse=FALSE)
     if( any(is_burned) ) {
 
@@ -124,9 +135,6 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, threshold=0.5) {
       # copy water code to the pixels in land raster
       land[ !is.na(land_lake) ] = watr
     }
-    
-    
-    
   }
   
   # make the directory if necessary and remove any existing output files
@@ -144,34 +152,36 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, threshold=0.5) {
   # soil and DEM are already good to go by direct copy
   dem_path |> file.copy(dest_path[['dem']])
   soil_path |> file.copy(dest_path[['soil']])
-
-  # build inlet/outlet data frame
-  outlet = catch_list[['outlet']]
   
-  # select only main inlet(s) in cases of duplicates
+  # create QSWAT+ compatible inlet/outlet data frame
+  outlet = catch_list[['outlet']] |> sf::st_transform(crs_out)
+  comid = outlet[['comid']]
+  io_df = io_temp |> sf::st_sf(geometry=sf::st_geometry(outlet))
+  
+  # first check for inlets (may be missing in non-split case)
   if( !is.null(catch_list[['inlet']]) ) {
     
-    
-    
-    
+    # if no inlets, this dataframe will be empty
+    if( nrow(catch_list[['inlet']]) > 0 ) {
+      
+      # copy inlet points, omitting duplicates
+      gage_df = catch_list[['gage']] |> dplyr::filter(inlet) |> sf::st_transform(crs_out)
+      gage_df = gage_df[ gage_df[['site_no']] %in% catch_list[['inlet']][['site_no']], ]
+      
+      # make inlet data frame in QSWAT+ format
+      inlet_df = do.call(rbind, rep(list(io_temp), nrow(gage_df))) |> 
+        sf::st_sf(geometry=sf::st_geometry(gage_df))
+      
+      # update fields and join with outlets
+      inlet_df[['INLET']] = 1L
+      inlet_df[['ID']] = nrow(inlet_df) |> seq()
+      io_df = io_df |> rbind(inlet_df)
+    }
   }
   
-  # # save edge data as CSV
-  # catch_list[['edge']] |> write.csv(dest_path[['edge']], row.names=FALSE, quote=FALSE)
-  # 
-  # # save everything else in geoJSON files
-  # for( nm in names(dest_fname[-1]) ) {
-  #   
-  #   # check for unexpectedly empty list element
-  #   x_out = catch_list[[nm]]
-  #   if( is.null(x_out) ) { warning('nothing to write in element: ', nm) } else {
-  #     
-  #     # write the geometry
-  #     x_out |> sf::st_transform(4326) |> sf::st_write(dest_path[[nm]], quiet=TRUE)
-  #   }
-  # }
-  
+  # write the shapefile
+  io_df |> sf::st_write(dest_path[['outlet']], quiet=TRUE)
 
-  # return all paths
-  return(dest_path)
+  # return all paths without printing them
+  return( invisible(dest_path) )
 }
