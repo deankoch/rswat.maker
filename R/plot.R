@@ -171,18 +171,97 @@ plot_catch = function(sub_list,
 #' Draw a heatmap plot showing the DEM, land use, or soil MUKEYs
 #' 
 #' Set `what` to one of 'dem', 'land', or 'soil' after running the corresponding
-#' workflow (`get_dem`, `save_dem`, etc) to create the heatmap plot in UTM coordinates. 
+#' workflow (`get_dem`, `save_dem`, etc) to create a heatmap plot of that layer.
 #' 
 #' The function selects an appropriate theme for the layer and optionally draws catchment
-#' features over top using `plot_catch`
+#' features over top using `plot_catch`. Coordinates are projected to the UTM zone
+#' of the main outlet.
 #'
 #' @param data_dir 
 #' @param what character, the layer to plot, either 'dem', 'land', or 'soil'
 #'
 #' @return nothing
 #' @export
-plot_rast = function(data_dir, what='dem') {
+plot_rast = function(data_dir, what='dem', catch=TRUE, main=NULL, n_soil=10) {
   
+  stream_col = 'white'
+  stem_col = 'white'
+  
+  # open catchment data
+  if(catch) {
+   
+    catch_list = data_dir |> open_catch()
+    if( is.null(main) ) {
+      
+      comid = catch_list[['outlet']][['comid']]
+      basin_nm = catch_list[['flow']] |> most_frequent('GNIS_NAME')
+      main_lyr = switch(what, 'dem'='elevation', 'land'='land use', 'soil'='soil map units')
+      main = paste0(basin_nm, ' (', comid, '): ', main_lyr)
+    }
+  }
+  
+  # elevation plot using terrain colors
+  if(what=='dem') {
+    
+    r = save_dem(data_dir)['dem'] |> terra::rast() 
+    r |>  terra::plot(axes = FALSE,
+                      reset = FALSE,
+                      main = main,
+                      plg = list(title='meters', size=0.8),
+                      col = grDevices::terrain.colors(50)[10:40])
+  }
+  
+  # land use plot using NLCD colors
+  if(what=='land') {
+    
+    # disable lake and flow plot
+    lake_col = NULL
+    stream_col = NULL
+    
+    # get a palette from NLCD and filter to IDs found in this extent
+    r = save_land(data_dir)['land'] |> terra::rast() 
+    pal = FedData::pal_nlcd()[c('ID', 'Color', 'Class')] |> 
+      dplyr::filter(ID %in% na.omit(unique(r[])))
+    
+    # make r a factor raster then plot
+    levels(r) = pal[c('ID', 'Class')]
+    r |> terra::plot(axes = FALSE,
+                     reset = FALSE,
+                     main = main,
+                     col = pal[['Color']],
+                     plg = list(cex=0.8))
+  }
+  
+  # soils plot using random rainbow color assignment
+  if(what=='soil') {
+    
+    # disable flow plot
+    stream_col = NULL
+    
+    # categorical data, but the MUKEY doesn't mean much in itself
+    r = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
+    mukey = r[] |> unique() |> na.omit() |> c()
+
+    # set the levels and labels in the raster before plotting
+    levels(r) = data.frame(id=mukey, level=seq_along(mukey))
+    r |> terra::plot(axes = FALSE,
+                     reset = FALSE,
+                     col = grDevices::rainbow(n_soil, alpha=0.7),
+                     main = main,
+                     legend = FALSE)
+  }
+
+  # pass the boundary in correct projection to get scale bar auto-positioning
+  catch_list[['boundary']] |> sf::st_transform(crs=sf::st_crs(r)) |> draw_scale(left=NULL)
+  
+  # draw catchment features
+  if(catch) plot_catch(catch_list,
+                       add=TRUE,
+                       fill_col=NULL,
+                       lake_col=NULL,
+                       border_col='black',
+                       stream_col=stream_col,
+                       stem_col=stem_col)
 }
 
 

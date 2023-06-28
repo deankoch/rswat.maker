@@ -4,7 +4,7 @@
 \alias{plot_rast}
 \title{Draw a heatmap plot showing the DEM, land use, or soil MUKEYs}
 \usage{
-plot_rast(data_dir, what = "dem")
+plot_rast(data_dir, what = "dem", catch = TRUE, main = NULL, n_soil = 10)
 }
 \arguments{
 \item{data_dir}{}
@@ -16,9 +16,10 @@ nothing
 }
 \description{
 Set \code{what} to one of 'dem', 'land', or 'soil' after running the corresponding
-workflow (\code{get_dem}, \code{save_dem}, etc) to create the heatmap plot in UTM coordinates.
+workflow (\code{get_dem}, \code{save_dem}, etc) to create a heatmap plot of that layer.
 }
 \details{
 The function selects an appropriate theme for the layer and optionally draws catchment
-features over top using \code{plot_catch}
+features over top using \code{plot_catch}. Coordinates are projected to the UTM zone
+of the main outlet.
 }
