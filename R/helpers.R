@@ -179,6 +179,42 @@ biggest_poly = function(poly_list) {
 }
 
 
+#' Clip and mask a raster to a polygon
+#' 
+#' This returns a copy the sub-grid of raster `r` covering geometry `b`
+#' (for boundary), with all pixels outside of `b` set to NA. If `p` is not
+#' `NULL`, the function deletes anything at that path, then writes the raster
+#' to it with `terra::writeRaster` (creating directories as needed)
+#'
+#' The function wraps the obvious `terra` functions, handling projections,
+#' and coercing to `SpatVector` via `sp` to avoid bugs with unusual geometries.
+#'
+#' @param r SpatRaster
+#' @param b sf polygon geometry within extent of `r`
+#' @param p character path to save as GeoTIFF
+#'
+#' @return SpatRaster
+#' @export
+clipr = function(r, b, p=NULL) {
+  
+  b = sf::st_geometry(b)
+  b_r = b[!sf::st_is_empty(b)] |> 
+    sf::st_transform(sf::st_crs(r)) |> 
+    as('Spatial') |> 
+    as('SpatVector')
+  
+  r_out = r |> terra::crop(b_r) |> terra::mask(b_r)
+  if( !is.null(p) ) {
+    
+    p_parent = dirname(p)
+    if( !dir.exists(p_parent) ) dir.create(p_parent, recursive=TRUE)
+    r_out |> terra::writeRaster(p)
+  }
+  
+  return(r_out)
+}
+
+
 #' Return the most frequent string a column of a data frame
 #'
 #' Counts appearances of unique strings in `x[[nm]]` and returns the most frequent
