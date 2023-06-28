@@ -168,6 +168,24 @@ plot_catch = function(sub_list,
 }
   
 
+#' Draw a heatmap plot showing the DEM, land use, or soil MUKEYs
+#' 
+#' Set `what` to one of 'dem', 'land', or 'soil' after running the corresponding
+#' workflow (`get_dem`, `save_dem`, etc) to create the heatmap plot in UTM coordinates. 
+#' 
+#' The function selects an appropriate theme for the layer and optionally draws catchment
+#' features over top using `plot_catch`
+#'
+#' @param data_dir 
+#' @param what character, the layer to plot, either 'dem', 'land', or 'soil'
+#'
+#' @return nothing
+#' @export
+plot_rast = function(data_dir, what='dem') {
+  
+}
+
+
 #' Draw one or more points with filled circles
 #' 
 #' Wrapper for `sf::plot.sf(p)`. This adds to an existing plot in the same
