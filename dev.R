@@ -15,82 +15,38 @@ document()
 # basins with active gages (paying attention to the total size of the
 # catchment)
 
-data_dir = 'D:/rswat_data/salmon'
-#data_dir = 'D:/rswat_data/yellowstone'
+
+data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/ausable'
+#data_dir = 'D:/rswat_data/salmon'
+#data_dir = 'D:/rswat_data/bigthompson'
 
-outlet = nominatim_point("Clayton, ID")
-#outlet = nominatim_point("Carter's Bridge, MT")
+outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
+#outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
+#outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
+# this command does nothing if you've already built the project
 outlet |> fetch_all(data_dir, overwrite=TRUE)
-
 
 # open previously saved data
 catch_list = data_dir |> open_catch()
 plot_catch(catch_list)
 
 # open the previously saved sub-catchments data
-sub_list = save_split(data_dir)[['sub']] |> lapply(open_catch)
+sub_list = data_dir |> open_catch(sub=TRUE)
 plot_catch(sub_list)
 
-
 i = 0
-
 i = i + 1
 plot_catch(sub_list[[i]])
 
-
-
-
-
-
-
-
-
-
-# TODO: save DEM (and other rasters) in UTM (zone from outlet point) then rebuild
-# for rebuilding
-if(FALSE) {
-  
-  # catch_list = outlet |> get_catch()
-  # data_dir |> save_catch(catch_list, overwrite=TRUE)
-  # plot_catch(catch_list)
-  
-  # dem = get_dem(data_dir)
-  # dem = save_dem(data_dir)['dem_src'] |> terra::rast()
-  # data_dir |> save_dem(dem, overwrite=TRUE)
-  
-  # land = get_land(data_dir)
-  # data_dir |> save_land(land, overwrite=TRUE)
-  
-  # soil = get_soils(data_dir)
-  # data_dir |> save_soils(soil, overwrite=TRUE)
-  
-  #land = save_land(data_dir)['land_src'] |> terra::rast()
-  
-  # get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
-  # update_nwis(data_dir, nwis_nm)
-}
-
-# save split datasets
-data_dir |> save_split(sub_list, overwrite=TRUE)
-
-# later on, we can update weather like this
-data_dir |> update_nwis(nwis_nm)
-
-# TODO: prepare QSWAT+ input files:
-sub_dir = save_split(data_dir)[['sub']] |> head(1)
-
-save_soils(sub_dir)[['soil']]['soil'] |> terra::rast() |> terra::plot()
-save_land(sub_dir)[['land']] |> terra::rast() |> terra::plot()
-save_dem(sub_dir)[['dem']] |> terra::rast() |> terra::plot()
 
 
 # 1. shapefile for inlets/outlets with specific fields ("RES" etc)
@@ -112,16 +68,24 @@ out_nm = c(outlet='outlet.shp',
            land_lookup='landuse.csv')
 
 # output directories
+split_dir = save_split(data_dir)[['gage']] |> dirname()
+sub_dir = save_split(data_dir)[['sub']]
+msg_empty = '\nHave you run `save_split` yet?'
+if( length(sub_dir) == 0 ) stop('no sub-catchments directories in ', split_dir, msg_empty)
+
+# output sub-directories
+nm_split = sub_dir |> basename()
 dest_dir = sub_dir |> file.path('qswatplus')
-out_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
+out_path = dest_dir |> 
+  lapply(\(d) file.path(d, out_nm) |> stats::setNames(names(out_nm)) ) |>
+  stats::setNames(nm_split)
 
 # load input files
 catch_list = sub_dir |> open_catch()
 dem = save_dem(sub_dir)['dem'] |> terra::rast()
 
-# all geo-referenced outputs will by in coordinate system of the DEM
+# all geo-referenced outputs will be in coordinate system of the DEM
 crs_out = dem |> sf::st_crs()
-
 
 # initialize outlet data frame
 outlet = catch_list[['outlet']]
@@ -226,4 +190,18 @@ plot_catch(catch_list, stream_col=NULL)
 plot_catch(split_result, border_col=NULL, inlet_col=NULL, add=TRUE)
 
 
+
+
+# save split datasets
+data_dir |> save_split(sub_list, overwrite=TRUE)
+
+# later on, we can update weather like this
+data_dir |> update_nwis(nwis_nm)
+
+# TODO: prepare QSWAT+ input files:
+sub_dir = save_split(data_dir)[['sub']] |> head(1)
+
+save_soils(sub_dir)[['soil']]['soil'] |> terra::rast() |> terra::plot()
+save_land(sub_dir)[['land']] |> terra::rast() |> terra::plot()
+save_dem(sub_dir)[['dem']] |> terra::rast() |> terra::plot()
 
