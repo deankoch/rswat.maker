@@ -386,10 +386,10 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   # load the DEM (must be in WGS84 to avoid transforming the very large `soils`)
   dem = save_dem(data_dir, overwrite=FALSE)[['dem_src']] |> terra::rast()
 
-  # coerce to SpatVector with integer values then rasterize to DEM grid
+  # coerce to SpatVector (via sp) with integer values then rasterize to DEM grid
   message('rasterizing MUKEYs for ', model)
   soils[['MUKEY']] = soils[['MUKEY']] |> as.integer()
-  soils_sv = as(soils['MUKEY'], 'SpatVector')
+  soils_sv = soils['MUKEY'] |> as('Spatial') |> as('SpatVector')
   soils_sv |> terra::rasterize(dem,
                                field = 'MUKEY',
                                fun = 'min',
