@@ -17,6 +17,7 @@ This selects the largest polygon from a set, transforms to WGS84 coordinates,
 runs \code{sf::st_make_valid()}, then removes holes from the result.
 }
 \details{
-This is useful for tidying up the result of set operations (like differencing)
-when the expected result is a single connected polygon.
+We use it in this package for tidying up the result of set operations like
+differencing, where we are expecting a simple connected polygon but don't always
+get one because of imprecise geometries.
 }

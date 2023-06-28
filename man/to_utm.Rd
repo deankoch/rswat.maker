@@ -7,14 +7,14 @@
 to_utm(x)
 }
 \arguments{
-\item{x}{any object understood by \code{sf::st_geometry}}
+\item{x}{any object with CRS data understood by \code{sf::st_geometry}}
 }
 \value{
 integer EPSG code
 }
 \description{
 This prints the UTM zone that covers the supplied point
-and returns the corresponding EPSG code
+and returns the corresponding EPSG code as integer
 }
 \examples{
 c(-110, 45) |> sf::st_point() |> to_utm()

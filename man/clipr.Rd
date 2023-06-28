@@ -2,7 +2,7 @@
 % Please edit documentation in R/helpers.R
 \name{clipr}
 \alias{clipr}
-\title{Clip and mask a raster to a polygon}
+\title{Crop and mask a raster to a polygon}
 \usage{
 clipr(r, b, p = NULL)
 }
@@ -24,5 +24,19 @@ to it with \code{terra::writeRaster} (creating directories as needed)
 }
 \details{
 The function wraps the obvious \code{terra} functions, handling projections,
-and coercing to \code{SpatVector} via \code{sp} to avoid bugs with unusual geometries.
+and coercing to \code{SpatVector} via \code{sp} to avoid possible bugs.
+}
+\examples{
+# create example data
+dem = terra::rast(system.file('ex/elev.tif', package='terra'))
+bbox = dem |> terra::ext() |> sf::st_bbox() |> sf::st_as_sfc()
+sf::st_crs(bbox) = sf::st_crs(dem)
+b = sf::st_centroid(bbox) |> sf::st_buffer(units::set_units(10, km))
+#dem |> terra::plot()
+#plot(b, add=T)
+
+# clipr result
+r_result = dem |> clipr(b)
+r_result |> terra::plot()
+plot(b, add=T)
 }

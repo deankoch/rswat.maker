@@ -17,7 +17,8 @@ most_frequent(df_nm, nm = 1, alt = "unnamed")
 character
 }
 \description{
-Counts appearances of unique strings in \code{x[[nm]]} and returns the most frequent
-one. If there is a tie, the function returns the one appearing first in the data
-frame. If there are no non-empty strings, the function returns \code{alt}
+The counts the appearances of unique strings in \code{x[[nm]]} and returns the
+most frequent one. If there is a tie, the function returns the one appearing
+first in the data frame. If there are no non-empty strings, the function
+returns \code{alt}
 }
