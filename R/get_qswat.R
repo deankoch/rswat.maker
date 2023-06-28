@@ -56,7 +56,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet
     return( lapply(sub_dir, \(d) save_qswat(d, overwrite=overwrite, quiet=TRUE)) )
   }
   
-  if(!quiet) message('writing ', basename(data_dir))
+  if( overwrite & !quiet ) message('writing ', basename(data_dir))
   
   # set output directory
   dest_dir = data_dir |> file.path('qswat')

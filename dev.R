@@ -25,24 +25,60 @@ document()
 #data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/snake'
-#data_dir = 'D:/rswat_data/salmon'
+data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/ausable'
-data_dir = 'D:/rswat_data/bigthompson'
+#data_dir = 'D:/rswat_data/bigthompson'
 
 #outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
 #outlet = nominatim_point("Alpine Junction, WY")
-#outlet = nominatim_point("Clayton, ID")
+outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
-outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
+#outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
 # this command does nothing if you've already built the project
 outlet |> fetch_all(data_dir, overwrite=TRUE)
 
 
-# 
+library(terra)
+library(sf)
+
+
+subs = save_split(data_dir)[['sub']]
+i = 0
+
+i = i + 1
+sub_dir = subs[i]
+
+save_qswat(sub_dir)['dem'] |> rast() |> plot()
+save_qswat(sub_dir)['stream'] |> st_read() |> st_geometry() |> plot(add=T)
+save_qswat(sub_dir)['outlet'] |> st_read() |> st_geometry() |> plot(add=T, pch=16, col='red')
+x = save_qswat(sub_dir)['outlet'] |> st_read()
+x
+
+catch_list = data_dir |> open_catch(sub=TRUE)
+plot_catch(catch_list)
+
+
+data_dir |> plot_rast('soil')
+data_dir |> plot_rast('dem')
+data_dir |> plot_rast('land')
+plot_catch(catch_list, add=TRUE)
+
+data_dir |> plot_rast('soil')
+
+subs = save_split(data_dir)[['sub']]
+
+i = 0
+i = i + 1
+subs[i] |> plot_rast('soil')
+subs[i] |> plot_rast(what='land')
+subs[i] |> plot_rast()
+
+
+
 # land = save_land(data_dir)['land_src'] |> terra::rast()
 # save_land(data_dir, land, overwrite=TRUE)
 # 
@@ -53,14 +89,14 @@ outlet |> fetch_all(data_dir, overwrite=TRUE)
 # 
 # 
 
-sub_list = data_dir |> get_split()
-data_dir |> save_split(sub_list, overwrite=TRUE)
-
-
-
-sub_list[[11]]
-plot(boundary_inner_i |> sf::st_geometry())
-plot(boundary_outer_i |> sf::st_geometry(), add=T)
+# sub_list = data_dir |> get_split()
+# data_dir |> save_split(sub_list, overwrite=TRUE)
+# 
+# 
+# 
+# sub_list[[11]]
+# plot(boundary_inner_i |> sf::st_geometry())
+# plot(boundary_outer_i |> sf::st_geometry(), add=T)
 
 
 # save_split(data_dir, sub_list, overwrite=TRUE)
@@ -73,41 +109,6 @@ plot_catch(catch_list)
 # open the previously saved sub-catchments data
 sub_list = data_dir |> open_catch(sub=TRUE)
 plot_catch(sub_list)
-
-save_qswat(data_dir, sub=T, overwrite=TRUE)
-
-
-catch_list[['boundary_outer']] |> sf::st_geometry() |> plot()
-catch_list[['boundary']] |> sf::st_geometry() |> plot(add=T)
-catch_list$outlet |> sf::st_geometry() |> plot(add=TRUE, pch=16, cex=2)
-
-
-
-
-names(sub_list)
-
-sub_list$soda_butte_cr_nr_lamar_ranger_station_ynp$boundary_outer |> sf::st_geometry() |> plot()
-sub_list$soda_butte_cr_nr_lamar_ranger_station_ynp$boundary |> sf::st_geometry() |> plot()
-
-y = save_dem('D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp')['dem'] |> terra::rast()
-terra::plot(y, reset=FALSE)
-
-
-
-
-
-x = "D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/outlet.shp" |> sf::st_read()
-y = "D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/dem.tif" |> terra::rast()
-
-terra::plot(y, reset=FALSE)
-plot(sf::st_geometry(x) |> sf::st_transform(sf::st_crs(y)), add=T)
-
-
-
-data_dir = file.path(data_dir, 'split', names(sub_list)[i])
-sub=FALSE
-overwrite=TRUE
-lake_area=0.5
 
 
 
