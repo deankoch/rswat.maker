@@ -238,14 +238,20 @@ save_catch = function(data_dir, catch_list=NULL, overwrite=FALSE, extra=FALSE) {
 open_catch = function(data_dir, extra=NULL, sub=FALSE) {
   
   # vectorized call returns a list (and ignores `sub`)
-  if( length(data_dir) > 1 ) return( lapply(data_dir, \(d) open_catch(d, extra=extra)) )
+  if( length(data_dir) > 1 ) {
+   
+    # named by directory
+    nm = basename(data_dir)
+    list_result = lapply(data_dir, \(d) open_catch(d, extra=extra)) |> stats::setNames(nm)
+    return(list_result) 
+  }
   
   # check for sub-catchments if requested
   if( sub ) {
    
     # if none found, we just continue as if `sub=FALSE`
     sub_dir = save_split(data_dir)[['sub']]
-    if( length(sub_dir) > 0 ) return( lapply(\(d) open_catch(d, extra=extra)) )
+    if( length(sub_dir) > 0 ) return( open_catch(sub_dir, extra=extra) )
   }
   
   # set default extra 
