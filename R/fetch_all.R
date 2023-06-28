@@ -28,7 +28,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   soils_path = data_dir |> save_soils()
   nwis_path = data_dir |> save_nwis(nwis_nm)
   split_path = data_dir |> save_split()
-  qswat_path = data_dir |> save_qswat()
+  qswat_path = data_dir |> save_qswat(sub=TRUE)
   
   # concatenate paths in list
   all_path = list(catch = nhd_path,
@@ -51,6 +51,15 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
     save_catch(data_dir, catch_list, overwrite=TRUE)
   }
   
+  # get stream gage records from NWIS (using `dataRetrieval`)
+  message('')
+  message('fetching stream gages...')
+  if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
+    
+    # small batch of downloads, should complete in < 5 min  
+    get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+  }
+  
   # get DEM from USGS if necessary (using 'FedData')
   message('')
   message('fetching DEM...')
@@ -60,15 +69,6 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
 
     dem = get_dem(data_dir)
     save_dem(data_dir, dem, overwrite=TRUE)
-  }
-  
-  # get stream gage records from NWIS (using `dataRetrieval`)
-  message('')
-  message('fetching stream gages...')
-  if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
-    
-    # small batch of downloads, should complete in < 5 min  
-    get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
   }
   
   # get land use data from GAP/LANDFIRE
@@ -107,7 +107,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   qswat_exists = length(qswat_path) > 0
   if( force_overwrite | !qswat_exists ) {
     
-    qswat_list = get_qswat(data_dir)
-    save_split(data_dir, sub_list, overwrite=TRUE, nwis_nm=nwis_nm)
+    save_qswat(data_dir, overwrite=TRUE)
+    save_qswat(data_dir, sub=TRUE, overwrite=TRUE)
   }
 }

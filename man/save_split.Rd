@@ -32,9 +32,9 @@ list of two: the gage file path and a vector of directory paths
 \description{
 This saves the sub-catchments returned by \code{get_split} to sub-directories of
 \code{file.path(data_dir, 'split')} with directory names copied from \code{names(sub_list)}.
-The applicable subset of outputs from \code{get_dem}, \code{get_land}, \code{get_soils}, and \code{get_nwis}
-are then copied to each sub-catchment in a loop. A single points data frame is also
-written to 'split/gage.geojson', mapping gages to sub-directories.
+The final outputs from \code{get_dem}, \code{get_land}, \code{get_soils}, and \code{get_nwis} are then
+filtered to each sub-catchment and written to disk in a loop. A single points data
+frame is also written to 'split/gage.geojson', mapping gages to sub-directories.
 }
 \details{
 All raster files are cropped and masked to the union of the sub-catchment boundary

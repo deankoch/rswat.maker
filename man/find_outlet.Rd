@@ -25,5 +25,6 @@ and its immediate downstream neighbour.
 \details{
 The output is always in WGS84 coordinates. If there is no intersection, the
 function snaps the endpoint of the incomplete stream segment to the boundary
-and returns that point.
+and returns that point. If there is more than one intersection, the function
+returns the one further downstream.
 }

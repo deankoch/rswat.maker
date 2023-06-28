@@ -15,25 +15,56 @@ document()
 # basins with active gages (paying attention to the total size of the
 # catchment)
 
+# TODO: wrap all the FedData calls etc in tryCatch to get more informative
+# errors eg "Error in value[[3L]](cond) : Improperly formatted SDA SQL request"
+# means any kind of error from the SSURGO requests (and this can happen when
+# you already have the data cached and the server is too busy to respond with
+# SSA file names)
 
-data_dir = 'D:/rswat_data/yellowstone'
+
+#data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/snake'
+#data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/ausable'
-#data_dir = 'D:/rswat_data/salmon'
-#data_dir = 'D:/rswat_data/bigthompson'
+data_dir = 'D:/rswat_data/bigthompson'
 
-outlet = nominatim_point("Carter's Bridge, MT")
+#outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
-#outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Alpine Junction, WY")
+#outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
-#outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
+outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
 # this command does nothing if you've already built the project
 outlet |> fetch_all(data_dir, overwrite=TRUE)
+
+
+# 
+# land = save_land(data_dir)['land_src'] |> terra::rast()
+# save_land(data_dir, land, overwrite=TRUE)
+# 
+# 
+# dem = save_dem(data_dir)['dem_src'] |> terra::rast()
+# save_dem(data_dir, dem, overwrite=TRUE)
+# 
+# 
+# 
+
+sub_list = data_dir |> get_split()
+data_dir |> save_split(sub_list, overwrite=TRUE)
+
+
+
+sub_list[[11]]
+plot(boundary_inner_i |> sf::st_geometry())
+plot(boundary_outer_i |> sf::st_geometry(), add=T)
+
+
+# save_split(data_dir, sub_list, overwrite=TRUE)
+
 
 # open previously saved data
 catch_list = data_dir |> open_catch()
@@ -43,11 +74,53 @@ plot_catch(catch_list)
 sub_list = data_dir |> open_catch(sub=TRUE)
 plot_catch(sub_list)
 
+save_qswat(data_dir, sub=T, overwrite=TRUE)
+
+
+catch_list[['boundary_outer']] |> sf::st_geometry() |> plot()
+catch_list[['boundary']] |> sf::st_geometry() |> plot(add=T)
+catch_list$outlet |> sf::st_geometry() |> plot(add=TRUE, pch=16, cex=2)
+
+
+
+
+names(sub_list)
+
+sub_list$soda_butte_cr_nr_lamar_ranger_station_ynp$boundary_outer |> sf::st_geometry() |> plot()
+sub_list$soda_butte_cr_nr_lamar_ranger_station_ynp$boundary |> sf::st_geometry() |> plot()
+
+y = save_dem('D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp')['dem'] |> terra::rast()
+terra::plot(y, reset=FALSE)
+
+
+
+
+
+x = "D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/outlet.shp" |> sf::st_read()
+y = "D:/rswat_data/yellowstone/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/dem.tif" |> terra::rast()
+
+terra::plot(y, reset=FALSE)
+plot(sf::st_geometry(x) |> sf::st_transform(sf::st_crs(y)), add=T)
+
+
+
+data_dir = file.path(data_dir, 'split', names(sub_list)[i])
+sub=FALSE
+overwrite=TRUE
+lake_area=0.5
+
+
+
+
 i = 0
 i = i + 1
 plot_catch(sub_list[[i]])
 
 
+
+p = 'C:/SWAT/SWATPlus/ExampleDatasets/Robit/MainOutlet/MainOutlet.shp'
+x = sf::st_read(p)
+names(x)
 
 # 1. shapefile for inlets/outlets with specific fields ("RES" etc)
 # 2. shapefile for stream network burn-in with specific fields (?)
@@ -59,26 +132,10 @@ plot_catch(sub_list[[i]])
 # * transform the shapefiles to match DEM (done already for the other rasters)
 # * overwrite DEM with WATR at lakes
 
-# output filenames (these will be overwritten!)
-out_nm = c(outlet='outlet.shp', 
-           stream='stream.shp', 
-           dem='dem.tif', 
-           soil='soil.tif', 
-           land='landuse.tif', 
-           land_lookup='landuse.csv')
+save_qswat(data_dir, sub=F)
 
-# output directories
-split_dir = save_split(data_dir)[['gage']] |> dirname()
-sub_dir = save_split(data_dir)[['sub']]
-msg_empty = '\nHave you run `save_split` yet?'
-if( length(sub_dir) == 0 ) stop('no sub-catchments directories in ', split_dir, msg_empty)
 
-# output sub-directories
-nm_split = sub_dir |> basename()
-dest_dir = sub_dir |> file.path('qswatplus')
-out_path = dest_dir |> 
-  lapply(\(d) file.path(d, out_nm) |> stats::setNames(names(out_nm)) ) |>
-  stats::setNames(nm_split)
+
 
 # load input files
 catch_list = sub_dir |> open_catch()
@@ -91,13 +148,7 @@ crs_out = dem |> sf::st_crs()
 outlet = catch_list[['outlet']]
 
 
-# select main inlet(s) in cases of duplicates
-if( !is.null(catch_list[['inlet']]) ) {
-  
-  
-  
-  
-}
+
 
 
 
@@ -107,28 +158,7 @@ if( !is.null(catch_list[['inlet']]) ) {
 
 
 
-# new function split_nwis
 
-
-
-
-update_nwis()
-
-
-catch_list$outlet |> to_utm()
-
-
-
-
-
-sub_list = split_result
-
-
-plot_catch(split_result, gage_col=NULL)
-
-names(split_result)
-
-#
 
 
 
