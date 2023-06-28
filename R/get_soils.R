@@ -201,7 +201,7 @@ get_statsgo = function(data_dir, model='statsgo') {
   # input and output paths in data_dir
   statsgo_path = save_statsgo(data_dir, model=model, overwrite=FALSE)
   bbox_path = save_dem(data_dir, overwrite=FALSE)[['bbox']]
-  outlet_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
+  outlet_path = save_catch(data_dir, overwrite=FALSE)[['outlet']]
   
   # load outlet to find appropriate UTM zone for computations
   crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
@@ -297,7 +297,7 @@ get_statsgo = function(data_dir, model='statsgo') {
     # download/open all data for these overlapping SSAs (writes gpkg file to "raw")
     message('loading SSURGO data from ', length(ssa), ' soil survey area(s)...')
     soil_result = FedData::get_ssurgo(ssa,
-                                      label = 'uyr_pad',
+                                      label = 'ssa',
                                       raw.dir = raw_dir,
                                       extraction.dir = raw_dir,
                                       force.redo = FALSE) |> suppressWarnings()
@@ -389,7 +389,7 @@ save_statsgo = function(data_dir, soils=NULL, model='statsgo', overwrite=FALSE) 
   # coerce to SpatVector (via sp) with integer values then rasterize to DEM grid
   message('rasterizing MUKEYs for ', model)
   soils[['MUKEY']] = soils[['MUKEY']] |> as.integer()
-  soils_sv = soils['MUKEY'] |> as('Spatial') |> as('SpatVector')
+  soils_sv = soils['MUKEY'][!sf::st_is_empty(sf::st_geometry(soils)), ]  |> as('Spatial') |> as('SpatVector')
   soils_sv |> terra::rasterize(dem,
                                field = 'MUKEY',
                                fun = 'min',
