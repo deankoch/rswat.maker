@@ -4,22 +4,29 @@
 \alias{plot_rast}
 \title{Draw a heatmap plot showing the DEM, land use, or soil MUKEYs}
 \usage{
-plot_rast(data_dir, what = "dem", catch = TRUE, main = NULL, n_soil = 10)
+plot_rast(data_dir, what = "dem", main = NULL, catch = TRUE, add_scale = TRUE)
 }
 \arguments{
-\item{data_dir}{}
+\item{data_dir}{character path to the data directory passed to \code{fetch_all}}
 
 \item{what}{character, the layer to plot, either 'dem', 'land', or 'soil'}
+
+\item{main}{character or NULL (for automatic), the title of the plot}
+
+\item{catch}{logical, whether to plot the catchment boundary in black}
+
+\item{add_scale}{logical, whether to add a scale bar by calling \code{draw_scale}}
 }
 \value{
-nothing
+nothing, but creates a plot
 }
 \description{
 Set \code{what} to one of 'dem', 'land', or 'soil' after running the corresponding
-workflow (\code{get_dem}, \code{save_dem}, etc) to create a heatmap plot of that layer.
+workflow (\code{fetch_all}, or its subroutines, \code{get_dem}, \code{save_dem}, etc) to create
+a heat map plot of the requested layer.
 }
 \details{
-The function selects an appropriate theme for the layer and optionally draws catchment
-features over top using \code{plot_catch}. Coordinates are projected to the UTM zone
-of the main outlet.
+The function selects an appropriate theme for the layer and optionally draws
+the catchment boundary over top (see \code{?plot_catch} to add more features)
+Coordinates are projected to the UTM zone of the main outlet before plotting.
 }

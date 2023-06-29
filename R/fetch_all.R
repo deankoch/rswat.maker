@@ -21,6 +21,9 @@
 fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
                      nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01')) {
   
+  # flag to skip final update if we did it already in the same call
+  update_nwis = TRUE
+  
   # get paths written by the function
   nhd_path = data_dir |> save_catch()
   dem_path = data_dir |> save_dem()
@@ -55,9 +58,10 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   message('')
   message('fetching stream gages...')
   if( force_overwrite | !all( file.exists( unlist(nwis_path) ) ) ) {
-    
+
     # small batch of downloads, should complete in < 5 min  
     get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+    update_nwis = FALSE
   }
   
   # get DEM from USGS if necessary (using 'FedData')
@@ -101,7 +105,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
     save_split(data_dir, sub_list, overwrite=TRUE, nwis_nm=nwis_nm)
   }
   
-  # TODO: last step - make shapefiles for qswat
+  # make shapefiles for qswat
   message('')
   message('making qswat inputs...')
   qswat_exists = length(qswat_path) > 0
@@ -110,4 +114,12 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
     save_qswat(data_dir, overwrite=TRUE)
     save_qswat(data_dir, sub=TRUE, overwrite=TRUE)
   }
+  
+  # optionally update NWIS
+  message('')
+  message('updating stream gage data...')
+  if( update_nwis ) update_nwis(data_dir, nwis_nm)
+  
+  message('')
+  message('all done')
 }

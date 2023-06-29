@@ -171,22 +171,23 @@ plot_catch = function(sub_list,
 #' Draw a heatmap plot showing the DEM, land use, or soil MUKEYs
 #' 
 #' Set `what` to one of 'dem', 'land', or 'soil' after running the corresponding
-#' workflow (`get_dem`, `save_dem`, etc) to create a heatmap plot of that layer.
+#' workflow (`fetch_all`, or its subroutines, `get_dem`, `save_dem`, etc) to create
+#' a heat map plot of the requested layer.
 #' 
-#' The function selects an appropriate theme for the layer and optionally draws catchment
-#' features over top using `plot_catch`. Coordinates are projected to the UTM zone
-#' of the main outlet.
+#' The function selects an appropriate theme for the layer and optionally draws
+#' the catchment boundary over top (see `?plot_catch` to add more features)
+#' Coordinates are projected to the UTM zone of the main outlet before plotting.
 #'
-#' @param data_dir 
+#' @param data_dir character path to the data directory passed to `fetch_all`
 #' @param what character, the layer to plot, either 'dem', 'land', or 'soil'
+#' @param main character or NULL (for automatic), the title of the plot
+#' @param catch logical, whether to plot the catchment boundary in black
+#' @param add_scale logical, whether to add a scale bar by calling `draw_scale`
 #'
-#' @return nothing
+#' @return nothing, but creates a plot
 #' @export
-plot_rast = function(data_dir, what='dem', catch=TRUE, main=NULL, n_soil=10) {
-  
-  stream_col = 'white'
-  stem_col = 'white'
-  
+plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE) {
+
   # open catchment data
   if(catch) {
    
@@ -214,10 +215,6 @@ plot_rast = function(data_dir, what='dem', catch=TRUE, main=NULL, n_soil=10) {
   # land use plot using NLCD colors
   if(what=='land') {
     
-    # disable lake and flow plot
-    lake_col = NULL
-    stream_col = NULL
-    
     # get a palette from NLCD and filter to IDs found in this extent
     r = save_land(data_dir)['land'] |> terra::rast() 
     pal = FedData::pal_nlcd()[c('ID', 'Color', 'Class')] |> 
@@ -234,10 +231,7 @@ plot_rast = function(data_dir, what='dem', catch=TRUE, main=NULL, n_soil=10) {
   
   # soils plot using random rainbow color assignment
   if(what=='soil') {
-    
-    # disable flow plot
-    stream_col = NULL
-    
+
     # categorical data, but the MUKEY doesn't mean much in itself
     r = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
     mukey = r[] |> unique() |> na.omit() |> c()
@@ -252,16 +246,16 @@ plot_rast = function(data_dir, what='dem', catch=TRUE, main=NULL, n_soil=10) {
   }
 
   # pass the boundary in correct projection to get scale bar auto-positioning
-  catch_list[['boundary']] |> sf::st_transform(crs=sf::st_crs(r)) |> draw_scale(left=NULL)
+  if(add_scale) catch_list[['boundary']] |> sf::st_transform(crs=sf::st_crs(r)) |> draw_scale(left=NULL)
   
-  # draw catchment features
+  # draw catchment boundary only
   if(catch) plot_catch(catch_list,
                        add=TRUE,
                        fill_col=NULL,
                        lake_col=NULL,
-                       border_col='black',
-                       stream_col=stream_col,
-                       stem_col=stem_col)
+                       stream_col=NULL,
+                       stem_col=NULL,
+                       border_col='black')
 }
 
 
