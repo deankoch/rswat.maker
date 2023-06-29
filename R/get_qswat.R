@@ -1,15 +1,28 @@
-#' Make a QSWAT+-friendly copy of the output of `get_catch` or `get_split`
+#' Make a QSWAT+-friendly copy of your (sub-)catchment data files
 #' 
 #' This function creates a set of files ready to load in QSWAT+ and sufficient to
-#' define and construct a basic SWAT+ model. This includes: the DEM, land use, and
-#' soil MUKEY rasters (as GeoTIFF); a lookup table for land use; an inlets/outlets
-#' shape file; and a stream network shape file (to burn in the DEM).
+#' define and construct a basic SWAT+ model. When `overwrite=FALSE` the function
+#' writes nothing but returns the file paths that would be written.
 #' 
-#' When `overwrite=TRUE` the function writes these files to the "qswat" sub-directory
-#' of the catchment specified by `data_dir`. If `sub=TRUE` the function does this in a
-#' loop over the sub-catchment found in the 'split' sub-directory of `data_dir`. When
-#' `overwrite=FALSE` the function writes nothing but returns the file paths that would
-#' be written.
+#' When `overwrite=TRUE` and `sub=FALSE` the following are written to the "qswat"
+#' sub-directory of your `data_dir`:
+#' 
+#' * two copies of the DEM, with and without burn-in (as GeoTIFF)
+#' * a land use raster, and a STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
+#' * a lookup table for land use (as CSV)
+#' * an inlets/outlets shape file
+#' * a stream network shape file
+#' 
+#' 'dem_burn.tif', a copy of the UTM raster with stream reaches burned to depth `burn` (in meters)
+#' Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
+#' This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
+#' network based on the DEM alone. The function creates stream reaches by expanding flow lines
+#' to form channel polygons of width `burn`. It then uses `terra::rasterizes` to reduce the value
+#' of any DEM pixel that overlaps with a channel by the fixed value `burn`.
+#' 
+#' If `sub=TRUE` the function writes its output to the sub-catchments directories
+#' created by `get_split`, in a loop. This produces a complete set of QSWAT+ files
+#' for each sub-catchment in "split".
 #' 
 #' All geo-referenced outputs are written in UTM coordinates, where the zone is
 #' determined by the main outlet point location (see `?to_utm`). Lakes are burned into
@@ -23,13 +36,14 @@
 #' @param sub logical, if `TRUE` the function processes sub-catchments in "split/"
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #' @param lake_area numeric (in km2), lakes with area lower than `lake_area` are omitted
+#' @param burn numeric >= 0, burn-in depth for flow lines in meters
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_qswat('/example')
-save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet=FALSE) {
+save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=50,  quiet=FALSE) {
   
   # template for inlet/outlet shapefile fields
   io_temp = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)
@@ -65,6 +79,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet
   out_nm = c(outlet='outlet.shp', 
              stream='stream.shp', 
              dem='dem.tif', 
+             dem_burn='dem_burn.tif', 
              soil='soil.tif', 
              land='landuse.tif', 
              land_lookup='landuse.csv')
@@ -75,11 +90,33 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet
   
   # input paths for direct copy
   dem_path = save_dem(data_dir)['dem']
+  #dem_burn_path = save_dem(data_dir)['dem_burn']
   soil_path = save_soils(data_dir)[['soil']]['soil']
+  
+  ####
+  # # expand flow lines then rasterize to DEM grid
+  # message('burning flow lines')
+  # flow_out = flow |> sf::st_geometry() |> sf::st_transform(crs_out) |> sf::st_buffer(burn)
+  # burn_out = data.frame(dummy=1) |> 
+  #   sf::st_sf(geometry=flow_out) |> 
+  #   terra::rasterize(dem_out,
+  #                    field = 'dummy',
+  #                    fun = 'min',
+  #                    touches = TRUE)
+  # 
+  # # make a burn-in version of DEM and save to disk
+  # dem_burn = dem_out
+  # dem_burn[ !is.na(burn_out) ] = dem_burn[ !is.na(burn_out) ] - burn
+  # dem_burn |> terra::writeRaster(dest_path[['dem_burn']])
+  # flow = save_catch(data_dir)['flow'] |> sf::st_read(quiet=TRUE) 
+  
+  
+  ####
   
   # load input files
   catch_list = data_dir |> open_catch()
   land = save_land(data_dir)['land'] |> terra::rast()
+  dem_burn = save_dem(data_dir)['dem_burn'] |> terra::rast()
   land_df = save_land(data_dir)['lookup'] |> read.csv()
   
   # all geo-referenced outputs in CRS matching DEM (based on outlet)
@@ -149,8 +186,17 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, quiet
   land |> terra::writeRaster(dest_path[['land']])
   land_df |> write.csv(dest_path[['land_lookup']], row.names=FALSE, quote=FALSE)
   
+  # TODO:
+  # replace with no-data value mentioned in the QSWAT+ Manual
+  # QSWAT identifies NAs as minimum of the values in the raster so the
+  # exact number doesn't matter
+  #dem_burn[ is.na(dem_burn) ] = -32768
+  dem_burn[ is.na(dem_burn) ] = -32768
+  dem_burn |> terra::writeRaster(dest_path[['dem_burn']])
+  
   # soil and DEM are already good to go by direct copy
   dem_path |> file.copy(dest_path[['dem']])
+  #dem_burn_path |> file.copy(dest_path[['dem_burn']])
   soil_path |> file.copy(dest_path[['soil']])
   
   # create QSWAT+ compatible inlet/outlet data frame

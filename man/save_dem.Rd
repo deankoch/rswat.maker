@@ -9,8 +9,7 @@ save_dem(
   dem = NULL,
   overwrite = FALSE,
   res = 90,
-  buffer = res,
-  burn = 50,
+  buffer = 1000,
   threads = TRUE
 )
 }
@@ -23,8 +22,6 @@ save_dem(
 
 \item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
 
-\item{burn}{numeric >= 0, burn-in depth for flow lines in meters}
-
 \item{threads}{logical, passed to \code{terra::project}}
 
 \item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
@@ -33,25 +30,32 @@ save_dem(
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and three
-copies of the DEM: 'ned_dem.tif', the unchanged source DEM; 'dem.tif', a version warped
-to the UTM zone of the main outlet (by bilinear averaging) with resolution \code{res} X \code{res};
-and 'dem_burn.tif', a copy the UTM raster with stream reaches burned to depth \code{burn} (meters).
+When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and two
+copies of the DEM raster.
 }
 \details{
-Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
-This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
-network based on the DEM alone. The function creates stream reaches by expanding flow lines
-to form channel polygons of width \code{buffer} (the pixel width by default). It then uses
-\code{terra::rasterizes} to reduce the value of any DEM pixel that overlaps with a channel by
-the fixed value \code{burn}.
+The function writes the following rasters
+\itemize{
+\item 'ned_dem.tif', the unchanged source DEM
+\item 'dem.tif', a version that has been masked/cropped to the catchment and warped to UTM
+}
 
-The function selects an output UTM zone for the two (non-source) rasters based on the location
-of the main outlet point. The bounding box is always in WGS84 coordinates.
+The function selects the UTM zone based on the location of the main outlet point. The output
+grid has resolution \code{res} X `res, and warping is by nearest neighbour - this is to better
+preserve extreme values (vs bilinear averaging).
 
-Note that \code{terra::project} can be slow with large rasters. The default \code{threads=TRUE} is
-the faster option. Higher \code{res} will also speed computation, but results in less detail in
-(SWAT+) HRUs and stream networks, and less precision in land use and soil type assignment.
+The bounding box is always saved in WGS84 coordinates (the expected system for geoJSON).
+
+Masking is controlled by \code{buffer}. Increase it to add more padding around the catchment
+boundary, or set it to \code{Inf} to disable masking altogether. Note that the QSWAT+ manual
+recommends against masking unless you are sure that your catchment boundary is accurate
+at the scale of the DEM. In that case, masking should improve the speed and precision of
+delineation with TauDEM; but otherwise it can lead to inaccurate channel networks and errors.
+
+\code{terra::project} (which uses GDAL) can be slow with large rasters. The default \code{threads=TRUE}
+is the faster option. Higher \code{res} will also speed computation, but results in less detail in
+(SWAT+) HRUs and stream networks, less precision in land use and soil type assignment
+down the line, and a higher risk of failure in the QSWAT+ channel delineation.
 }
 \examples{
 save_dem('/example')

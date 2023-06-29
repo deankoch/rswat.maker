@@ -2,13 +2,14 @@
 % Please edit documentation in R/get_qswat.R
 \name{save_qswat}
 \alias{save_qswat}
-\title{Make a QSWAT+-friendly copy of the output of \code{get_catch} or \code{get_split}}
+\title{Make a QSWAT+-friendly copy of your (sub-)catchment data files}
 \usage{
 save_qswat(
   data_dir,
   sub = FALSE,
   overwrite = FALSE,
   lake_area = 0.5,
+  burn = 50,
   quiet = FALSE
 )
 }
@@ -20,22 +21,38 @@ save_qswat(
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
 \item{lake_area}{numeric (in km2), lakes with area lower than \code{lake_area} are omitted}
+
+\item{burn}{numeric >= 0, burn-in depth for flow lines in meters}
 }
 \value{
 the file names to write
 }
 \description{
 This function creates a set of files ready to load in QSWAT+ and sufficient to
-define and construct a basic SWAT+ model. This includes: the DEM, land use, and
-soil MUKEY rasters (as GeoTIFF); a lookup table for land use; an inlets/outlets
-shape file; and a stream network shape file (to burn in the DEM).
+define and construct a basic SWAT+ model. When \code{overwrite=FALSE} the function
+writes nothing but returns the file paths that would be written.
 }
 \details{
-When \code{overwrite=TRUE} the function writes these files to the "qswat" sub-directory
-of the catchment specified by \code{data_dir}. If \code{sub=TRUE} the function does this in a
-loop over the sub-catchment found in the 'split' sub-directory of \code{data_dir}. When
-\code{overwrite=FALSE} the function writes nothing but returns the file paths that would
-be written.
+When \code{overwrite=TRUE} and \code{sub=FALSE} the following are written to the "qswat"
+sub-directory of your \code{data_dir}:
+\itemize{
+\item two copies of the DEM, with and without burn-in (as GeoTIFF)
+\item a land use raster, and a STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
+\item a lookup table for land use (as CSV)
+\item an inlets/outlets shape file
+\item a stream network shape file
+}
+
+'dem_burn.tif', a copy of the UTM raster with stream reaches burned to depth \code{burn} (in meters)
+Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
+This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
+network based on the DEM alone. The function creates stream reaches by expanding flow lines
+to form channel polygons of width \code{burn}. It then uses \code{terra::rasterizes} to reduce the value
+of any DEM pixel that overlaps with a channel by the fixed value \code{burn}.
+
+If \code{sub=TRUE} the function writes its output to the sub-catchments directories
+created by \code{get_split}, in a loop. This produces a complete set of QSWAT+ files
+for each sub-catchment in "split".
 
 All geo-referenced outputs are written in UTM coordinates, where the zone is
 determined by the main outlet point location (see \code{?to_utm}). Lakes are burned into
