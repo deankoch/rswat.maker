@@ -199,7 +199,7 @@ get_split = function(data_dir,
 #' 
 #' This saves the sub-catchments returned by `get_split` to sub-directories of
 #' `file.path(data_dir, 'split')` with directory names copied from `names(sub_list)`.
-#' The final outputs from `get_dem`, `get_land`, `get_soils`, and `get_nwis` are then
+#' The final outputs from `get_dem`, `get_land`, `get_soil`, and `get_nwis` are then
 #' filtered to each sub-catchment and written to disk in a loop. A single points data
 #' frame is also written to 'split/gage.geojson', mapping gages to sub-directories.
 #' 
@@ -208,7 +208,7 @@ get_split = function(data_dir,
 #' 
 #' The function returns a list with: `gage`, the path to the mapping file; and `sub`,
 #' a vector of paths to the sub-catchment directories. Pipe any of these directories to
-#' `save_catch`, `save_dem`, `save_land`, `save_soils`, or `save_nwis` to get a list of the
+#' `save_catch`, `save_dem`, `save_land`, `save_soil`, or `save_nwis` to get a list of the
 #' files saved in each category.
 #' 
 #' Once 'split/gage.geojson' has been written by this function, subsequent calls to
@@ -222,6 +222,7 @@ get_split = function(data_dir,
 #' @param data_dir character path to the directory to use for output files
 #' @param sub_list list returned from `get_split`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#' @param buffer 
 #' @param nwis_nm character, passed to `nwis_split`
 #' @param param_code character, passed to `nwis_split`
 #' @param stat_code character, passed to `nwis_split`
@@ -264,7 +265,7 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
     land_lookup = save_land(data_dir)['lookup'] |> read.csv()
     land = save_land(data_dir)['land'] |> terra::rast()
     dem = save_dem(data_dir)['dem'] |> terra::rast()
-    soils = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
+    soils = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
     
 
     # loop over sub-catchments (ie sub-directories)
@@ -279,9 +280,9 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
       bou = sub_list[[i]][['boundary_outer']] |> sf::st_geometry()
 
       # mask the rasters and write output to disk
-      dem |> clipr(bou, save_dem(dest_dir[i])['dem'])
-      land |> clipr(bou, save_land(dest_dir[i])['land']) 
-      soils |> clipr(bou, save_soils(dest_dir[i])[['soil']]['soil']) 
+      dem |> clipr(bou, p = save_dem(dest_dir[i])['dem'])
+      land |> clipr(bou, p = save_land(dest_dir[i])['land']) 
+      soils |> clipr(bou, p = save_soil(dest_dir[i])[['soil']]['soil']) 
       
       # read back unique land use id codes for the catchment and write a copy
       land_id = terra::rast( save_land(dest_dir[i])['land'] )[] |> unique()

@@ -28,7 +28,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   nhd_path = data_dir |> save_catch()
   dem_path = data_dir |> save_dem()
   land_path = data_dir |> save_land()
-  soils_path = data_dir |> save_soils()
+  soils_path = data_dir |> save_soil()
   nwis_path = data_dir |> save_nwis(nwis_nm)
   split_path = data_dir |> save_split()
   qswat_path = data_dir |> save_qswat(sub=TRUE)
@@ -91,8 +91,8 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   if( force_overwrite | !all( file.exists( unlist(soils_path) ) ) ) {
     
     # several GB to download here, after initial download runs in < 2 min  
-    soil = get_soils(data_dir)
-    save_soils(data_dir, soil, overwrite=TRUE)
+    soil = get_soil(data_dir)
+    save_soil(data_dir, soil, overwrite=TRUE)
   }
   
   # split into sub-catchments and copy relevant data subsets

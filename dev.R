@@ -21,61 +21,79 @@ document()
 # you already have the data cached and the server is too busy to respond with
 # SSA file names)
 
+# TODO: snap points to flow lines
+# TODO: 
 
-#data_dir = 'D:/rswat_data/yellowstone'
+
+data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/snake'
-data_dir = 'D:/rswat_data/salmon'
+#data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/ausable'
 #data_dir = 'D:/rswat_data/bigthompson'
 
-#outlet = nominatim_point("Carter's Bridge, MT")
+outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
 #outlet = nominatim_point("Alpine Junction, WY")
-outlet = nominatim_point("Clayton, ID")
+#outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
 #outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
-# this command does nothing if you've already built the project
+
+
+#
+###
+####
+###
+#TODO: rename get_soil(s)
+# land = save_land(data_dir)['land_src'] |> terra::rast()
+# terra::plot(land)
+
+
+
+
+dem = save_dem(data_dir)['dem_src'] |> terra::rast()
+# 
+save_dem(data_dir, dem, overwrite=TRUE)
+data_dir |> plot_rast('dem')
+
+
+sub_list = get_split(data_dir)
+save_split(data_dir, sub_list, overwrite=TRUE)
+
+
+
+#
+###
+####
+###
+
+# this command only updates NWIS if you've already built the project
 outlet |> fetch_all(data_dir, overwrite=TRUE)
 
-
-library(terra)
-library(sf)
-
-
-subs = save_split(data_dir)[['sub']]
-i = 0
-
-i = i + 1
-sub_dir = subs[i]
-
-save_qswat(sub_dir)['dem'] |> rast() |> plot()
-save_qswat(sub_dir)['stream'] |> st_read() |> st_geometry() |> plot(add=T)
-save_qswat(sub_dir)['outlet'] |> st_read() |> st_geometry() |> plot(add=T, pch=16, col='red')
-x = save_qswat(sub_dir)['outlet'] |> st_read()
-x
-
+# load previously saved catchment
 catch_list = data_dir |> open_catch(sub=TRUE)
 plot_catch(catch_list)
 
-
-data_dir |> plot_rast('soil')
 data_dir |> plot_rast('dem')
-data_dir |> plot_rast('land')
 plot_catch(catch_list, add=TRUE)
-
 data_dir |> plot_rast('soil')
+data_dir |> plot_rast('land')
 
 subs = save_split(data_dir)[['sub']]
 
 i = 0
+
 i = i + 1
+subs[i] |> plot_rast('dem')
+subs[i] |> open_catch() |> plot_catch(add=T)
+
+
 subs[i] |> plot_rast('soil')
-subs[i] |> plot_rast(what='land')
-subs[i] |> plot_rast()
+subs[i] |> plot_rast('land')
+
 
 
 
@@ -232,7 +250,7 @@ data_dir |> update_nwis(nwis_nm)
 # TODO: prepare QSWAT+ input files:
 sub_dir = save_split(data_dir)[['sub']] |> head(1)
 
-save_soils(sub_dir)[['soil']]['soil'] |> terra::rast() |> terra::plot()
+save_soil(sub_dir)[['soil']]['soil'] |> terra::rast() |> terra::plot()
 save_land(sub_dir)[['land']] |> terra::rast() |> terra::plot()
 save_dem(sub_dir)[['dem']] |> terra::rast() |> terra::plot()
 

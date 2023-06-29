@@ -91,9 +91,11 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
   # input paths for direct copy
   dem_path = save_dem(data_dir)['dem']
   #dem_burn_path = save_dem(data_dir)['dem_burn']
-  soil_path = save_soils(data_dir)[['soil']]['soil']
+  soil_path = save_soil(data_dir)[['soil']]['soil']
   
   ####
+  # TODO: implement this
+  
   # # expand flow lines then rasterize to DEM grid
   # message('burning flow lines')
   # flow_out = flow |> sf::st_geometry() |> sf::st_transform(crs_out) |> sf::st_buffer(burn)
@@ -109,6 +111,20 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
   # dem_burn[ !is.na(burn_out) ] = dem_burn[ !is.na(burn_out) ] - burn
   # dem_burn |> terra::writeRaster(dest_path[['dem_burn']])
   # flow = save_catch(data_dir)['flow'] |> sf::st_read(quiet=TRUE) 
+  
+  # TODO: AND THIS
+  
+  # @param na_out value to write in place of NA.
+  
+  # the value `na_out` is assigned. The
+  # default value (-99) is understood by SWAT+ to mean missing.
+  
+  # replace NAs with placeholder
+  #na_out=-99L
+  #soils[is.na(soils)] = na_out
+  
+  
+  
   
   
   ####

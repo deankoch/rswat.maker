@@ -25,10 +25,10 @@
 #'
 #' @return SpatRaster of STATSGO2 and/or SSURGO MUKeys
 #' @export
-get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) {
+get_soil = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) {
   
   # set up input/output names
-  model_path = save_soils(data_dir)
+  model_path = save_soil(data_dir)
   model_nm = stats::setNames(nm=names(model_path))
   input_nm = model_nm[1:2]
   
@@ -83,12 +83,12 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) 
   return(soils)
 }
 
-#' Save the output of `get_soils` to disk
+#' Save the output of `get_soil` to disk
 #' 
 #' When `overwrite=TRUE` the function writes two copies of the soil MUKEY rasters.
 #' When `overwrite=FALSE` the function writes nothing but returns a list containing
 #' the file paths that would be written (in element 'soil') along with file paths
-#' writting by `get_soils` (in elents 'ssurgo' and 'statsgo').
+#' writting by `get_soil` (in elents 'ssurgo' and 'statsgo').
 #' 
 #' This writes output to the 'soils' sub-directory of `data_dir`:
 #' 
@@ -97,8 +97,8 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) 
 #' 
 #' `buffer` and `threads` determine if and how the UTM grid is masked (as in `?save_land`)
 
-#' In a normal workflow you should call `get_soils(...)` to write the two source
-#' datasets to disk and make the merged raster, then call `save_soils(overwrite=TRUE)`
+#' In a normal workflow you should call `get_soil(...)` to write the two source
+#' datasets to disk and make the merged raster, then call `save_soil(overwrite=TRUE)`
 #' to save the merged raster in the two files listed above.
 #' 
 #' See also `?save_land`, where `buffer` and `threads` have the same meaning.
@@ -113,8 +113,8 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) 
 #' @export
 #'
 #' @examples
-#' save_soils('/example')
-save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=Inf, threads=TRUE) {
+#' save_soil('/example')
+save_soil = function(data_dir, soil=NULL, overwrite=FALSE, buffer=Inf, threads=TRUE) {
   
   # catch invalid calls and switch to file list mode
   if( is.null(soil) & overwrite ) {

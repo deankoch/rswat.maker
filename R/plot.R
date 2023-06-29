@@ -233,7 +233,7 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
   if(what=='soil') {
 
     # categorical data, but the MUKEY doesn't mean much in itself
-    r = save_soils(data_dir)[['soil']]['soil'] |> terra::rast()
+    r = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
     mukey = r[] |> unique() |> na.omit() |> c()
 
     # set the levels and labels in the raster before plotting
