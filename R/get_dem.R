@@ -143,33 +143,4 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=Inf, thr
   # save new DEM data
   dem_out |> terra::writeRaster(dest_path[['dem']])
   return(dest_path)
-  # 
-  # 
-  # # make padded boundary for masking (compute in UTM but express in DEM CRS)
-  # boundary_pad = if( is.infinite(buffer) ) { dem_bbox } else {
-  #   
-  #   message('masking and cropping')
-  #   boundary_pad = boundary |> 
-  #     sf::st_transform(crs_out) |> 
-  #     sf::st_buffer(buffer) |> 
-  #     sf::st_transform(sf::st_crs(dem))
-  # }
-  # 
-  # # `terra::mask` doesn't recognize sfc yet 
-  # boundary_pad_s = boundary_pad |> as('Spatial') |> as('SpatVector')
-  # 
-  # # mask and crop DEM to padded boundary to reduce CPU time for warp
-  # dem_mask = dem |> terra::crop(boundary_pad_s) |> terra::mask(boundary_pad_s)
-  # 
-  # # warp the DEM to this template then crop/mask again, in UTM this time
-  # boundary_out = boundary_pad |> sf::st_transform(crs_out) |> as('Spatial') |> as('SpatVector')
-  # message('warping')
-  # dem_out = dem_mask |> 
-  #   terra::project(rast_out, method='near', threads=threads) |> 
-  #   terra::crop(boundary_out) |> 
-  #   terra::mask(boundary_out)
-  # 
-  # # save new DEM data
-  # dem_out |> terra::writeRaster(dest_path[['dem']])
-  # return(dest_path)
 }
