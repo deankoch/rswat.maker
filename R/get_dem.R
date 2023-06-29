@@ -47,19 +47,19 @@ get_dem = function(data_dir, pad_size=NULL) {
 
 #' Save the output of `get_dem` to disk
 #' 
-#' When `overwrite=TRUE` the function writes a bounding box polygon, 'bbox.geojson', and two
-#' copies of the DEM raster.
+#' When `overwrite=TRUE` the function writes a bounding box polygon and two
+#' copies of the DEM raster. When `overwrite=FALSE` the function writes nothing
+#' but returns the file paths that would be written.
 #' 
-#' The function writes two rasters 
+#' The function writes its output to the 'ned' sub-directory of `data_dir`: 
 #' 
+#' * 'bbox.geojson', bounding box is always saved in WGS84 coordinates
 #' * 'ned_dem.tif', the unchanged source DEM
 #' * 'dem.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 #' 
-#' The function selects the UTM zone based on the location of the main outlet point. The output
-#' grid has resolution `res` X `res, and warping is by nearest neighbour - this is to better
-#' preserve extreme values (vs bilinear averaging).
-#' 
-#' The bounding box is always saved in WGS84 coordinates (the expected system for geoJSON).
+#' The function selects the UTM zone based on the location of the main outlet point. The UTM
+#' grid has resolution `res` X `res`, and warping is by nearest neighbour to better preserve
+#' extreme values (vs bilinear averaging).
 #' 
 #' Masking is controlled by `buffer`. Set it to zero to mask and crop to the catchment
 #' boundary. Increase it to extend this boundary outwards, or set it to `Inf` not mask

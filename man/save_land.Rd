@@ -8,7 +8,7 @@ save_land(
   data_dir,
   land = NULL,
   overwrite = FALSE,
-  buffer = NULL,
+  buffer = Inf,
   threads = TRUE
 )
 }
@@ -19,7 +19,7 @@ save_land(
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
-\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+\item{buffer}{numeric > 0, padding distance in metres, for masking}
 
 \item{threads}{logical, passed to \code{terra::project}}
 }
@@ -27,19 +27,19 @@ save_land(
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes 'landuse_lookup.csv', a lookup table,
-and two copies of the land use raster: 'nlcd_land.tif', the unchanged output from
-\code{FedData::get_nlcd}; and 'land.tif', a version warped to the UTM zone of the main
-outlet (by nearest neighbour). When \code{overwrite=FALSE} the function writes nothing
-but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes a lookup table CSV and two copies of the land
+use raster. When \code{overwrite=FALSE} the function writes nothing but returns the file paths
+that would be written.
 }
 \details{
-The lookup table provides the SWAT+ codes mapping to the integer values of the
-rasters. This CSV file should be compatible with QSWAT+ without additional formatting.
+The function writes its output to the 'land' sub-directory of \code{data_dir}:
+\itemize{
+\item 'landuse_lookup.csv', a lookup table mapping values to SWAT+ codes
+\item 'nlcd_land.tif', the unchanged source from \code{FedData::get_nlcd}
+\item 'land.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
+}
 
-Warping can be CPU-intensive See \code{save_dem} for more on \code{buffer} and \code{threads}
-and note that the preceding \code{save_dem} call establishes the output resolution used
-by this function.
+\code{buffer} and \code{threads} determine if and how the UTM grid is masked (see \code{?save_dem})
 }
 \examples{
 save_land('/example')

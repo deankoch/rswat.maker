@@ -30,21 +30,21 @@ save_dem(
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and two
-copies of the DEM raster.
+When \code{overwrite=TRUE} the function writes a bounding box polygon and two
+copies of the DEM raster. When \code{overwrite=FALSE} the function writes nothing
+but returns the file paths that would be written.
 }
 \details{
-The function writes two rasters
+The function writes its output to the 'ned' sub-directory of \code{data_dir}:
 \itemize{
+\item 'bbox.geojson', bounding box is always saved in WGS84 coordinates
 \item 'ned_dem.tif', the unchanged source DEM
 \item 'dem.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 }
 
-The function selects the UTM zone based on the location of the main outlet point. The output
-grid has resolution \code{res} X `res, and warping is by nearest neighbour - this is to better
-preserve extreme values (vs bilinear averaging).
-
-The bounding box is always saved in WGS84 coordinates (the expected system for geoJSON).
+The function selects the UTM zone based on the location of the main outlet point. The UTM
+grid has resolution \code{res} X \code{res}, and warping is by nearest neighbour to better preserve
+extreme values (vs bilinear averaging).
 
 Masking is controlled by \code{buffer}. Set it to zero to mask and crop to the catchment
 boundary. Increase it to extend this boundary outwards, or set it to \code{Inf} not mask
