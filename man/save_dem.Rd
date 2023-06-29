@@ -9,7 +9,7 @@ save_dem(
   dem = NULL,
   overwrite = FALSE,
   res = 90,
-  buffer = 1000,
+  buffer = Inf,
   threads = TRUE
 )
 }
@@ -20,7 +20,7 @@ save_dem(
 
 \item{res}{integer > 0, the resolution in metres (point spacing in both directions)}
 
-\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+\item{buffer}{numeric > 0, padding distance in metres, for masking}
 
 \item{threads}{logical, passed to \code{terra::project}}
 
@@ -34,10 +34,10 @@ When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geo
 copies of the DEM raster.
 }
 \details{
-The function writes the following rasters
+The function writes two rasters
 \itemize{
 \item 'ned_dem.tif', the unchanged source DEM
-\item 'dem.tif', a version that has been masked/cropped to the catchment and warped to UTM
+\item 'dem.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 }
 
 The function selects the UTM zone based on the location of the main outlet point. The output
@@ -46,13 +46,13 @@ preserve extreme values (vs bilinear averaging).
 
 The bounding box is always saved in WGS84 coordinates (the expected system for geoJSON).
 
-Masking is controlled by \code{buffer}. Increase it to add more padding around the catchment
-boundary, or set it to \code{Inf} to disable masking altogether. Note that the QSWAT+ manual
-recommends against masking unless you are sure that your catchment boundary is accurate
-at the scale of the DEM. In that case, masking should improve the speed and precision of
-delineation with TauDEM; but otherwise it can lead to inaccurate channel networks and errors.
+Masking is controlled by \code{buffer}. Set it to zero to mask and crop to the catchment
+boundary. Increase it to extend this boundary outwards, or set it to \code{Inf} not mask
+or crop (the default).
 
-\code{terra::project} (which uses GDAL) can be slow with large rasters. The default \code{threads=TRUE}
+See the QSWAT+ manual for a discussion of masking pros/cons.
+
+\code{terra::project}, which uses GDAL, can be slow with large rasters. The default \code{threads=TRUE}
 is the faster option. Higher \code{res} will also speed computation, but results in less detail in
 (SWAT+) HRUs and stream networks, less precision in land use and soil type assignment
 down the line, and a higher risk of failure in the QSWAT+ channel delineation.

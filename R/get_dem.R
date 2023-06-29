@@ -50,10 +50,10 @@ get_dem = function(data_dir, pad_size=NULL) {
 #' When `overwrite=TRUE` the function writes a bounding box polygon, 'bbox.geojson', and two
 #' copies of the DEM raster.
 #' 
-#' The function writes the following rasters 
+#' The function writes two rasters 
 #' 
 #' * 'ned_dem.tif', the unchanged source DEM
-#' * 'dem.tif', a version that has been masked/cropped to the catchment and warped to UTM
+#' * 'dem.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 #' 
 #' The function selects the UTM zone based on the location of the main outlet point. The output
 #' grid has resolution `res` X `res, and warping is by nearest neighbour - this is to better
@@ -61,13 +61,13 @@ get_dem = function(data_dir, pad_size=NULL) {
 #' 
 #' The bounding box is always saved in WGS84 coordinates (the expected system for geoJSON).
 #' 
-#' Masking is controlled by `buffer`. Increase it to add more padding around the catchment
-#' boundary, or set it to `Inf` to disable masking altogether. Note that the QSWAT+ manual
-#' recommends against masking unless you are sure that your catchment boundary is accurate
-#' at the scale of the DEM. In that case, masking should improve the speed and precision of
-#' delineation with TauDEM; but otherwise it can lead to inaccurate channel networks and errors.
+#' Masking is controlled by `buffer`. Set it to zero to mask and crop to the catchment
+#' boundary. Increase it to extend this boundary outwards, or set it to `Inf` not mask
+#' or crop (the default). 
 #' 
-#' `terra::project` (which uses GDAL) can be slow with large rasters. The default `threads=TRUE`
+#' See the QSWAT+ manual for a discussion of masking pros/cons.
+#' 
+#' `terra::project`, which uses GDAL, can be slow with large rasters. The default `threads=TRUE`
 #' is the faster option. Higher `res` will also speed computation, but results in less detail in
 #' (SWAT+) HRUs and stream networks, less precision in land use and soil type assignment
 #' down the line, and a higher risk of failure in the QSWAT+ channel delineation.
@@ -76,7 +76,7 @@ get_dem = function(data_dir, pad_size=NULL) {
 #' @param catch_list list returned from `get_catch(..., fast=FALSE)`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #' @param res integer > 0, the resolution in metres (point spacing in both directions)
-#' @param buffer numeric > 0, padding distance in metres (for masking to boundary)
+#' @param buffer numeric > 0, padding distance in metres, for masking
 #' @param threads logical, passed to `terra::project`
 #'
 #' @return the file names to write
@@ -84,7 +84,7 @@ get_dem = function(data_dir, pad_size=NULL) {
 #'
 #' @examples
 #' save_dem('/example')
-save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=1e3, threads=TRUE) {
+save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=Inf, threads=TRUE) {
 
   # catch invalid calls and switch to file list mode
   if( is.null(dem) & overwrite ) {
@@ -115,7 +115,7 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=1e3, thr
   if( any(is_over) ) unlink(dest_path[is_over])
   dem |> terra::writeRaster(dest_path[['dem_src']])
   
-  # save DEM bounding box of source in WGS84
+  # save DEM bounding box of source in WGS84 (used later to set extents for soils, land)
   dem_bbox = sf::st_bbox(dem) |> sf::st_as_sfc()
   dem_bbox |> sf::st_transform(4326) |> sf::st_write(dest_path[['bbox']], quiet=TRUE)
     
@@ -123,39 +123,53 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=1e3, thr
   boundary = save_catch(data_dir)['boundary'] |> sf::st_read(quiet=TRUE) 
   outlet = save_catch(data_dir)['outlet'] |> sf::st_read(quiet=TRUE) 
   
-  # make padded boundary for masking (compute in UTM but express in DEM CRS)
-  crs_out = to_utm(outlet) |> suppressMessages() 
-  boundary_pad = if( is.infinite(buffer) ) { dem_bbox } else {
-    
-    message('masking and cropping')
-    boundary_pad = boundary |> 
-      sf::st_transform(crs_out) |> 
-      sf::st_buffer(buffer) |> 
-      sf::st_transform(sf::st_crs(dem))
-  }
-  
   # make a template output raster in outlet UTM zone (coerced via sp object)
+  crs_out = to_utm(outlet) |> suppressMessages() 
   rast_out = dem_bbox |> 
     sf::st_transform(crs_out) |>
     as('Spatial') |> 
     as('SpatVector') |> 
     terra::rast(resolution=res)
   
-  # `terra::mask` doesn't recognize sfc yet 
-  boundary_pad_s = boundary_pad |> as('Spatial') |> as('SpatVector')
-  
   # mask and crop DEM to padded boundary to reduce CPU time for warp
-  dem_mask = dem |> terra::crop(boundary_pad_s) |> terra::mask(boundary_pad_s)
+  dem_mask = dem |> clipr(boundary, buffer=buffer)
   
-  # warp the DEM to this template then crop/mask again, in UTM this time
-  boundary_out = boundary_pad |> sf::st_transform(crs_out) |> as('Spatial') |> as('SpatVector')
-  message('warping')
+  # warp the DEM to the template then crop/mask again, in UTM this time
+  message('projecting to UTM (GDAL warp)')
   dem_out = dem_mask |> 
     terra::project(rast_out, method='near', threads=threads) |> 
-    terra::crop(boundary_out) |> 
-    terra::mask(boundary_out)
+    clipr(boundary, buffer=buffer)
   
   # save new DEM data
   dem_out |> terra::writeRaster(dest_path[['dem']])
   return(dest_path)
+  # 
+  # 
+  # # make padded boundary for masking (compute in UTM but express in DEM CRS)
+  # boundary_pad = if( is.infinite(buffer) ) { dem_bbox } else {
+  #   
+  #   message('masking and cropping')
+  #   boundary_pad = boundary |> 
+  #     sf::st_transform(crs_out) |> 
+  #     sf::st_buffer(buffer) |> 
+  #     sf::st_transform(sf::st_crs(dem))
+  # }
+  # 
+  # # `terra::mask` doesn't recognize sfc yet 
+  # boundary_pad_s = boundary_pad |> as('Spatial') |> as('SpatVector')
+  # 
+  # # mask and crop DEM to padded boundary to reduce CPU time for warp
+  # dem_mask = dem |> terra::crop(boundary_pad_s) |> terra::mask(boundary_pad_s)
+  # 
+  # # warp the DEM to this template then crop/mask again, in UTM this time
+  # boundary_out = boundary_pad |> sf::st_transform(crs_out) |> as('Spatial') |> as('SpatVector')
+  # message('warping')
+  # dem_out = dem_mask |> 
+  #   terra::project(rast_out, method='near', threads=threads) |> 
+  #   terra::crop(boundary_out) |> 
+  #   terra::mask(boundary_out)
+  # 
+  # # save new DEM data
+  # dem_out |> terra::writeRaster(dest_path[['dem']])
+  # return(dest_path)
 }

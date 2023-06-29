@@ -2,14 +2,16 @@
 % Please edit documentation in R/helpers.R
 \name{clipr}
 \alias{clipr}
-\title{Crop and mask a raster to a polygon}
+\title{Crop and mask a raster to a (possibly padded) geometry}
 \usage{
-clipr(r, b, p = NULL)
+clipr(r, b, buffer = 0, p = NULL)
 }
 \arguments{
 \item{r}{SpatRaster}
 
 \item{b}{sf polygon geometry within extent of \code{r}}
+
+\item{buffer}{numeric >= 0 (possibly with units), distance by which to expand the boundary of \code{b}}
 
 \item{p}{character path to save as GeoTIFF}
 }
@@ -17,20 +19,25 @@ clipr(r, b, p = NULL)
 SpatRaster
 }
 \description{
-This returns a copy the sub-grid of raster \code{r} covering geometry \code{b}
-(for boundary), with all pixels outside of \code{b} set to NA. If \code{p} is not
-\code{NULL}, the function deletes anything at that path, then writes the raster
-to it with \code{terra::writeRaster} (creating directories as needed)
+The function wraps the obvious \code{terra} and \code{sf} functions, handling projections, and
+coercing to \code{SpatVector} via \code{sp} to avoid possible bugs.
 }
 \details{
-The function wraps the obvious \code{terra} functions, handling projections,
-and coercing to \code{SpatVector} via \code{sp} to avoid possible bugs.
+This returns a copy the sub-grid of raster \code{r} covering geometry \code{b} (or optionally a
+buffered version returned by \code{sf::st_buffer}), where all pixels lying outside the geometry
+set to NA. If \code{p} is not \code{NULL}, the function deletes anything at that path, then writes
+the raster to it with \code{terra::writeRaster} (creating directories as needed)
+
+Set the padding distance in argument \code{buffer}, or 0 for no padding. This value is passed
+directly to \code{sf::st_buffer} if it is finite, otherwise the function does no masking or
+cropping and ignores \code{b}.
 }
 \examples{
 dem = terra::rast(system.file('ex/elev.tif', package='terra'))
 bbox = dem |> terra::ext() |> sf::st_bbox() |> sf::st_as_sfc()
 sf::st_crs(bbox) = sf::st_crs(dem)
-b = sf::st_centroid(bbox) |> sf::st_buffer(units::set_units(10, km))
+buffer = units::set_units(10, km)
+b = sf::st_centroid(bbox) |> sf::st_buffer(buffer)
 # dem |> terra::plot()
 # plot(b, add=T)
 
@@ -38,4 +45,9 @@ b = sf::st_centroid(bbox) |> sf::st_buffer(units::set_units(10, km))
 r_result = dem |> clipr(b)
 # r_result |> terra::plot()
 # plot(b, add=T)
+
+# same result using buffer argument
+r_result2 = dem |> clipr(sf::st_centroid(bbox), buffer)
+all.equal(r_result, r_result2)
+
 }

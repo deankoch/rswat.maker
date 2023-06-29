@@ -204,19 +204,24 @@ biggest_poly = function(poly_list) {
 }
 
 
-#' Crop and mask a raster to a polygon
+#' Crop and mask a raster to a (possibly padded) geometry
 #' 
-#' This returns a copy the sub-grid of raster `r` covering geometry `b`
-#' (for boundary), with all pixels outside of `b` set to NA. If `p` is not
-#' `NULL`, the function deletes anything at that path, then writes the raster
-#' to it with `terra::writeRaster` (creating directories as needed)
-#'
-#' The function wraps the obvious `terra` functions, handling projections,
-#' and coercing to `SpatVector` via `sp` to avoid possible bugs.
+#' The function wraps the obvious `terra` and `sf` functions, handling projections, and
+#' coercing to `SpatVector` via `sp` to avoid possible bugs.
+#' 
+#' This returns a copy the sub-grid of raster `r` covering geometry `b` (or optionally a
+#' buffered version returned by `sf::st_buffer`), where all pixels lying outside the geometry
+#' set to NA. If `p` is not `NULL`, the function deletes anything at that path, then writes
+#' the raster to it with `terra::writeRaster` (creating directories as needed)
+#' 
+#' Set the padding distance in argument `buffer`, or 0 for no padding. This value is passed
+#' directly to `sf::st_buffer` if it is finite, otherwise the function does no masking or
+#' cropping and ignores `b`.
 #'
 #' @param r SpatRaster
 #' @param b sf polygon geometry within extent of `r`
 #' @param p character path to save as GeoTIFF
+#' @param buffer numeric >= 0 (possibly with units), distance by which to expand the boundary of `b`
 #'
 #' @return SpatRaster
 #' @export
@@ -225,7 +230,8 @@ biggest_poly = function(poly_list) {
 #' dem = terra::rast(system.file('ex/elev.tif', package='terra'))
 #' bbox = dem |> terra::ext() |> sf::st_bbox() |> sf::st_as_sfc()
 #' sf::st_crs(bbox) = sf::st_crs(dem)
-#' b = sf::st_centroid(bbox) |> sf::st_buffer(units::set_units(10, km))
+#' buffer = units::set_units(10, km)
+#' b = sf::st_centroid(bbox) |> sf::st_buffer(buffer)
 #' # dem |> terra::plot()
 #' # plot(b, add=T)
 #' 
@@ -233,23 +239,43 @@ biggest_poly = function(poly_list) {
 #' r_result = dem |> clipr(b)
 #' # r_result |> terra::plot()
 #' # plot(b, add=T)
-clipr = function(r, b, p=NULL) {
-  
-  b = sf::st_geometry(b)
-  b_r = b[!sf::st_is_empty(b)] |> 
-    sf::st_transform(sf::st_crs(r)) |> 
-    as('Spatial') |> 
-    as('SpatVector')
-  
-  r_out = r |> terra::crop(b_r) |> terra::mask(b_r)
+#' 
+#' # same result using buffer argument
+#' r_result2 = dem |> clipr(sf::st_centroid(bbox), buffer)
+#' all.equal(r_result, r_result2)
+#' 
+clipr = function(r, b, buffer=0, p=NULL) {
+
+  # infinite buffer means just return/write the raster unchanged
+  if( !is.infinite(buffer) ) {
+    
+    # clean up input boundary
+    b = b[!sf::st_is_empty(b)] |> sf::st_geometry()
+    
+    # add buffer on request
+    if( as.numeric(buffer) > 0 ) {
+      
+      # transform to UTM for the calculation if needed
+      crs_b = sf::st_crs(b)
+      utm_b = to_utm(b) |> suppressMessages()
+      if( sf::st_is_longlat(b) ) b = b |> sf::st_transform(utm_b)
+      b = b |> sf::st_buffer(buffer) |> sf::st_transform(crs_b)
+    }
+    
+    # SpatVector version of boundary for mask
+    b_sv = b |> sf::st_transform(sf::st_crs(r)) |> as('Spatial') |> as('SpatVector')
+    r = r |> terra::crop(b_sv) |> terra::mask(b_sv)
+  }
+ 
+  # write the file
   if( !is.null(p) ) {
     
     p_parent = dirname(p)
     if( !dir.exists(p_parent) ) dir.create(p_parent, recursive=TRUE)
-    r_out |> terra::writeRaster(p)
+    r |> terra::writeRaster(p)
   }
   
-  return(r_out)
+  return(r)
 }
 
 
