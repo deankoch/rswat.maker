@@ -8,8 +8,7 @@
 #' this function assigns the STATSGO2 key.
 #' 
 #' If a SSURGO key is not found in the SWAT+ soils database, the STATSGO2 key is
-#' assigned. If that key is not found, then the value `na_out` is assigned. The
-#' default value (-99) is understood by SWAT+ to mean missing.
+#' assigned. If that key is not found, then an `NA` is assigned.
 #' 
 #' `mukey_replace` can be used to replace any number of SSURGO polygons with the
 #' underlying STATSGO2 polygons. In some cases (eg with the default 2485736) there
@@ -23,11 +22,10 @@
 #' @param data_dir character path to the directory to use for output files
 #' @param force_overwrite logical if TRUE the function overwrites a fresh copy of outputs 
 #' @param mukey_replace map unit keys for SSURGO feature to swap for STATSGO feature
-#' @param na_out value to write in place of NA.
 #'
 #' @return SpatRaster of STATSGO2 and/or SSURGO MUKeys
 #' @export
-get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), na_out=-99L) {
+get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) {
   
   # set up input/output names
   model_path = save_soils(data_dir)
@@ -82,32 +80,33 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
     # export result back to SpatRaster
     soils[] = g_ssurgo 
   }
-  
-  # replace NAs with placeholder
-  soils[is.na(soils)] = na_out
   return(soils)
 }
 
 #' Save the output of `get_soils` to disk
 #' 
-#' This writes output to the 'soils' sub-directory of `data_dir`
+#' When `overwrite=TRUE` the function writes two copies of the soil MUKEY rasters.
+#' When `overwrite=FALSE` the function writes nothing but returns a list containing
+#' the file paths that would be written (in element 'soil') along with file paths
+#' writting by `get_soils` (in elents 'ssurgo' and 'statsgo').
 #' 
-#' With default `overwrite=FALSE` the function returns in a list the three sets
-#' of soils files that are written by this package. If `overwrite=TRUE` the one-layer
-#' combined output from STATSGO2 and SSURGO is written to disk in two versions:
-#' 'soil_src.tif' is directly copied from the source rasters; and 'soil.tif' is
-#' a version warped to match the DEM grid, then cropped/masked to the basin boundary.
+#' This writes output to the 'soils' sub-directory of `data_dir`:
 #' 
+#' * 'soil_src.tif', the rasterized and merged soil MUKEY grid in coordinate system of DEM
+#' * 'soil.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
+#' 
+#' `buffer` and `threads` determine if and how the UTM grid is masked (as in `?save_land`)
+
 #' In a normal workflow you should call `get_soils(...)` to write the two source
-#' datasets to disk and generate the merged layer in memory. then call
-#' `save_soils(overwrite=TRUE)` to write this merged layer to disk.
+#' datasets to disk and make the merged raster, then call `save_soils(overwrite=TRUE)`
+#' to save the merged raster in the two files listed above.
 #' 
-#' See `?save_land`, where `buffer` and `threads` have the same meaning.
+#' See also `?save_land`, where `buffer` and `threads` have the same meaning.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param soils SpatRaster of soil MUKey values
 #' @param overwrite logical if `FALSE` the function just returns the file that would be written
-#' @param buffer numeric > 0, padding distance in metres (for masking to boundary)
+#' @param buffer numeric > 0, padding distance in metres, for masking
 #' @param threads logical, passed to `terra::project`
 #' 
 #' @return the file names to write
@@ -115,7 +114,7 @@ get_soils = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736), 
 #'
 #' @examples
 #' save_soils('/example')
-save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads=TRUE) {
+save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=Inf, threads=TRUE) {
   
   # catch invalid calls and switch to file list mode
   if( is.null(soil) & overwrite ) {
@@ -148,25 +147,16 @@ save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads
   boundary = save_catch(data_dir)['boundary'] |> sf::st_read(quiet=TRUE) 
   dem = save_dem(data_dir)['dem'] |> terra::rast()
   
-  # output projection 
-  crs_out = sf::st_crs(dem)
-  boundary_out = sf::st_transform(boundary, crs_out)
+  # optional mask/crop DEM to reduce CPU time for warp
+  soil_mask = soil |> clipr(boundary, buffer=buffer)
   
-  # set default buffer for masking
-  if(is.null(buffer)) buffer = terra::res(dem)[1]
+  # warp the DEM to the template then crop/mask again, in UTM this time
+  message('projecting to UTM (GDAL warp)')
+  soil_out = soil_mask |> 
+    terra::project(dem, method='near', threads=threads) |> 
+    clipr(boundary, buffer=buffer)
   
-  # two version of boundary for masking, one padded
-  message('masking and cropping')
-  boundary_pad = boundary_out |> 
-    sf::st_buffer(units::set_units(buffer, m)) |>
-    sf::st_transform(sf::st_crs(soil))
-  
-  # make a copy of soil masked and cropped to padded boundary
-  soil_mask = soil |> terra::crop(boundary_pad) |> terra::mask(boundary_pad)
-  
-  # warp to this template and write to disk
-  message('warping to match DEM')
-  soil_out = soil_mask |> terra::project(dem, method='near', threads=threads)
+  # write to disk
   soil_out |> terra::writeRaster(dest_path['soil'])
   return(dest_path)
 }
@@ -188,8 +178,6 @@ save_soils = function(data_dir, soil=NULL, overwrite=FALSE, buffer=NULL, threads
 #' and the intermediate .gpkg file written to the "raw" sub-directory may be large.
 #' For example with the Carter's Bridge example (Upper Yellowstone) the memory usage
 #' exceeds 10 GB and about 2 GB are written to disk.
-#' 
-#' 
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param model character either 'statsgo' or 'ssurgo'
@@ -339,8 +327,8 @@ get_statsgo = function(data_dir, model='statsgo') {
 #' function writes nothing but returns the file paths that would be written.
 #' 
 #' The function writes a copy of `soils` as geoJSON as well as a rasterized version
-#' with grid matching the DEM downloaded in `get_dem`. The contents of the "raw"
-#' sub-directory are written by `get_statsgo`.
+#' with grid matching the DEM downloaded in `get_dem`. Note that the contents of the
+#' "raw" sub-directory are written by `get_statsgo`, instead of this function.
 #' 
 #' @param data_dir character path to the directory to use for output files
 #' @param soils sf dataframe returned by `get_statsgo`

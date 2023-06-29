@@ -4,12 +4,7 @@
 \alias{get_soils}
 \title{Download/open soil map unit key rasters from STATSGO2 and SSURGO and combine them}
 \usage{
-get_soils(
-  data_dir,
-  force_overwrite = FALSE,
-  mukey_replace = c(2485736),
-  na_out = -99L
-)
+get_soils(data_dir, force_overwrite = FALSE, mukey_replace = c(2485736))
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -17,8 +12,6 @@ get_soils(
 \item{force_overwrite}{logical if TRUE the function overwrites a fresh copy of outputs}
 
 \item{mukey_replace}{map unit keys for SSURGO feature to swap for STATSGO feature}
-
-\item{na_out}{value to write in place of NA.}
 }
 \value{
 SpatRaster of STATSGO2 and/or SSURGO MUKeys
@@ -33,8 +26,7 @@ coverage than STATSGO2. In cases where there is no SSURGO map unit key (mukey),
 this function assigns the STATSGO2 key.
 
 If a SSURGO key is not found in the SWAT+ soils database, the STATSGO2 key is
-assigned. If that key is not found, then the value \code{na_out} is assigned. The
-default value (-99) is understood by SWAT+ to mean missing.
+assigned. If that key is not found, then an \code{NA} is assigned.
 
 \code{mukey_replace} can be used to replace any number of SSURGO polygons with the
 underlying STATSGO2 polygons. In some cases (eg with the default 2485736) there

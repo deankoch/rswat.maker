@@ -8,7 +8,7 @@ save_soils(
   data_dir,
   soil = NULL,
   overwrite = FALSE,
-  buffer = NULL,
+  buffer = Inf,
   threads = TRUE
 )
 }
@@ -17,7 +17,7 @@ save_soils(
 
 \item{overwrite}{logical if \code{FALSE} the function just returns the file that would be written}
 
-\item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
+\item{buffer}{numeric > 0, padding distance in metres, for masking}
 
 \item{threads}{logical, passed to \code{terra::project}}
 
@@ -27,20 +27,24 @@ save_soils(
 the file names to write
 }
 \description{
-This writes output to the 'soils' sub-directory of \code{data_dir}
+When \code{overwrite=TRUE} the function writes two copies of the soil MUKEY rasters.
+When \code{overwrite=FALSE} the function writes nothing but returns a list containing
+the file paths that would be written (in element 'soil') along with file paths
+writting by \code{get_soils} (in elents 'ssurgo' and 'statsgo').
 }
 \details{
-With default \code{overwrite=FALSE} the function returns in a list the three sets
-of soils files that are written by this package. If \code{overwrite=TRUE} the one-layer
-combined output from STATSGO2 and SSURGO is written to disk in two versions:
-'soil_src.tif' is directly copied from the source rasters; and 'soil.tif' is
-a version warped to match the DEM grid, then cropped/masked to the basin boundary.
+This writes output to the 'soils' sub-directory of \code{data_dir}:
+\itemize{
+\item 'soil_src.tif', the rasterized and merged soil MUKEY grid in coordinate system of DEM
+\item 'soil.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
+}
 
+\code{buffer} and \code{threads} determine if and how the UTM grid is masked (as in \code{?save_land})
 In a normal workflow you should call \code{get_soils(...)} to write the two source
-datasets to disk and generate the merged layer in memory. then call
-\code{save_soils(overwrite=TRUE)} to write this merged layer to disk.
+datasets to disk and make the merged raster, then call \code{save_soils(overwrite=TRUE)}
+to save the merged raster in the two files listed above.
 
-See \code{?save_land}, where \code{buffer} and \code{threads} have the same meaning.
+See also \code{?save_land}, where \code{buffer} and \code{threads} have the same meaning.
 }
 \examples{
 save_soils('/example')
