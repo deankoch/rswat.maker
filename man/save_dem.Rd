@@ -10,6 +10,7 @@ save_dem(
   overwrite = FALSE,
   res = 90,
   buffer = res,
+  burn = 50,
   threads = TRUE
 )
 }
@@ -22,6 +23,8 @@ save_dem(
 
 \item{buffer}{numeric > 0, padding distance in metres (for masking to boundary)}
 
+\item{burn}{numeric >= 0, burn-in depth for flow lines in meters}
+
 \item{threads}{logical, passed to \code{terra::project}}
 
 \item{catch_list}{list returned from \code{get_catch(..., fast=FALSE)}}
@@ -30,14 +33,21 @@ save_dem(
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and two
-copies of the DEM: 'ned_dem.tif', the unchanged source DEM; and 'dem.tif', a version warped
-to the UTM zone of the main outlet (by bilinear averaging). When \code{overwrite=FALSE} the
-function writes nothing but returns the file paths that would be written.
+When \code{overwrite=TRUE} the function writes a bounding box polygon, 'bbox.geojson', and three
+copies of the DEM: 'ned_dem.tif', the unchanged source DEM; 'dem.tif', a version warped
+to the UTM zone of the main outlet (by bilinear averaging) with resolution \code{res} X \code{res};
+and 'dem_burn.tif', a copy the UTM raster with stream reaches burned to depth \code{burn} (meters).
 }
 \details{
-The output UTM zone is selected based on the location of the main outlet point. The
-bounding box is always in WGS84 coordinates.
+Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
+This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
+network based on the DEM alone. The function creates stream reaches by expanding flow lines
+to form channel polygons of width \code{buffer} (the pixel width by default). It then uses
+\code{terra::rasterizes} to reduce the value of any DEM pixel that overlaps with a channel by
+the fixed value \code{burn}.
+
+The function selects an output UTM zone for the two (non-source) rasters based on the location
+of the main outlet point. The bounding box is always in WGS84 coordinates.
 
 Note that \code{terra::project} can be slow with large rasters. The default \code{threads=TRUE} is
 the faster option. Higher \code{res} will also speed computation, but results in less detail in
