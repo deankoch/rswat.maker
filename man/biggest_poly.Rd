@@ -21,3 +21,22 @@ We use it in this package for tidying up the result of set operations like
 differencing, where we are expecting a simple connected polygon but don't always
 get one because of imprecise geometries.
 }
+\examples{
+# a state boundary formed from incomplete set of pieces
+county = system.file('shape/nc.shp', package='sf') |> sf::st_read(quiet=TRUE) |> sf::st_geometry()
+state = sf::st_geometry(county)[-27] |> sf::st_union()
+
+# plot state and counties
+# plot(state, border=NA, col='grey50')
+# plot(county, add=TRUE, border='grey70')
+
+# call the function - area isn't reduced much
+state_simple = biggest_poly(state)
+sf::st_area(state_simple)
+sf::st_area(state)
+
+# but disconnected coastal pieces and the interior hole are gone
+# plot(state, border=NA, col='grey50')
+# plot(county, add=TRUE, border='grey70')
+# plot(state_simple, add=TRUE, lwd=2)
+}

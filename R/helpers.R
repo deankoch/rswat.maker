@@ -166,13 +166,13 @@ comid_up = function(comid, edge, first_only=FALSE) {
 #' @export
 #'
 #' @examples
-#' # get example data - a state boundary formed from incomplete set of pieces
+#' # a state boundary formed from incomplete set of pieces
 #' county = system.file('shape/nc.shp', package='sf') |> sf::st_read(quiet=TRUE) |> sf::st_geometry()
 #' state = sf::st_geometry(county)[-27] |> sf::st_union()
 #' 
 #' # plot state and counties
-#' plot(state, border=NA, col='grey50')
-#' plot(county, add=TRUE, border='grey70')
+#' # plot(state, border=NA, col='grey50')
+#' # plot(county, add=TRUE, border='grey70')
 #' 
 #' # call the function - area isn't reduced much
 #' state_simple = biggest_poly(state)
@@ -180,9 +180,9 @@ comid_up = function(comid, edge, first_only=FALSE) {
 #' sf::st_area(state)
 #' 
 #' # but disconnected coastal pieces and the interior hole are gone
-#' plot(state, border=NA, col='grey50')
-#' plot(county, add=TRUE, border='grey70')
-#' plot(state_simple, add=TRUE, lwd=2)
+#' # plot(state, border=NA, col='grey50')
+#' # plot(county, add=TRUE, border='grey70')
+#' # plot(state_simple, add=TRUE, lwd=2)
 biggest_poly = function(poly_list) {
   
   poly_list = poly_list |> sf::st_geometry() |> sf::st_make_valid()
@@ -222,7 +222,6 @@ biggest_poly = function(poly_list) {
 #' @export
 #' 
 #' @examples
-#' # create example data
 #' dem = terra::rast(system.file('ex/elev.tif', package='terra'))
 #' bbox = dem |> terra::ext() |> sf::st_bbox() |> sf::st_as_sfc()
 #' sf::st_crs(bbox) = sf::st_crs(dem)
@@ -267,9 +266,24 @@ clipr = function(r, b, p=NULL) {
 #'
 #' @return character
 #' @export
+#' 
+#' @examples
+#' # two types of high-priority package, which is more frequent?  
+#' df_nm = installed.packages(priority='high') |> as.data.frame()
+#' df_nm[['Priority']] |> unique()
+#' df_nm |> most_frequent('Priority')
+#' 
+#' # empty column or ties produce `alt`
+#' df_nm |> most_frequent('MD5sum')
+#' df_nm |> most_frequent('Package')
+#' 
+#' # index by column number
+#' most_frequent(df_nm, which(nm_all=='Suggests') )
 most_frequent = function(df_nm, nm=1, alt='unnamed') {
   
-  char_out = df_nm[[nm]] |> table(useNA='no') |> sort() |> tail(1) |> names()
+  char_options = df_nm[[nm]] |> table(useNA='no') |> sort()
+  if( all( char_options == char_options[1] ) ) char_options = ''
+  char_out = char_options |> tail(1) |> names()
   if( is.null(char_out) ) char_out = alt
   if( nchar(char_out) == 0 ) char_out = alt
   return(char_out)

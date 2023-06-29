@@ -27,16 +27,15 @@ The function wraps the obvious \code{terra} functions, handling projections,
 and coercing to \code{SpatVector} via \code{sp} to avoid possible bugs.
 }
 \examples{
-# create example data
 dem = terra::rast(system.file('ex/elev.tif', package='terra'))
 bbox = dem |> terra::ext() |> sf::st_bbox() |> sf::st_as_sfc()
 sf::st_crs(bbox) = sf::st_crs(dem)
 b = sf::st_centroid(bbox) |> sf::st_buffer(units::set_units(10, km))
-#dem |> terra::plot()
-#plot(b, add=T)
+# dem |> terra::plot()
+# plot(b, add=T)
 
 # clipr result
 r_result = dem |> clipr(b)
-r_result |> terra::plot()
-plot(b, add=T)
+# r_result |> terra::plot()
+# plot(b, add=T)
 }

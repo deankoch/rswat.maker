@@ -22,3 +22,16 @@ most frequent one. If there is a tie, the function returns the one appearing
 first in the data frame. If there are no non-empty strings, the function
 returns \code{alt}
 }
+\examples{
+# two types of high-priority package, which is more frequent?  
+df_nm = installed.packages(priority='high') |> as.data.frame()
+df_nm[['Priority']] |> unique()
+df_nm |> most_frequent('Priority')
+
+# empty column or ties produce `alt`
+df_nm |> most_frequent('MD5sum')
+df_nm |> most_frequent('Package')
+
+# index by column number
+most_frequent(df_nm, which(nm_all=='Suggests') )
+}
