@@ -240,7 +240,7 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     levels(r) = data.frame(id=mukey, level=seq_along(mukey))
     r |> terra::plot(axes = FALSE,
                      reset = FALSE,
-                     col = grDevices::rainbow(n_soil, alpha=0.7),
+                     col = grDevices::rainbow(length(mukey), alpha=0.7),
                      main = main,
                      legend = FALSE)
   }
