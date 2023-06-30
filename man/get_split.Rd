@@ -4,14 +4,14 @@
 \alias{get_split}
 \title{Split a catchment into sub-catchments with an NWIS gage at each outlet}
 \usage{
-get_split(data_dir, gage = NULL, snap_dist = units::set_units(100, m))
+get_split(data_dir, gage = NULL, snap_main = units::set_units(100, m))
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
 \item{gage}{sf points data frame, point of interest at which to split the catchment}
 
-\item{snap_dist}{numeric with units, snapping distance to set "main" outlet}
+\item{snap_main}{numeric with units, snapping distance to set "main" outlet}
 }
 \value{
 a list with elements 'gage' and 'sub'
@@ -34,7 +34,7 @@ with the highest 'count' field (most records) is used, and the others discarded
 when building outlet objects.
 
 If the main outlet of the catchment is not found within snapping distance
-\code{snap_dist} of a point in \code{gage}, the function appends the outlet point
+\code{snap_main} of a point in \code{gage}, the function appends the outlet point
 automatically. This ensures the set of output sub-catchment polygons always
 forms a partition of the whole catchment.
 
@@ -43,10 +43,8 @@ intersection of the boundary of the NHD polygon for the outlet COMID, and its
 flow line. These points are calculated and returned in \code{outlet}. Note that \code{gage}
 points from NWIS will often be located slightly upstream of the true outlet for
 their NHD polygon. Thus two sets of boundary polygons are returned: \code{boundary}
-is the partition; and \code{boundary_outer} is a copy where the polygons for any inlets have
-been joined to the downstream sub-catchment boundaries. This introduces overlap,
-but it produces a boundary more suitable for masking a DEM on its way to TauDEM
-(or QSWAT+).
+is the partition; and \code{boundary_outer} is a copy where the polygons for any
+inlets have been joined to the downstream sub-catchment boundaries.
 
 See also \code{split_catch}, which does most of the work of following flow-lines and
 building boundaries with set operations.

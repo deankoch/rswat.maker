@@ -16,7 +16,7 @@
 #' when building outlet objects.
 #' 
 #' If the main outlet of the catchment is not found within snapping distance
-#' `snap_dist` of a point in `gage`, the function appends the outlet point
+#' `snap_main` of a point in `gage`, the function appends the outlet point
 #' automatically. This ensures the set of output sub-catchment polygons always
 #' forms a partition of the whole catchment.
 #' 
@@ -25,23 +25,21 @@
 #' flow line. These points are calculated and returned in `outlet`. Note that `gage`
 #' points from NWIS will often be located slightly upstream of the true outlet for
 #' their NHD polygon. Thus two sets of boundary polygons are returned: `boundary`
-#' is the partition; and `boundary_outer` is a copy where the polygons for any inlets have
-#' been joined to the downstream sub-catchment boundaries. This introduces overlap,
-#' but it produces a boundary more suitable for masking a DEM on its way to TauDEM
-#' (or QSWAT+).
+#' is the partition; and `boundary_outer` is a copy where the polygons for any
+#' inlets have been joined to the downstream sub-catchment boundaries. 
 #' 
 #' See also `split_catch`, which does most of the work of following flow-lines and
 #' building boundaries with set operations.
 #'
 #' @param data_dir character path to the directory to use for output files
 #' @param gage sf points data frame, point of interest at which to split the catchment
-#' @param snap_dist numeric with units, snapping distance to set "main" outlet
+#' @param snap_main numeric with units, snapping distance to set "main" outlet
 #'
 #' @return a list with elements 'gage' and 'sub'
 #' @export
 get_split = function(data_dir, 
                      gage = NULL, 
-                     snap_dist = units::set_units(100, m)) {
+                     snap_main = units::set_units(100, m)) {
   
   # look for default USGS stream gage stations found by `get_nwis`
   if( is.null(gage) ) {
@@ -64,7 +62,7 @@ get_split = function(data_dir,
   # load original outlet point (input to `get_catch`) and match it against `gage` points
   outlet_main = outlet_path |> sf::st_read(quiet=TRUE)
   dist_usgs = outlet_main |> sf::st_transform(crs_utm) |> sf::st_distance(gage_utm)
-  is_usgs = dist_usgs < snap_dist
+  is_usgs = dist_usgs < snap_main
   
   # if there are any matches at this snapping distance, select the closest
   if( any(is_usgs) ) {
@@ -118,7 +116,9 @@ get_split = function(data_dir,
 
     # avoid slow spatial query by following the COMIDs
     comid = outlet[['comid']][i]
-    comid_check =  comid_up(comid, edge)
+    
+    # initialize with first immediate downstream object then add all upstream ones
+    comid_check = comid_down(comid, edge, first_only=TRUE) |> c(comid_up(comid, edge))
     
     # two boundaries: "outer" includes inlet polygon(s), so it encloses "inner"
     boundary_inner_i = split_result[['boundary']][i,] |> sf::st_transform(crs_utm)
@@ -134,10 +134,8 @@ get_split = function(data_dir,
       inlet_comid = outlet[['comid']][ outlet[['downstream']] %in% comid ]
       inlet_i = outlet[outlet[['comid']] %in% inlet_comid, ]
       
-      # exclude all objects upstream of inlets
+      # exclude all objects upstream of inlets but include the inlet objects themselves
       comid_check = comid_check[ !( comid_check %in% comid_up(inlet_comid, edge) ) ]
-        
-      # include inlet in flow lines, catchment polygons, lakes 
       comid_check = c(inlet_comid, comid_check)
       
       # append inlet polygon(s) to boundary
@@ -203,8 +201,9 @@ get_split = function(data_dir,
 #' filtered to each sub-catchment and written to disk in a loop. A single points data
 #' frame is also written to 'split/gage.geojson', mapping gages to sub-directories.
 #' 
-#' All raster files are cropped and masked to the union of the sub-catchment boundary
-#' and the inlet NHD polygon(s) (if any. See `?get_split`). Note that `gage`
+#' All raster files are cropped to the bounding box of a padded version of the
+#' sub-catchment boundary joined to the inlet NHD polygon(s), if any (see `?get_split`).
+#' `pad_factor` controls the level of padding in the same way as `get_dem`.
 #' 
 #' The function returns a list with: `gage`, the path to the mapping file; and `sub`,
 #' a vector of paths to the sub-catchment directories. Pipe any of these directories to
@@ -222,7 +221,7 @@ get_split = function(data_dir,
 #' @param data_dir character path to the directory to use for output files
 #' @param sub_list list returned from `get_split`
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
-#' @param buffer 
+#' @param pad_factor numeric >= 0 sets the amount of padding to add to boundary
 #' @param nwis_nm character, passed to `nwis_split`
 #' @param param_code character, passed to `nwis_split`
 #' @param stat_code character, passed to `nwis_split`
@@ -233,7 +232,7 @@ get_split = function(data_dir,
 #' @examples
 #' save_split('/example')
 #' save_split('/example', extra=TRUE)
-save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, 
+save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, pad_factor=1/10,
                       nwis_nm='flow_ft', param_code='00060', stat_code='00003') {
     
   # output paths
@@ -266,7 +265,6 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
     land = save_land(data_dir)['land'] |> terra::rast()
     dem = save_dem(data_dir)['dem'] |> terra::rast()
     soils = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
-    
 
     # loop over sub-catchments (ie sub-directories)
     n_sub = length(sub_list)
@@ -278,11 +276,16 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE,
       
       # use outer boundary to ensure we have the full catchment up to inlets in the DEM
       bou = sub_list[[i]][['boundary_outer']] |> sf::st_geometry()
+      
+      # add padding and create bounding box polygon in DEM projection
+      bou_utm = bou |> sf::st_transform( sf::st_crs(dem) )
+      pad_size = pad_factor * sqrt(sf::st_area(bou_utm))
+      bou_pad = bou_utm |> sf::st_buffer(pad_size) |> sf::st_bbox() |> sf::st_as_sfc()
 
       # mask the rasters and write output to disk
-      dem |> clipr(bou, p = save_dem(dest_dir[i])['dem'])
-      land |> clipr(bou, p = save_land(dest_dir[i])['land']) 
-      soils |> clipr(bou, p = save_soil(dest_dir[i])[['soil']]['soil']) 
+      dem |> clipr(bou_pad, p = save_dem(dest_dir[i])['dem'])
+      land |> clipr(bou_pad, p = save_land(dest_dir[i])['land']) 
+      soils |> clipr(bou_pad, p = save_soil(dest_dir[i])[['soil']]['soil']) 
       
       # read back unique land use id codes for the catchment and write a copy
       land_id = terra::rast( save_land(dest_dir[i])['land'] )[] |> unique()
@@ -479,7 +482,7 @@ split_catch = function(gage, edge, catchment) {
   
   # message about dropped stations
   n_drop = nrow(gage) - nrow(sub_sf)
-  if( n_drop > 0 ) message('removed ', n_drop, ' duplicate station site(s)')
+  if( n_drop > 0 ) message('removed ', n_drop, ' duplicate station site(s) from outlet list')
   
   # clip overlap from sub-catchments to make a partition of the basin
   message('clipping catchment polygons to form ', nrow(sub_sf), ' sub-catchments')

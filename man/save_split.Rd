@@ -8,6 +8,7 @@ save_split(
   data_dir,
   sub_list = NULL,
   overwrite = FALSE,
+  pad_factor = 1/10,
   nwis_nm = "flow_ft",
   param_code = "00060",
   stat_code = "00003"
@@ -20,13 +21,13 @@ save_split(
 
 \item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
 
+\item{pad_factor}{numeric >= 0 sets the amount of padding to add to boundary}
+
 \item{nwis_nm}{character, passed to \code{nwis_split}}
 
 \item{param_code}{character, passed to \code{nwis_split}}
 
 \item{stat_code}{character, passed to \code{nwis_split}}
-
-\item{buffer}{}
 }
 \value{
 list of two: the gage file path and a vector of directory paths
@@ -39,8 +40,9 @@ filtered to each sub-catchment and written to disk in a loop. A single points da
 frame is also written to 'split/gage.geojson', mapping gages to sub-directories.
 }
 \details{
-All raster files are cropped and masked to the union of the sub-catchment boundary
-and the inlet NHD polygon(s) (if any. See \code{?get_split}). Note that \code{gage}
+All raster files are cropped to the bounding box of a padded version of the
+sub-catchment boundary joined to the inlet NHD polygon(s), if any (see \code{?get_split}).
+\code{pad_factor} controls the level of padding in the same way as \code{get_dem}.
 
 The function returns a list with: \code{gage}, the path to the mapping file; and \code{sub},
 a vector of paths to the sub-catchment directories. Pipe any of these directories to
