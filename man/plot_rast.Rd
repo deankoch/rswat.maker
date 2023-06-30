@@ -4,7 +4,15 @@
 \alias{plot_rast}
 \title{Draw a heatmap plot showing the DEM, land use, or soil MUKEYs}
 \usage{
-plot_rast(data_dir, what = "dem", main = NULL, catch = TRUE, add_scale = TRUE)
+plot_rast(
+  data_dir,
+  what = "dem",
+  main = NULL,
+  catch = TRUE,
+  add_scale = TRUE,
+  mask = FALSE,
+  a = 1
+)
 }
 \arguments{
 \item{data_dir}{character path to the data directory passed to \code{fetch_all}}
@@ -16,6 +24,10 @@ plot_rast(data_dir, what = "dem", main = NULL, catch = TRUE, add_scale = TRUE)
 \item{catch}{logical, whether to plot the catchment boundary in black}
 
 \item{add_scale}{logical, whether to add a scale bar by calling \code{draw_scale}}
+
+\item{mask}{logical, whether to mask to the catchment boundary}
+
+\item{a}{numeric in \link{0,1}. the transparency (alpha)}
 }
 \value{
 nothing, but creates a plot

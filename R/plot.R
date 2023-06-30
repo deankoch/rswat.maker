@@ -183,10 +183,12 @@ plot_catch = function(sub_list,
 #' @param main character or NULL (for automatic), the title of the plot
 #' @param catch logical, whether to plot the catchment boundary in black
 #' @param add_scale logical, whether to add a scale bar by calling `draw_scale`
+#' @param mask logical, whether to mask to the catchment boundary
+#' @param a numeric in [0,1]. the transparency (alpha) 
 #'
 #' @return nothing, but creates a plot
 #' @export
-plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE) {
+plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE, mask=FALSE, a=1) {
 
   # open catchment data
   if(catch) {
@@ -201,15 +203,24 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     }
   }
   
+  # select the more conservative outer boundary for masking, if available
+  if( mask ) {
+   
+    bou_path = save_catch(data_dir, extra=TRUE)[c('boundary_outer', 'boundary')]
+    bou = bou_path[file.exists(bou_path)] |> head(1) |> sf::st_read(quiet=TRUE) 
+  }
+
   # elevation plot using terrain colors
   if(what=='dem') {
     
     r = save_dem(data_dir)['dem'] |> terra::rast() 
+    if( mask ) r = clipr(r, bou)
+    colour = grDevices::terrain.colors(50)[10:40] |> adjustcolor(a)
     r |>  terra::plot(axes = FALSE,
                       reset = FALSE,
                       main = main,
                       plg = list(title='meters', size=0.8),
-                      col = grDevices::terrain.colors(50)[10:40])
+                      col = colour)
   }
   
   # land use plot using NLCD colors
@@ -217,15 +228,17 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     
     # get a palette from NLCD and filter to IDs found in this extent
     r = save_land(data_dir)['land'] |> terra::rast() 
+    if( mask ) r = clipr(r, bou)
     pal = FedData::pal_nlcd()[c('ID', 'Color', 'Class')] |> 
       dplyr::filter(ID %in% na.omit(unique(r[])))
     
     # make r a factor raster then plot
+    colour = pal[['Color']] |> adjustcolor(a)
     levels(r) = pal[c('ID', 'Class')]
     r |> terra::plot(axes = FALSE,
                      reset = FALSE,
                      main = main,
-                     col = pal[['Color']],
+                     col = colour,
                      plg = list(cex=0.8))
   }
   
@@ -234,13 +247,15 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
 
     # categorical data, but the MUKEY doesn't mean much in itself
     r = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
+    if( mask ) r = clipr(r, bou)
     mukey = r[] |> unique() |> na.omit() |> c()
 
     # set the levels and labels in the raster before plotting
+    colour = grDevices::rainbow(length(mukey), alpha=a)
     levels(r) = data.frame(id=mukey, level=seq_along(mukey))
     r |> terra::plot(axes = FALSE,
                      reset = FALSE,
-                     col = grDevices::rainbow(length(mukey), alpha=0.7),
+                     col = colour,
                      main = main,
                      legend = FALSE)
   }
