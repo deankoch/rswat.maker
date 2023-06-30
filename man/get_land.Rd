@@ -17,3 +17,6 @@ This loads the bounding box for the DEM created by \code{get_dem} and passes it
 to \code{FedData::get_nlcd}, which handles downloading and ETL. The result is returned
 as a SpatRaster rather than a RasterLayer.
 }
+\details{
+See \code{?land_use_lookup} for a dictionary of integer codes for land use.
+}

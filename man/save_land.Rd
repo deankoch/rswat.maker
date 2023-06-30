@@ -27,14 +27,13 @@ save_land(
 the file names to write
 }
 \description{
-When \code{overwrite=TRUE} the function writes a lookup table CSV and two copies of the land
-use raster. When \code{overwrite=FALSE} the function writes nothing but returns the file paths
-that would be written.
+When \code{overwrite=TRUE} the function writes  two copies of the land use raster. When
+\code{overwrite=FALSE} the function writes nothing but returns the file paths that would
+be written.
 }
 \details{
-The function writes its output to the 'land' sub-directory of \code{data_dir}:
+The function writes two rasters to the 'land' sub-directory of \code{data_dir}:
 \itemize{
-\item 'landuse_lookup.csv', a lookup table mapping values to SWAT+ codes
 \item 'nlcd_land.tif', the unchanged source from \code{FedData::get_nlcd}
 \item 'land.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 }

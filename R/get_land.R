@@ -3,6 +3,8 @@
 #' This loads the bounding box for the DEM created by `get_dem` and passes it
 #' to `FedData::get_nlcd`, which handles downloading and ETL. The result is returned
 #' as a SpatRaster rather than a RasterLayer.
+#' 
+#' See `?land_use_lookup` for a dictionary of integer codes for land use.
 #'
 #' @param data_dir character path to the directory to use for output files
 #'
@@ -26,13 +28,12 @@ get_land = function(data_dir) {
 
 #' Save the output of `get_land` to disk
 #' 
-#' When `overwrite=TRUE` the function writes a lookup table CSV and two copies of the land
-#' use raster. When `overwrite=FALSE` the function writes nothing but returns the file paths
-#' that would be written.
+#' When `overwrite=TRUE` the function writes  two copies of the land use raster. When
+#' `overwrite=FALSE` the function writes nothing but returns the file paths that would
+#' be written.
 #' 
-#' The function writes its output to the 'land' sub-directory of `data_dir`:
+#' The function writes two rasters to the 'land' sub-directory of `data_dir`:
 #' 
-#' * 'landuse_lookup.csv', a lookup table mapping values to SWAT+ codes
 #' * 'nlcd_land.tif', the unchanged source from `FedData::get_nlcd`
 #' * 'land.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 #' 
@@ -63,8 +64,7 @@ save_land = function(data_dir, land=NULL, overwrite=FALSE, buffer=Inf, threads=T
 
   # output filenames
   dest_fname = c(land_src = 'nlcd_land.tif',
-                 land = 'land.tif',
-                 lookup = 'landuse_lookup.csv')
+                 land = 'land.tif')
 
   # output paths
   dest_path = file.path(dest_dir, dest_fname) |> stats::setNames(names(dest_fname))
@@ -98,18 +98,5 @@ save_land = function(data_dir, land=NULL, overwrite=FALSE, buffer=Inf, threads=T
   
   # write to disk
   land_out |> terra::writeRaster(dest_path[['land']])
-  
-  # unique land codes in output
-  land_lvl = land_out[] |> unique()
-  
-  # lookup table of names and descriptions for each ID code in the trimmed raster
-  land_df = land_use_lookup |> 
-    dplyr::filter(!is.na(id)) |> 
-    dplyr::filter(id %in% land_lvl) |> 
-    dplyr::select(-'description') |> 
-    dplyr::rename('LANDUSE_ID'='id', 'SWAT_CODE'='name')
-  
-  # save as CSV
-  land_df |> write.csv(dest_path[['lookup']], row.names=FALSE, quote=FALSE)
   return(dest_path)
 }
