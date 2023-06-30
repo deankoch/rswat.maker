@@ -4,20 +4,24 @@
 #' buffered version of) it to `FedData::get_ned`, returning the result as 
 #' SpatRaster (instead of RasterLayer)
 #' 
-#' The buffer size default is 10% of the square root of the polygon area. For
-#' a square domain this is equal to 1/10 of the side length.
+#' To establish a bounding box for the request, the NHD catchment boundary is
+#' extended outward by a distance of `pad_factor` times the the square root of
+#' the polygon area. For a square domain this is about equal to the side length.
+#' The padding is to ensure we can later find all parts of the catchment through
+#' a DEM analysis (in QSWAT+) - parts that might otherwise be masked due to
+#' to slight inaccuracies in NHD boundaries.
 #' 
 #' Note that `FedData` downloads tiles to a temporary folder so I don't think
-#' we can cache them easily for later use. Save a copy with `save_dem`. Later on 
-#' you can open an existing copy by passing the file path `get_dem(data_dir)['dem_src']`
+#' we can cache them easily for later use. Save a copy with `save_dem`. Later on, 
+#' open an existing copy by passing the file path `get_dem(data_dir)['dem_src']`
 #' to `terra::rast()`
 #'
 #' @param data_dir character path to the directory to use for output files
-#' @param pad_size units object, the width of padding (or NULL to set default)
+#' @param pad_factor numeric >= 0 sets the amount of padding to add to boundary
 #'
 #' @return SpatRaster of elevation data for the catchment area
 #' @export
-get_dem = function(data_dir, pad_size=NULL) {
+get_dem = function(data_dir, pad_factor=1/10) {
   
   # paths to catchment boundary and outlet point from `get_catch`
   boundary_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
@@ -33,7 +37,7 @@ get_dem = function(data_dir, pad_size=NULL) {
   
   # load boundary in UTM projection and set default padding 
   boundary_utm = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
-  if( is.null(pad_size) ) pad_size = 1e-1 * sqrt(sf::st_area(boundary_utm)) 
+  pad_size = pad_factor * sqrt(sf::st_area(boundary_utm)) 
   
   # add padding and transform back
   boundary_pad = boundary_utm |> sf::st_buffer(pad_size) |> sf::st_transform(4326)

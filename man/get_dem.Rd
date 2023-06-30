@@ -4,12 +4,12 @@
 \alias{get_dem}
 \title{Wrapper for \code{FedData::get_ned}}
 \usage{
-get_dem(data_dir, pad_size = NULL)
+get_dem(data_dir, pad_factor = 1/10)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{pad_size}{units object, the width of padding (or NULL to set default)}
+\item{pad_factor}{numeric >= 0 sets the amount of padding to add to boundary}
 }
 \value{
 SpatRaster of elevation data for the catchment area
@@ -20,11 +20,15 @@ buffered version of) it to \code{FedData::get_ned}, returning the result as
 SpatRaster (instead of RasterLayer)
 }
 \details{
-The buffer size default is 10\% of the square root of the polygon area. For
-a square domain this is equal to 1/10 of the side length.
+To establish a bounding box for the request, the NHD catchment boundary is
+extended outward by a distance of \code{pad_factor} times the the square root of
+the polygon area. For a square domain this is about equal to the side length.
+The padding is to ensure we can later find all parts of the catchment through
+a DEM analysis (in QSWAT+) - parts that might otherwise be masked due to
+to slight inaccuracies in NHD boundaries.
 
 Note that \code{FedData} downloads tiles to a temporary folder so I don't think
-we can cache them easily for later use. Save a copy with \code{save_dem}. Later on
-you can open an existing copy by passing the file path \code{get_dem(data_dir)['dem_src']}
+we can cache them easily for later use. Save a copy with \code{save_dem}. Later on,
+open an existing copy by passing the file path \code{get_dem(data_dir)['dem_src']}
 to \code{terra::rast()}
 }
