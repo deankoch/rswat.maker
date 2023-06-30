@@ -261,7 +261,6 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, pad_factor=1/10,
   if( overwrite ) {
     
     # load lookup table and raster data needed for all iterations
-    land_lookup = save_land(data_dir)['lookup'] |> read.csv()
     land = save_land(data_dir)['land'] |> terra::rast()
     dem = save_dem(data_dir)['dem'] |> terra::rast()
     soils = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
@@ -286,11 +285,6 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, pad_factor=1/10,
       dem |> clipr(bou_pad, p = save_dem(dest_dir[i])['dem'])
       land |> clipr(bou_pad, p = save_land(dest_dir[i])['land']) 
       soils |> clipr(bou_pad, p = save_soil(dest_dir[i])[['soil']]['soil']) 
-      
-      # read back unique land use id codes for the catchment and write a copy
-      land_id = terra::rast( save_land(dest_dir[i])['land'] )[] |> unique()
-      land_lookup = land_lookup[land_lookup[['LANDUSE_ID']] %in% land_id, ]
-      land_lookup |> write.csv(save_land(dest_dir[i])['lookup'], row.names=FALSE, quote=FALSE)
     } 
     
     # find mapping from outlet COMID to directory name

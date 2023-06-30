@@ -20,6 +20,9 @@
 #' to form channel polygons of width `burn`. It then uses `terra::rasterizes` to reduce the value
 #' of any DEM pixel that overlaps with a channel by the fixed value `burn`.
 #' 
+#' Outlets and inlets are automatically snapped to the nearest flow-line whenever they lie
+#' within `snap_tol` meters. If no such flow line exists, the function throws an error.
+#' 
 #' If `sub=TRUE` the function writes its output to the sub-catchments directories
 #' created by `get_split`, in a loop. This produces a complete set of QSWAT+ files
 #' for each sub-catchment in "split".
@@ -36,20 +39,25 @@
 #' @param sub logical, if `TRUE` the function processes sub-catchments in "split/"
 #' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
 #' @param lake_area numeric (in km2), lakes with area lower than `lake_area` are omitted
-#' @param burn numeric >= 0, burn-in depth for flow lines in meters
+#' @param burn numeric >= 0, stream reach burn-in depth and width, in meters
+#' @param snap_tol numeric >= 0, snapping tolerance distance, in meters
 #'
 #' @return the file names to write
 #' @export
 #'
 #' @examples
 #' save_qswat('/example')
-save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=50,  quiet=FALSE) {
+save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
+                      lake_area=0.5, burn=50, snap_tol=300) {
+  
+  # NAs value in soil raster (per QSWAT+ Manual)
+  na_soil = -99L
   
   # template for inlet/outlet shapefile fields
   io_temp = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)
   
-  # the land use code to write to lake pixels
-  watr = 11L
+  # NLCD land use code to write to lake pixels
+  watr = land_use_lookup[['id']][ land_use_lookup[['name']] == 'watr' ] |> head(1)
   
   # handle sub-catchments with recursion
   if( sub ) {
@@ -77,9 +85,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
 
   # output filenames
   out_nm = c(outlet='outlet.shp', 
-             stream='stream.shp', 
              dem='dem.tif', 
-             dem_burn='dem_burn.tif', 
              soil='soil.tif', 
              land='landuse.tif', 
              land_lookup='landuse.csv')
@@ -88,55 +94,47 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
   if( !overwrite ) return(dest_path)
   
-  # input paths for direct copy
-  dem_path = save_dem(data_dir)['dem']
-  #dem_burn_path = save_dem(data_dir)['dem_burn']
-  soil_path = save_soil(data_dir)[['soil']]['soil']
-  
-  ####
-  # TODO: implement this
-  
-  # # expand flow lines then rasterize to DEM grid
-  # message('burning flow lines')
-  # flow_out = flow |> sf::st_geometry() |> sf::st_transform(crs_out) |> sf::st_buffer(burn)
-  # burn_out = data.frame(dummy=1) |> 
-  #   sf::st_sf(geometry=flow_out) |> 
-  #   terra::rasterize(dem_out,
-  #                    field = 'dummy',
-  #                    fun = 'min',
-  #                    touches = TRUE)
-  # 
-  # # make a burn-in version of DEM and save to disk
-  # dem_burn = dem_out
-  # dem_burn[ !is.na(burn_out) ] = dem_burn[ !is.na(burn_out) ] - burn
-  # dem_burn |> terra::writeRaster(dest_path[['dem_burn']])
-  # flow = save_catch(data_dir)['flow'] |> sf::st_read(quiet=TRUE) 
-  
-  # TODO: AND THIS
-  
-  # @param na_out value to write in place of NA.
-  
-  # the value `na_out` is assigned. The
-  # default value (-99) is understood by SWAT+ to mean missing.
-  
-  # replace NAs with placeholder
-  #na_out=-99L
-  #soils[is.na(soils)] = na_out
-  
-  
-  
-  
-  
-  ####
-  
-  # load input files
+  # input geometries
   catch_list = data_dir |> open_catch()
-  land = save_land(data_dir)['land'] |> terra::rast()
-  dem_burn = save_dem(data_dir)['dem_burn'] |> terra::rast()
-  land_df = save_land(data_dir)['lookup'] |> read.csv()
   
-  # all geo-referenced outputs in CRS matching DEM (based on outlet)
-  crs_out = dem_path |> terra::rast() |> sf::st_crs()
+  # input rasters that need modification
+  dem = save_dem(data_dir)['dem'] |> terra::rast()
+  land = save_land(data_dir)['land'] |> terra::rast()
+  soil = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
+  
+  # make the directory if necessary and remove any existing output files
+  if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
+  is_over = file.exists(dest_path)
+  if( any(is_over) ) unlink(dest_path[is_over])
+  
+  ## PROCESS SOIL
+  
+  # use a different encoding for NAs
+  soil[is.na(soil)] = na_soil
+  soil |> terra::writeRaster(dest_path[['soil']])
+
+  ## PROCESS DEM
+  
+  # make channel polygons by adding width to flow lines
+  crs_out = sf::st_crs(dem)
+  flow_burn = catch_list[['flow']] |> 
+    sf::st_geometry() |> 
+    sf::st_transform(crs_out) |> 
+    sf::st_buffer(burn)
+  
+  # rasterize to same grid as DEM
+  burn_out = data.frame(x=1) |> 
+    sf::st_sf(geometry=flow_burn) |>
+    terra::rasterize(dem, field = 'x', fun = 'min', touches = TRUE)
+                                                                                      
+  # deepen the overlapping pixels by `burn` and write result to disk
+  dem[ !is.na(burn_out) ] = dem[ !is.na(burn_out) ] - burn
+  
+  # QSWAT identifies NAs as minimum of the elevation values (?) This value is from manual
+  dem[ is.na(dem) ] = -32768
+  dem |> terra::writeRaster(dest_path[['dem']])
+
+  ## PROCESS LAND
   
   # get flow line geometries in the right projection
   flow = catch_list[['flow']] |> sf::st_geometry() |> sf::st_transform(crs_out) |> sf::st_union()
@@ -155,20 +153,6 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
     is_burned = lake |> sf::st_intersects(flow, sparse=FALSE)
     if( any(is_burned) ) {
 
-      # check for existing water code
-      is_watr = land_df[['SWAT_CODE']] == 'watr'
-      if( any(is_watr) ) {
-        
-        # check that the code provided is consistent with the existing one
-        watr_old = land_df[['LANDUSE_ID']][is_watr]
-        if( watr_old != watr ) stop('unexpected value for watr in existing lookup table')
-        
-      } else {
-        
-        # add the field to lookup table if it isn't there already
-        land_df = data.frame(SWAT_CODE='watr', LANDUSE_ID=watr) |> rbind(land_df)
-      }
-      
       # keep only the first polygon from each lake
       lake_burn = lake[is_burned]
       for( i in seq(sum(is_burned)) ) lake_burn[i] = sf::st_cast(lake_burn[i], 'POLYGON')[1] 
@@ -190,30 +174,20 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
     }
   }
   
-  # make the directory if necessary and remove any existing output files
-  if( !dir.exists(dest_dir) ) dir.create(dest_dir, recursive=TRUE)
-  is_over = file.exists(dest_path)
-  if( any(is_over) ) unlink(dest_path[is_over])
+  # new sequential encoding for land use keys to replace NLCD system
+  old_id = land[ !is.na(land) ] |> unique() |> c()
+  new_id = cbind(old_id, seq_along(old_id)) 
+  land_out = land |> terra::classify(new_id)
+  land_out |> terra::writeRaster(dest_path[['land']])
   
-  # write the stream network
-  flow |> sf::st_write(dest_path[['stream']], quiet=TRUE)
-  
-  # write the new land use raster and lookup table
-  land |> terra::writeRaster(dest_path[['land']])
+  # make the lookup table
+  idx_name = match(old_id, land_use_lookup[['id']])
+  if( any( is.na(idx_name) ) ) stop('unrecognized NLCD ID')
+  land_df = data.frame(LANDUSE_ID = seq_along(old_id),
+                       SWAT_CODE = land_use_lookup[['name']][idx_name]) 
+
+  # save as CSV
   land_df |> write.csv(dest_path[['land_lookup']], row.names=FALSE, quote=FALSE)
-  
-  # TODO:
-  # replace with no-data value mentioned in the QSWAT+ Manual
-  # QSWAT identifies NAs as minimum of the values in the raster so the
-  # exact number doesn't matter
-  #dem_burn[ is.na(dem_burn) ] = -32768
-  dem_burn[ is.na(dem_burn) ] = -32768
-  dem_burn |> terra::writeRaster(dest_path[['dem_burn']])
-  
-  # soil and DEM are already good to go by direct copy
-  dem_path |> file.copy(dest_path[['dem']])
-  #dem_burn_path |> file.copy(dest_path[['dem_burn']])
-  soil_path |> file.copy(dest_path[['soil']])
   
   # create QSWAT+ compatible inlet/outlet data frame
   outlet = catch_list[['outlet']] |> sf::st_transform(crs_out)
@@ -241,7 +215,8 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, lake_area=0.5, burn=
     }
   }
   
-  # write the shapefile
+  # snap to nearest flow line before writing the shapefile
+  io_df = io_df |> sf::st_snap(flow, tolerance=snap_tol)
   io_df |> sf::st_write(dest_path[['outlet']], quiet=TRUE)
 
   # return all paths without printing them

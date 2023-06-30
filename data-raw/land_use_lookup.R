@@ -11,8 +11,8 @@
 # PDF of open access paper at https://doi.org/10.5194/hess-22-2527-2018
 pdf_path = 'D:/rswat.uyr/data-raw/refs/hess-22-2527-2018.pdf'
 
-# SQLite database from SWAT+ Editor or https://bitbucket.org/swatplus/swatplus.editor/downloads/
-swat_path = 'C:/SWAT/SWATPlus/Workflow/editor_api/swatplus_datasets.sqlite'
+# SQLite database from SWAT+ Installation or https://bitbucket.org/swatplus/swatplus.editor/downloads/
+swat_path = 'C:/SWAT/SWATPlus/Databases/swatplus_datasets.sqlite'
 
 
 ## helpers
@@ -67,6 +67,25 @@ nlcd_codes = function(lu_table, swat_path) {
 
 # call both functions to make the land use lookup table
 land_use_lookup = pdf_path |> parse_pdf() |> nlcd_codes(swat_path)
+
+# hard coded values to assign unmatched entries
+land_use_lookup = land_use_lookup |> rbind( do.call(rbind, list(
+  
+  # reference: Arnold et al, 2010 tech report
+  # at https://www.nrcs.usda.gov/sites/default/files/2023-04/ceap-crop-2010-HUMUS-SWAT-NWQM-DB.pdf
+  data.frame(id=c(11, 12), name='watr', description='water >>> Open Water'),
+  data.frame(id=31, name='barn', description='sparsely_vegetated >>> Barren'),
+  data.frame(id=c(52, 72), name='rnge', description='range_grasses >>> Grassland/herbaceous'),
+  data.frame(id=c(73, 74), name='tubg', description='bare_ground_tundra >>> Mosses/Lichens'),
+  data.frame(id=c(91, 93), name='wetf', description='forested_wetland >>> Forested Wetland'),
+  data.frame(id=c(94, 96, 97), name='wetl', description='nonforest_wetland >>> Non-forest Wetland')
+  
+)))
+
+# omit NA rows then sort
+land_use_lookup = land_use_lookup[!is.na(land_use_lookup[['id']]), ]
+land_use_lookup = land_use_lookup[order(land_use_lookup[['id']]), ]
+row.names(land_use_lookup) = NULL
 
 # save as package data
 usethis::use_data(land_use_lookup, overwrite=TRUE)

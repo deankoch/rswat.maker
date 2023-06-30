@@ -8,9 +8,10 @@ save_qswat(
   data_dir,
   sub = FALSE,
   overwrite = FALSE,
+  quiet = FALSE,
   lake_area = 0.5,
   burn = 50,
-  quiet = FALSE
+  snap_tol = 300
 )
 }
 \arguments{
@@ -22,7 +23,9 @@ save_qswat(
 
 \item{lake_area}{numeric (in km2), lakes with area lower than \code{lake_area} are omitted}
 
-\item{burn}{numeric >= 0, burn-in depth for flow lines in meters}
+\item{burn}{numeric >= 0, stream reach burn-in depth and width, in meters}
+
+\item{snap_tol}{numeric >= 0, snapping tolerance distance, in meters}
 }
 \value{
 the file names to write
@@ -49,6 +52,9 @@ This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct r
 network based on the DEM alone. The function creates stream reaches by expanding flow lines
 to form channel polygons of width \code{burn}. It then uses \code{terra::rasterizes} to reduce the value
 of any DEM pixel that overlaps with a channel by the fixed value \code{burn}.
+
+Outlets and inlets are automatically snapped to the nearest flow-line whenever they lie
+within \code{snap_tol} meters. If no such flow line exists, the function throws an error.
 
 If \code{sub=TRUE} the function writes its output to the sub-catchments directories
 created by \code{get_split}, in a loop. This produces a complete set of QSWAT+ files
