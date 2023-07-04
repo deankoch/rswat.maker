@@ -7,21 +7,24 @@
 #' When `overwrite=TRUE` and `sub=FALSE` the following are written to the "qswat"
 #' sub-directory of your `data_dir`:
 #' 
-#' * two copies of the DEM, with and without burn-in (as GeoTIFF)
-#' * a land use raster, and a STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
-#' * a lookup table for land use (as CSV)
-#' * an inlets/outlets shape file
-#' * a stream network shape file
+#' * copy of the DEM with streams burned-in (as GeoTIFF)
+#' * land use raster
+#' * STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
+#' * lookup table for land use (as CSV)
+#' * inlets/outlets shape file
+#' * QSWAT+ configuration file (JSON)
 #' 
-#' 'dem_burn.tif', a copy of the UTM raster with stream reaches burned to depth `burn` (in meters)
+#' The configuration file stores the absolute paths of these inputs. This is to
+#' simplify system calls to the batch file that `run_qswat` uses to run QSWAT+, and
+#' also to create a record of the files used to generate the QSWAT+ project. 
+#' 
 #' Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 #' This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
 #' network based on the DEM alone. The function creates stream reaches by expanding flow lines
-#' to form channel polygons of width `burn`. It then uses `terra::rasterizes` to reduce the value
-#' of any DEM pixel that overlaps with a channel by the fixed value `burn`.
+#' to form channel polygons of width `burn`. It then uses `terra::rasterizes` to reduce
+#' the value of any DEM pixel that overlaps with a channel by the fixed value `burn`.
 #' 
-#' Outlets and inlets are automatically snapped to the nearest flow-line whenever they lie
-#' within `snap_tol` meters. If no such flow line exists, the function throws an error.
+#' Outlets and inlets are automatically snapped to the nearest flow-line.
 #' 
 #' If `sub=TRUE` the function writes its output to the sub-catchments directories
 #' created by `get_split`, in a loop. This produces a complete set of QSWAT+ files
@@ -72,10 +75,12 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
     # vectorized case returns a named list
     sub_dir = sub_dir |> stats::setNames(basename(sub_dir))
     if( overwrite & !quiet ) message('writing inputs for ', length(sub_dir), ' sub-catchments')
-    
-    for(d in sub_dir) save_qswat(d, overwrite=overwrite, quiet=TRUE)
-    
-    return( lapply(sub_dir, \(d) save_qswat(d, overwrite=overwrite, quiet=TRUE)) )
+    return( lapply(sub_dir, \(d) save_qswat(d, 
+                                            overwrite=overwrite, 
+                                            quiet=TRUE,
+                                            lake_area=lake_area,
+                                            burn=burn,
+                                            snap_tol=snap_tol)) )
   }
   
   if( overwrite & !quiet ) message('writing ', basename(data_dir))
@@ -88,7 +93,8 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
              dem='dem.tif', 
              soil='soil.tif', 
              land='landuse.tif', 
-             land_lookup='landuse.csv')
+             land_lookup='landuse.csv',
+             config='config.json')
   
   # output paths to (over)write
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
@@ -215,9 +221,31 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
     }
   }
   
-  # snap to nearest flow line before writing the shapefile
-  io_df = io_df |> sf::st_snap(flow, tolerance=snap_tol)
+  # snap outlet points to flow lines
+  old_pt = sf::st_geometry(io_df)
+  new_pt = do.call(c, lapply(seq_along(old_pt), \(i) {
+    
+    # make linestring connecting point to nearest flow line, extract intersection point
+    sf::st_nearest_points(old_pt[i], flow) |> 
+      sf::st_cast('POINT') |> 
+      tail(1)
+  }))
+  
+  # write the shapefile with snapped coordinates
+  sf::st_geometry(io_df) = new_pt
   io_df |> sf::st_write(dest_path[['outlet']], quiet=TRUE)
+  
+  # make an rswat configuration file for running QSWAT+
+  list(info = paste('configuration file created by rswat on', Sys.Date()),
+       name = basename(data_dir),
+       dem = dest_path[['dem']],
+       outlet = dest_path[['outlet']],
+       landuse_lookup = dest_path[['land_lookup']],
+       landuse = dest_path[['land']],
+       soil = dest_path[['soil']],
+       lake_threshold = 50L) |> 
+    jsonlite::toJSON(pretty=TRUE) |>
+    write(dest_path[['config']])
 
   # return all paths without printing them
   return( invisible(dest_path) )
