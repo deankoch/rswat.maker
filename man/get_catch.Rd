@@ -4,7 +4,7 @@
 \alias{get_catch}
 \title{Return a list of NHD geometry objects modelling the catchment for an outlet}
 \usage{
-get_catch(outlet, crs_out = 4326, fast = FALSE)
+get_catch(outlet, crs_out = 4326, fast = FALSE, no_download = FALSE)
 }
 \arguments{
 \item{outlet}{character to query OSM for location or else a point accepted by \code{sf::st_geometry}}
@@ -12,6 +12,8 @@ get_catch(outlet, crs_out = 4326, fast = FALSE)
 \item{crs_out}{output CRS, anything acceptable to \code{sf::st_crs} or NULL to use UTM zone of outlet}
 
 \item{fast}{logical, if TRUE the \code{catchment} object is not returned, speeding things somewhat}
+
+\item{no_download}{logical, if TRUE the \code{nhdR::nhd_plus_get} call is skipped (for debugging)}
 }
 \value{
 list

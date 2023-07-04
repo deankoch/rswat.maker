@@ -44,10 +44,14 @@
 #' @param outlet character to query OSM for location or else a point accepted by `sf::st_geometry`
 #' @param crs_out output CRS, anything acceptable to `sf::st_crs` or NULL to use UTM zone of outlet
 #' @param fast logical, if TRUE the `catchment` object is not returned, speeding things somewhat
+#' @param no_download logical, if TRUE the `nhdR::nhd_plus_get` call is skipped (for debugging)
 #'
 #' @return list
 #' @export
-get_catch = function(outlet, crs_out=4326, fast=FALSE) {
+get_catch = function(outlet, crs_out=4326, fast=FALSE, no_download=FALSE) {
+  
+  # this assigns a persistent storage directory to environmental variable
+  nhdR:::nhd_path(temporary=FALSE)
   
   # look up locations for character input and/or convert to WGS84 to match NHD data
   if( is.character(outlet) ) outlet = nominatim_point(outlet)
@@ -70,16 +74,18 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
   ## fetch data
   
   # required NHD data for the VPU
-  nhdR::nhd_plus_get(vpu=uid, 'NHDPlusAttributes', temporary=FALSE)
-  nhdR::nhd_plus_get(vpu=uid, 'NHDPlusCatchment', temporary=FALSE)
+  if( !no_download ) nhdR::nhd_plus_get(vpu=uid, 'NHDPlusAttributes', temporary=FALSE)
+  if( !no_download ) nhdR::nhd_plus_get(vpu=uid, 'NHDPlusCatchment', temporary=FALSE)
   
   # open directed edge map 
   message('loading NHD stream network edges')
-  edge = nhdR::nhd_plus_load(vpu=uid, 'NHDPlusAttributes', 'PlusFlow', quiet=TRUE)
+  edge = nhdR::nhd_plus_load(vpu=uid, 'NHDPlusAttributes', 'PlusFlow', 
+                             quiet=TRUE, temporary=FALSE)
   
   # open catchment polygons (slow)
   message('loading NHD catchment polygons')
-  catch_poly = nhdR::nhd_plus_load(vpu=uid, 'NHDPlusCatchment', 'Catchment', quiet=TRUE)
+  catch_poly = nhdR::nhd_plus_load(vpu=uid, 'NHDPlusCatchment', 'Catchment', 
+                                   quiet=TRUE, temporary=FALSE)
   
   # simpler sub-routine when only the catchment boundary is needed
   if(fast) {
@@ -91,18 +97,20 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE) {
   } else {
   
     # download the NHDSnapshot data to get flow lines and lakes in the VPU
-    nhdR::nhd_plus_get(vpu=uid, 'NHDSnapshot', temporary=FALSE)
+    if( !no_download ) nhdR::nhd_plus_get(vpu=uid, 'NHDSnapshot', temporary=FALSE)
     
     # open flow lines (slow)
     message('loading NHD stream network geometries')
-    flow_line = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDFlowline', quiet=TRUE)
+    flow_line = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDFlowline', 
+                                    quiet=TRUE, temporary=FALSE)
     
     # bug fix for variation in COMID field name
     if( 'ComID' %in% names(flow_line) ) names(flow_line)[ names(flow_line) == 'ComID'] = 'COMID'
     
     # open lake polygons
     message('loading NHD lake polygons')
-    lake_poly = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDWaterbody', quiet=TRUE)
+    lake_poly = nhdR::nhd_plus_load(vpu=uid, 'NHDSnapshot', 'NHDWaterbody', 
+                                    quiet=TRUE, temporary=FALSE)
 
     # find upstream components
     message('')
