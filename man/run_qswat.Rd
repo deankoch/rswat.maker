@@ -10,7 +10,8 @@ run_qswat(
   osgeo_dir = NULL,
   lake_threshold = 50L,
   channel_threshold = 0.001,
-  stream_threshold = 0.01
+  stream_threshold = 0.01,
+  snap_threshold = 300L
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ run_qswat(
 \item{channel_threshold}{numeric > 0, channel creation threshold as fraction of basin area}
 
 \item{stream_threshold}{numeric > 0, stream creation threshold as fraction of basin area}
+
+\item{snap_threshold}{integer > 0, maximum distance (metres) to snap outlets to flow lines}
 }
 \value{
 list of paths related to the created QSWAT+ project

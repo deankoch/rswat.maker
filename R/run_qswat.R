@@ -100,3 +100,141 @@ run_qswat = function(data_dir,
   qswat_output = readLines(dest_path[['output']]) |> jsonlite::fromJSON()
   return(qswat_output)
 }
+
+#' Create a set of dummy weather files positioned at sub-basin centroids 
+#'
+#' This writes empty weather files for the specified date range. All data values are
+#' set to -99. If you have weather generators set up for the project, this will cause
+#' SWAT+ to generate (ie randomly draw) weather for the period `from` - `to` during
+#' simulations.
+#' 
+#' A weather station is created at the centroid of each sub-basin from the QSWAT+ project
+#' in `data_dir` (or at `pts`, if supplied), and a corresponding data file containing the
+#' date range `from` - `to` in daily steps is written to  the "weather" sub-directory of
+#' the project root.
+#' 
+#' If either `from` or `to` is missing, the function sets a 7 day period to start/end at
+#' the supplied date. If both are missing, `to` is assigned `Sys.Date()`.
+#' 
+#' `pts` is used internally to avoid opening the sub-basin shape file many times in a loop.
+#' We use it to pass the sub-basin centroids, but any set of points can be supplied
+#' (overriding what's in `data_dir`) as long as they have a coherent 'Elevation' (m),
+#' and a (1-indexed) 'Subbasin' field mapping to the project's sub-basins keys. 
+#'
+#' @param data_dir character, path to the directory for input/output files
+#' @param overwrite logical, whether to write the output or just return the file paths
+#' @param var_nm character vector, variable names to write 
+#' @param to Date, final date in the daily time series
+#' @param from Date, initial date in the daily time series
+#' @param pts sf data frame, with points geometry and 'Subbasin' key (integer column)
+#'
+#' @return vector of file paths
+#' @export
+make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NULL, pts=NULL) {
+  
+  # number of digits to write after decimal place
+  n_digit = 3L
+  
+  # value to write in place of NAs
+  na_value = 1
+  
+  # the sub-directory name to use in the project directory
+  weather_nm = 'weather_template'
+  
+  # check that the expected QSWAT output file is there and read it
+  qswat_path = run_qswat(data_dir)['output'] |> readLines() |> jsonlite::fromJSON()
+  
+  # set default variable names
+  var_nm_default = c('pcp', 'tmp', 'rh', 'wind', 'solar')
+  if( is.null(var_nm) ) var_nm = var_nm_default
+  
+  # validity check
+  var_nm = var_nm[ var_nm %in% var_nm_default ]
+  msg_nm = paste(var_nm_default, collapse=', ')
+  if( length(var_nm) == 0 ) stop('Valid options for var_nm are ', msg_nm)
+  
+  # set default dates
+  if( length(c(to, from)) == 0 ) to = Sys.Date()
+  if( length(from) == 0 ) from = to - 7L
+  if( length(to) == 0 ) to = from + 7L
+  
+  # validity check
+  if( !all( sapply(list(to, from), \(x) is(x, 'Date')) ) ) stop('to/from must be Date class objects')
+  if( from > to ) stop('from cannot be later than to!')
+  
+  # open the sub-basins and extract centroids 
+  if( is.null(pts) ) {
+    
+    # key 0 means the sub-basin was discarded during delineation
+    subs = qswat_path[['sub']] |> sf::st_read(quiet=TRUE) |> dplyr::filter(Subbasin > 0)
+    pts_geometry = subs['Subbasin'] |> sf::st_geometry() |> sf::st_centroid()
+    pts = sf::st_sf(subs['Subbasin'], geometry=pts_geometry)
+    
+    # get elevations from DEM
+    dem = terra::rast(save_qswat(data_dir)['dem'])
+    pts[['Elevation']] = terra::extract(dem, pts)[[names(dem)[1]]]
+    pts = sf::st_sf(pts)
+  }
+  
+  # loop for vectorized calls (set pts to avoid st_read every time)
+  names(var_nm) = var_nm
+  if( length(var_nm) > 1 ) return(lapply(var_nm, \(nm) make_weather(data_dir, 
+                                                                    overwrite = overwrite, 
+                                                                    var_nm = nm, 
+                                                                    to = to, 
+                                                                    from = from,
+                                                                    pts = pts) ))
+
+  # define the paths to write
+  n_pts = nrow(pts)
+  weather_dir = run_qswat(data_dir)[['qswat']] |> file.path(weather_nm)
+  station_file = paste0(var_nm, '.txt')
+  data_file = paste0(var_nm, seq(n_pts), '.txt')
+  path_out = list(station = file.path(weather_dir, station_file), 
+                  data = file.path(weather_dir, data_file))  
+  
+  if(!overwrite) return(path_out)
+  
+  # make the directory if necessary and remove any existing output files
+  if( !dir.exists(weather_dir) ) dir.create(weather_dir, recursive=TRUE)
+  lapply(path_out, \(p) {
+    
+    is_over = file.exists(p)
+    if( any(is_over) ) unlink(p[is_over])
+  })
+
+  # stations data frame
+  longlat = pts |> sf::st_transform(4326) |> sf::st_coordinates() |> as.data.frame()
+  station_df = data.frame(ID = pts[['Subbasin']],
+                          NAME = tools::file_path_sans_ext(data_file),
+                          LAT = longlat[['Y']],
+                          LONG = longlat[['X']],
+                          ELEVATION = round(pts[['Elevation']]))
+  
+  # convert to text and write to disk
+  station_df |> write.csv(path_out[['station']], row.names=FALSE, quote=FALSE)
+
+  # weather data text line by line
+  n_data = as.integer(to-from) + 1L
+  data_string = round(na_value, n_digit) |> as.character()
+  if(var_nm == 'tmp') data_string = paste(rep(data_string, 2), collapse=',')
+  data_txt = paste0('\n', data_string) |> rep(n_data) |> paste(collapse='')
+  
+  # concatenate and write to files
+  weather_txt = paste0(format(from, '%Y%m%d'), data_txt)
+  for(i in seq(n_pts) ) weather_txt |> writeLines(path_out[['data']][i])
+  
+  return(path_out)
+}
+
+#' Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut" 
+#'
+#' @return vector of file paths
+#' @export
+run_editor = function() {
+  
+  
+}
+
+
+
