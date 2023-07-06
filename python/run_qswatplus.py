@@ -29,7 +29,10 @@ from pathlib import Path        # Windows path handler
 
 '''---------- initialize QGIS and import QSWAT+ dependencies  -----------'''
 
-print('>> loading PyQGIS and QSWATPlus')
+# first argument defines the config file path and the output directory
+cfg_path = Path(sys.argv[1])
+project_path = cfg_path.parent / 'project'
+print('project directory set to ' + str(project_path))
 
 # I have been unable to get the 'Processing' module loaded properly without
 # first doing initQgis(). We also find the location of the QSWATPlus3_64
@@ -37,6 +40,7 @@ print('>> loading PyQGIS and QSWATPlus')
 # before the import calls that follow.
 
 # PyQGIS modules
+print('\n>> loading PyQGIS and QSWATPlus')
 from qgis.core import QgsApplication, QgsProject
 from PyQt5.QtCore import QSettings, QFileInfo, QStandardPaths
 #from qgis.gui import QgsMapCanvas
@@ -61,7 +65,6 @@ from QSWATPlus3_9.QSWATPlus.QSWATPlusMain import QSWATPlus
 from QSWATPlus3_9.QSWATPlus.delineation import Delineation
 from QSWATPlus3_9.QSWATPlus.hrus import HRUs
 from QSWATPlus3_9.QSWATPlus.QSWATUtils import QSWATUtils, FileTypes
-from QSWATPlus3_9.QSWATPlus.parameters import Parameters
 
 # uncomment to disable MS MPI parallel processing
 # QSettings().setValue('/QSWATPlus/NumProcesses', 0)
@@ -69,9 +72,11 @@ from QSWATPlus3_9.QSWATPlus.parameters import Parameters
 '''---------- project configuration and directories  --------------'''
 
 # read in the JSON config file
-cfg_path = Path(sys.argv[1])
 with open(cfg_path) as f:
     cfg = json.load(f)
+
+# output file, a list of paths related to the project
+json_path = cfg_path.parent / str('qswat_output.json')
 
 # input files, in the order we need them in this workflow
 project_name = cfg['name'][0]
@@ -82,9 +87,10 @@ land_src = cfg['landuse'][0]
 soils_src = cfg['soil'][0]
 
 # input parameters
-project_path = cfg_path.parent / 'project'
+channel_threshold = cfg['channel_threshold'][0]
+stream_threshold = cfg['stream_threshold'][0]
 lake_threshold = cfg['lake_threshold'][0]
-print('\nproject directory set to ' + str(project_path))
+snap_threshold = cfg['snap_threshold'][0]
 
 # remove existing project directory and make new empty directory
 shutil.rmtree(project_path, ignore_errors=True)
@@ -128,8 +134,12 @@ delin._gv.outletFile = str(outlets_src)
 delin._dlg.selectOutlets.setText(str(outlets_src))
 delin.btnSetOutlets()
 
-
 '''--------------- delineation pt3: run TauDEM  ----------------'''
+
+# set threshold parameters
+delin._dlg.numCellsCh.setText(str(int(channel_threshold)))
+delin._dlg.numCellsSt.setText(str(int(stream_threshold)))
+delin._dlg.snapThreshold.setText(str(int(snap_threshold)))
 
 # monkey-patch the iface method to avoid errors with setActiveLayer()
 delin._gv.iface.setActiveLayer = lambda *args: True
@@ -144,10 +154,14 @@ delin.finishDelineation()
 
 '''------------ HRUs pt 1: assign input layers  --------------'''
 
-# initialize HRUs object, setting option to use SSURGO/STATSGO2
+# initialize HRUs object
 hrus = HRUs(plugin._gv, plugin._odlg.reportsBox)
-hrus._dlg.SSURGOButton.setChecked(True)
 hrus.init()
+
+# parameters for workflow (use SSURGO, set lake threshold, make HRUs file)
+hrus._dlg.SSURGOButton.setChecked(True)
+hrus._dlg.reservoirThreshold.setValue(int(lake_threshold))
+hrus._dlg.generateFullHRUs.setChecked(True)
 
 print('\n>> processing soil and land-use data\n')
 
@@ -171,9 +185,6 @@ print('copying soils from ' + str(soils_src))
 hrus.getLanduseFile()
 hrus.getSoilFile()
 
-# set reservoir threshold value
-hrus._dlg.reservoirThreshold.setValue(int(lake_threshold))
-
 # anotherpatch for an attempted palette assignment below
 FileTypes.colourLanduses = lambda *args: True
 
@@ -192,32 +203,40 @@ hrus.calcHRUs()
 proj.write()
 
 # copy some important paths
-json_out = {
+json_data = {
 
-# editor executable to call later
-'exe':Path(plugin._gv.findSWATPlusEditor()),
+    # derived from TauDEM analysis
+    'channel':Path(plugin._gv.channelFile),
+    'stream':Path(plugin._gv.streamFile),
+    'sub':Path(plugin._gv.subbasinsFile),
 
-# database file for the project passed to editor executable
-'sql':Path(plugin._gv.db.dbFile),
+    # derived from HRUs analysis
+    'outlet':Path(plugin._gv.snapFile),
+    'lake':Path(plugin._gv.lakeFile),
+    'hru':Path(plugin._gv.actHRUsFile),
+    'lsu':Path(plugin._gv.actLSUsFile),
+    'hru_full':Path(plugin._gv.fullHRUsFile),
+    'lsu_full':Path(plugin._gv.fullLSUsFile),
 
-# subbasins file for mapping weather data
-'sub':Path(plugin._gv.subbasinsFile),
+    # database file for the project passed to editor executable
+    'sql':Path(plugin._gv.db.dbFile),
 
-# SWAT+ config files
-'txt':Path(plugin._gv.resultsDir).parent / str('TxtInOut')
+    # SWAT+ simulator files
+    'txt':Path(plugin._gv.resultsDir).parent / str('TxtInOut'),
+
+    # we use the editor CLI later on to populate TxtInOut
+    'exe':Path(plugin._gv.findSWATPlusEditor())
 }
 
-# JSON file for these output paths in same directory as input config
-paths_out = cfg_path.parent / str('qswat_output.json')
-
 # coerce to strings with forward slashes for readability
-for key in json_out.keys():
-    json_out[key] = str(json_out[key]).replace(os.sep, '/')
+for key in json_data.keys():
+    json_data[key] = str(json_data[key]).replace(os.sep, '/')
 
-print('\ncopying project paths to ' + str(paths_out))
-outfile = open(paths_out, 'w')
-outfile.write(json.dumps(json_out, indent=1))
-outfile.close()
+# write to JSON
+print('\nwriting ' + str(json_path))
+with open(str(json_path), 'w') as outfile:
+    json.dump(json_data, outfile, indent=1)
+    outfile.write('\n')
 
 # finished with PyQGIS
 qgs.exitQgis()
