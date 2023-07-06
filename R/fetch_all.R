@@ -15,11 +15,13 @@
 #' @param data_dir character path to the directory to use for output files
 #' @param overwrite logical, should the function create missing files in `data_dir`?
 #' @param force_overwrite logical, should the function overwrite existing files in `data_dir`?
+#' @param no_download logical, if TRUE `nhdR::nhd_plus_get` calls is skipped (for debugging)
 #'
 #' @return a list of file paths to write
 #' @export
 fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
-                     nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01')) {
+                     nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01'),
+                     no_download=FALSE) {
   
   # flag to skip final update if we did it already in the same call
   update_nwis = TRUE
@@ -50,7 +52,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   if( force_overwrite | !all(file.exists(nhd_path)) ) {
     
     # NHD data: for UYR initial download is slow, but after that can run in < 1 min
-    catch_list = get_catch(outlet)
+    catch_list = get_catch(outlet, no_download=no_download)
     save_catch(data_dir, catch_list, overwrite=TRUE)
   }
   

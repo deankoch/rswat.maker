@@ -10,7 +10,8 @@ fetch_all(
   overwrite = FALSE,
   force_overwrite = FALSE,
   nwis_nm = "flow_ft",
-  nwis_from = as.Date("2005-01-01")
+  nwis_from = as.Date("2005-01-01"),
+  no_download = FALSE
 )
 }
 \arguments{
@@ -21,6 +22,8 @@ fetch_all(
 \item{overwrite}{logical, should the function create missing files in \code{data_dir}?}
 
 \item{force_overwrite}{logical, should the function overwrite existing files in \code{data_dir}?}
+
+\item{no_download}{logical, if TRUE \code{nhdR::nhd_plus_get} calls is skipped (for debugging)}
 }
 \value{
 a list of file paths to write
