@@ -11,7 +11,9 @@ save_qswat(
   quiet = FALSE,
   lake_area = 0.5,
   burn = 50,
-  snap_tol = 300
+  na_soil = NULL,
+  na_land = NULL,
+  na_dem = -32768
 )
 }
 \arguments{
@@ -19,13 +21,17 @@ save_qswat(
 
 \item{sub}{logical, if \code{TRUE} the function processes sub-catchments in "split/"}
 
-\item{overwrite}{logical, if \code{TRUE} the function writes to output files if they don't exist}
+\item{overwrite}{logical, whether to write the output or just return the file paths}
 
 \item{lake_area}{numeric (in km2), lakes with area lower than \code{lake_area} are omitted}
 
 \item{burn}{numeric >= 0, stream reach burn-in depth and width, in meters}
 
-\item{snap_tol}{numeric >= 0, snapping tolerance distance, in meters}
+\item{na_soil}{integer value to replace NaN in soils raster (or NULL to set to mode)}
+
+\item{na_land}{integer value to replace NaN in land use raster (or NULL to set to mode)}
+
+\item{na_dem}{integer value to replace NaN in dem raster (or NULL to set to mode)}
 }
 \value{
 the file names to write
@@ -39,22 +45,20 @@ writes nothing but returns the file paths that would be written.
 When \code{overwrite=TRUE} and \code{sub=FALSE} the following are written to the "qswat"
 sub-directory of your \code{data_dir}:
 \itemize{
-\item two copies of the DEM, with and without burn-in (as GeoTIFF)
-\item a land use raster, and a STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
-\item a lookup table for land use (as CSV)
-\item an inlets/outlets shape file
-\item a stream network shape file
+\item copy of the DEM with streams burned-in (as GeoTIFF)
+\item land use raster
+\item STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
+\item lookup table for land use (as CSV)
+\item inlets/outlets shape file
 }
 
-'dem_burn.tif', a copy of the UTM raster with stream reaches burned to depth \code{burn} (in meters)
 Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
 network based on the DEM alone. The function creates stream reaches by expanding flow lines
-to form channel polygons of width \code{burn}. It then uses \code{terra::rasterizes} to reduce the value
-of any DEM pixel that overlaps with a channel by the fixed value \code{burn}.
+to form channel polygons of width \code{burn}. It then uses \code{terra::rasterizes} to reduce
+the value of any DEM pixel that overlaps with a channel by the fixed value \code{burn}.
 
-Outlets and inlets are automatically snapped to the nearest flow-line whenever they lie
-within \code{snap_tol} meters. If no such flow line exists, the function throws an error.
+Outlets and inlets are automatically snapped to the nearest flow-line.
 
 If \code{sub=TRUE} the function writes its output to the sub-catchments directories
 created by \code{get_split}, in a loop. This produces a complete set of QSWAT+ files
@@ -64,6 +68,12 @@ All geo-referenced outputs are written in UTM coordinates, where the zone is
 determined by the main outlet point location (see \code{?to_utm}). Lakes are burned into
 the land use raster (code 'watr') and all raster outputs are cropped and masked to
 the catchment boundary.
+
+Soil and land use rasters may have NAs (eg when a basin crosses the border into Canada),
+and this can cause errors in QSWAT+ when it tries to assign parameters to HRUs. Replace
+NAs with a specific (integer) value using \code{na_soil} and/or \code{na_soil}, or leave them \code{NULL}
+to use the mode of the non-NA values, or, when there are multiple models, the first
+encountered in the vectorized raster data.
 
 Note that weather files are the responsibility of the user, and should be added after
 calling this function (and possibly after running QSWAT+ to find HRU locations).

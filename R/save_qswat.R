@@ -12,11 +12,6 @@
 #' * STATSGO2/SSURGO MUKEY raster (as GeoTIFF)
 #' * lookup table for land use (as CSV)
 #' * inlets/outlets shape file
-#' * QSWAT+ configuration file (JSON)
-#' 
-#' The configuration file stores the absolute paths of these inputs. This is to
-#' simplify system calls to the batch file that `run_qswat` uses to run QSWAT+, and
-#' also to create a record of the files used to generate the QSWAT+ project. 
 #' 
 #' Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 #' This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
@@ -35,15 +30,23 @@
 #' the land use raster (code 'watr') and all raster outputs are cropped and masked to
 #' the catchment boundary.
 #' 
+#' Soil and land use rasters may have NAs (eg when a basin crosses the border into Canada),
+#' and this can cause errors in QSWAT+ when it tries to assign parameters to HRUs. Replace
+#' NAs with a specific (integer) value using `na_soil` and/or `na_soil`, or leave them `NULL`
+#' to use the mode of the non-NA values, or, when there are multiple models, the first
+#' encountered in the vectorized raster data.
+#' 
 #' Note that weather files are the responsibility of the user, and should be added after
 #' calling this function (and possibly after running QSWAT+ to find HRU locations).
 #'
 #' @param data_dir character path to the directory for input/output files
 #' @param sub logical, if `TRUE` the function processes sub-catchments in "split/"
-#' @param overwrite logical, if `TRUE` the function writes to output files if they don't exist
+#' @param overwrite logical, whether to write the output or just return the file paths
 #' @param lake_area numeric (in km2), lakes with area lower than `lake_area` are omitted
 #' @param burn numeric >= 0, stream reach burn-in depth and width, in meters
-#' @param snap_tol numeric >= 0, snapping tolerance distance, in meters
+#' @param na_land integer value to replace NaN in land use raster (or NULL to set to mode)
+#' @param na_soil integer value to replace NaN in soils raster (or NULL to set to mode)
+#' @param na_dem integer value to replace NaN in dem raster (or NULL to set to mode)
 #'
 #' @return the file names to write
 #' @export
@@ -51,13 +54,11 @@
 #' @examples
 #' save_qswat('/example')
 save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
-                      lake_area=0.5, burn=50, snap_tol=300) {
-  
-  # NAs value in soil raster (per QSWAT+ Manual)
-  na_soil = -99L
-  
+                      lake_area=0.5, burn=50, 
+                      na_soil=NULL, na_land=NULL, na_dem=-32768) {
+
   # template for inlet/outlet shapefile fields
-  io_temp = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)
+  main_outlet = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)
   
   # NLCD land use code to write to lake pixels
   watr = land_use_lookup[['id']][ land_use_lookup[['name']] == 'watr' ] |> head(1)
@@ -79,8 +80,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
                                             overwrite=overwrite, 
                                             quiet=TRUE,
                                             lake_area=lake_area,
-                                            burn=burn,
-                                            snap_tol=snap_tol)) )
+                                            burn=burn)) )
   }
   
   if( overwrite & !quiet ) message('writing ', basename(data_dir))
@@ -93,8 +93,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
              dem='dem.tif', 
              soil='soil.tif', 
              land='landuse.tif', 
-             land_lookup='landuse.csv',
-             config='config.json')
+             land_lookup='landuse.csv')
   
   # output paths to (over)write
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
@@ -113,20 +112,26 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
   is_over = file.exists(dest_path)
   if( any(is_over) ) unlink(dest_path[is_over])
   
+  # helper to find most frequent non-NA value in a categorical raster (or first encountered)
+  my_mode = \(r) r[] |> na.omit() |> table() |> sort(decreasing=TRUE) |> names() |> head(1) |> c()
+  
+  # set default NA values
+  if( is.null(na_soil) ) na_soil = my_mode(soil) |> as.integer()
+  if( is.null(na_land) ) na_land = my_mode(land) |> as.integer()
+  if( is.null(na_dem) ) na_dem = my_mode(dem) 
+  
   ## PROCESS SOIL
   
-  # use a different encoding for NAs
   soil[is.na(soil)] = na_soil
   soil |> terra::writeRaster(dest_path[['soil']])
-
+  
   ## PROCESS DEM
   
-  # make channel polygons by adding width to flow lines
+  # set up flow lines to burn
   crs_out = sf::st_crs(dem)
   flow_burn = catch_list[['flow']] |> 
     sf::st_geometry() |> 
-    sf::st_transform(crs_out) |> 
-    sf::st_buffer(burn)
+    sf::st_transform(crs_out)
   
   # rasterize to same grid as DEM
   burn_out = data.frame(x=1) |> 
@@ -136,9 +141,10 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
   # deepen the overlapping pixels by `burn` and write result to disk
   dem[ !is.na(burn_out) ] = dem[ !is.na(burn_out) ] - burn
   
-  # QSWAT identifies NAs as minimum of the elevation values (?) This value is from manual
-  dem[ is.na(dem) ] = -32768
+  # QSWAT identifies NAs as minimum of the elevation values
+  dem[ is.na(dem) ] = na_dem
   dem |> terra::writeRaster(dest_path[['dem']])
+  
 
   ## PROCESS LAND
   
@@ -184,6 +190,7 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
   old_id = land[ !is.na(land) ] |> unique() |> c()
   new_id = cbind(old_id, seq_along(old_id)) 
   land_out = land |> terra::classify(new_id)
+  land_out[is.na(land_out)] = na_land
   land_out |> terra::writeRaster(dest_path[['land']])
   
   # make the lookup table
@@ -195,24 +202,40 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
   # save as CSV
   land_df |> write.csv(dest_path[['land_lookup']], row.names=FALSE, quote=FALSE)
   
-  # create QSWAT+ compatible inlet/outlet data frame
+  # COMID of main outlet for the catchment
   outlet = catch_list[['outlet']] |> sf::st_transform(crs_out)
-  comid = outlet[['comid']]
-  io_df = io_temp |> sf::st_sf(geometry=sf::st_geometry(outlet))
+  comid = catch_list[['outlet']][['comid']]
+  site_no = catch_list[['outlet']][['site_no']]
+  
+  # use outlet gage location if available
+  if( !is.null(catch_list[['gage']]) ) {
+  
+    gage = catch_list[['gage']] |> sf::st_transform(crs_out)
+    if(site_no %in% na.omit(gage[['site_no']])) outlet = gage[gage[['site_no']] == site_no, ]
+  }
+  
+  # intialize QSWAT+ compatible inlet/outlet data frame with outlet gage location
+  io_df = main_outlet |> sf::st_sf(geometry=sf::st_geometry(outlet))
   
   # first check for inlets (may be missing in non-split case)
   if( !is.null(catch_list[['inlet']]) ) {
     
-    # if no inlets, this dataframe will be empty
-    if( nrow(catch_list[['inlet']]) > 0 ) {
-      
-      # copy inlet points, omitting duplicates
-      gage_df = catch_list[['gage']] |> dplyr::filter(inlet) |> sf::st_transform(crs_out)
-      gage_df = gage_df[ gage_df[['site_no']] %in% catch_list[['inlet']][['site_no']], ]
+    #  inlet points are a subset of gage 
+    inlet_df = catch_list[['inlet']] |> sf::st_transform(crs_out)
+    if( nrow(inlet_df) > 0 ) {
+
+      # replace with exact gage location if available
+      inlet_pt = inlet_df |> sf::st_geometry()
+      is_gaged = inlet_df[['site_no']] %in% gage[['site_no']]
+      if( any(is_gaged) )  {
+        
+        idx_swap = match(inlet_df[['site_no']][is_gaged], gage[['site_no']])
+        inlet_pt[is_gaged] = sf::st_geometry(gage[idx_swap,])
+      }
       
       # make inlet data frame in QSWAT+ format
-      inlet_df = do.call(rbind, rep(list(io_temp), nrow(gage_df))) |> 
-        sf::st_sf(geometry=sf::st_geometry(gage_df))
+      inlet_df = do.call(rbind, rep(list(main_outlet), length(inlet_pt))) |> 
+        sf::st_sf(geometry=inlet_pt)
       
       # update fields and join with outlets
       inlet_df[['INLET']] = 1L
@@ -220,32 +243,9 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
       io_df = io_df |> rbind(inlet_df)
     }
   }
-  
-  # snap outlet points to flow lines
-  old_pt = sf::st_geometry(io_df)
-  new_pt = do.call(c, lapply(seq_along(old_pt), \(i) {
-    
-    # make linestring connecting point to nearest flow line, extract intersection point
-    sf::st_nearest_points(old_pt[i], flow) |> 
-      sf::st_cast('POINT') |> 
-      tail(1)
-  }))
-  
-  # write the shapefile with snapped coordinates
-  sf::st_geometry(io_df) = new_pt
+
+  # write the shape file (and its babies)
   io_df |> sf::st_write(dest_path[['outlet']], quiet=TRUE)
-  
-  # make an rswat configuration file for running QSWAT+
-  list(info = paste('configuration file created by rswat on', Sys.Date()),
-       name = basename(data_dir),
-       dem = dest_path[['dem']],
-       outlet = dest_path[['outlet']],
-       landuse_lookup = dest_path[['land_lookup']],
-       landuse = dest_path[['land']],
-       soil = dest_path[['soil']],
-       lake_threshold = 50L) |> 
-    jsonlite::toJSON(pretty=TRUE) |>
-    write(dest_path[['config']])
 
   # return all paths without printing them
   return( invisible(dest_path) )
