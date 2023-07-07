@@ -203,6 +203,9 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     }
   }
   
+  # set a default title
+  if( is.null(main) ) main = basename(data_dir)
+  
   # select the more conservative outer boundary for masking, if available
   if( mask ) {
    
@@ -260,17 +263,30 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
                      legend = FALSE)
   }
 
-  # pass the boundary in correct projection to get scale bar auto-positioning
-  if(add_scale) catch_list[['boundary']] |> sf::st_transform(crs=sf::st_crs(r)) |> draw_scale(left=NULL)
+  # distance scale bar
+  if(add_scale) {
+    
+    # scale bar auto-positioning depends on what is plotted
+    if(catch) {
+      
+      # pass the boundary in correct projection
+      catch_list[['boundary']] |> sf::st_transform(crs=sf::st_crs(r)) |> draw_scale(left=NULL)
+      
+    } else { 
+      
+      # pass the bounding box, as polygon
+      r |> sf::st_bbox() |> sf::st_as_sfc() |> draw_scale(left=FALSE)
+    }
+  }
   
-  # draw catchment boundary only
+  # draw catchment boundary
   if(catch) plot_catch(catch_list,
                        add=TRUE,
                        fill_col=NULL,
                        lake_col=NULL,
                        stream_col=NULL,
                        stem_col=NULL,
-                       border_col='black')
+                       border_col='black') 
 }
 
 
