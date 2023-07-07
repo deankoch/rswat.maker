@@ -4,7 +4,7 @@
 \alias{run_editor}
 \title{Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut"}
 \usage{
-run_editor()
+run_editor(data_dir)
 }
 \value{
 vector of file paths

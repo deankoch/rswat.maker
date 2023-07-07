@@ -1,19 +1,37 @@
 #' Run QSWAT+ with default settings to create a SWAT+ project for the catchment
 #' 
 #' This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
-#' created by `save_qswat`. This is Windows-only and has some external dependencies
-#' - see below. Note that when `overwrite=TRUE`,  any existing files in the 'qswat/project/'
-#' sub-directory of `data_dir` will be deleted.
+#' created by `save_qswat`. This is Windows-only and has some external dependencies (see Details).
+#' Note that when `overwrite=TRUE`, any existing files in the 'qswat/project/' sub-directory of
+#' `data_dir` will be deleted.
 #' 
-#' All output is written to the sub-directory "qswat": QSWAT+/SWAT+ files go in the
-#' "project" directory tree, and a set of essential input and output paths for the project
-#' are written to "qswatplus_input.json" and "qswatplus_output.json". The function returns
-#' the contents of "qswatplus_output.json" as an R list:
+#' All output is written to the "qswat" directory of `data_dir`. A list of input paths and
+#' parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
+#' that runs the QSWAT+ workflow: A project tree for QSWAT+ is written to sub-directory
+#' `name`, then SWAT+ Editor is called to populate the "TxtInOut" directory with SWAT+
+#' configuration files.
 #' 
-#' * exe: path to the SWAT+ Editor executable (needed for creating the files in "TxtInOut")
-#' * sql: path to the project SQLite database file
-#' * sub: path to the project sub-basins shape file (relevant features have `Subbasin != 0`)
+#' When setup is finished, a set of important output paths are stored in the file
+#' "qswatplus_output.json". The function returns its contents in a list:
+#' 
+#' * dir: path to the project directory (`name`)
+#' * sql: path to the project SQLite database file (needed by SWAT+ Editor)
 #' * txt: path to the project "TxtInOut" directory (configuration files for SWAT+ simulator)
+#' 
+#' * channel: path to the project channels shape file 
+#' * stream: path to the project streams shape file
+#' * outlet: path to the project outlets shape file (after snapping)
+#' * lake: path to the project lakes shape file 
+#' * hru, hru_full: paths to the project HRUs shape files
+#' * lsu, lsu_full: paths to the project LSUs shape files
+#' 
+#' * editor_exe: path to the SWAT+ Editor executable (needed for creating the files in "TxtInOut")
+#' * simulator_dir: directory containing SWAT+ executable (runs the model defined in "TxtInOut")
+#' 
+#' When `do_check=TRUE`, the function appends '_test' to `name` before running QSWAT+.
+#' The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
+#' delineation or snapping issues. Note that these checks happen whenever `name` contains
+#' the string "test" (even if `do_check=FALSE`).
 #' 
 #' Before calling this function you will need to install QGIS 3.32.0 and the latest SWAT+
 #' bundle, including QSWAT+ and SWAT+ Editor. You will also need to set `osgeo_dir` to point
@@ -25,25 +43,29 @@
 #' script 'run_qswatplus.py'. This script uses the QSWAT+ plugin to complete the essential
 #' SWAT+ model creation steps, including: delineation with TauDEM, loading soils and land use
 #' to define HRUs using "Dominant HRU" method, and creating a database to link everything.
-#' A second function call to SWAT+ Editor produces plaintext SWAT+ config files (in "TxtInOut") 
+#' A system call to the SWAT+ Editor CLI produces plaintext SWAT+ config files in "TxtInOut". 
 #'
 #' @param data_dir character, path to the directory for input/output files
 #' @param overwrite logical, whether to write the output or just return the file paths
+#' @param name character, name of the sub-directory to use for project files
 #' @param osgeo_dir character, path to the QGIS 3 installation directory (AKA "OSGEO4W_ROOT")
 #' @param lake_threshold integer > 0, the percent overlap for a cell to become (part of) a lake
 #' @param channel_threshold  numeric > 0, channel creation threshold as fraction of basin area 
 #' @param stream_threshold numeric > 0, stream creation threshold as fraction of basin area
 #' @param snap_threshold integer > 0, maximum distance (metres) to snap outlets to flow lines
+#' @param do_check logical, if `TRUE` the function appends '_test' to `name` (see details) 
 #'
 #' @return list of paths related to the created QSWAT+ project
 #' @export
 run_qswat = function(data_dir,
                      overwrite = FALSE,
+                     name = basename(data_dir),
                      osgeo_dir = NULL,
                      lake_threshold = 50L,
                      channel_threshold = 1e-3,
                      stream_threshold = 1e-2,
-                     snap_threshold = 300L) {
+                     snap_threshold = 300L,
+                     do_check = TRUE) {
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
@@ -53,22 +75,21 @@ run_qswat = function(data_dir,
   if( is.null(osgeo_dir) ) osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
   
   # expected paths of input files
-  input_path = qswat_path = save_qswat(data_dir)
-  dest_dir = input_path |> head(1) |> dirname()
+  input_path = save_qswat(data_dir)
+  dest_dir = input_path[['outlet']] |> dirname()
   msg_help = '\nHave you run `save_qswat` on this `data_dir` yet?'
   if( !dir.exists(dest_dir) ) stop('destination directory not found: ', dest_dir, msg_help)
   
   # output filenames (project directory must be listed first)
-  out_nm = c(qswat='project',
+  out_nm = c(qswat=paste0(name, ifelse(do_check, '_test', '')),
              input='qswat_input.json', 
-             output='qswat_output.json', 
-             subbasin='subs.geojson')
+             output='qswat_output.json')
   
   # output paths to (over)write
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
   if( !overwrite ) return(dest_path)
   
-  # remove any existing output files ("project" directory is removed later by python script)
+  # remove any existing output files (project directory is removed later by python script)
   is_over = file.exists(dest_path[-1])
   if( any(is_over) ) unlink(dest_path[-1][is_over])
   
@@ -77,7 +98,7 @@ run_qswat = function(data_dir,
 
   # list of information needed by QSWAT+
   json_list = list(info = paste('configuration file created by rswat on', Sys.Date()),
-                   name = basename(data_dir),
+                   name = out_nm['qswat'],
                    dem = input_path[['dem']],
                    outlet = input_path[['outlet']],
                    landuse_lookup = input_path[['land_lookup']],
@@ -97,7 +118,7 @@ run_qswat = function(data_dir,
   paste(cd_string, call_string) |> shell()
   
   # read the output JSON (paths)
-  qswat_output = readLines(dest_path[['output']]) |> jsonlite::fromJSON()
+  qswat_output = readLines(dest_path[['output']]) |> jsonlite::fromJSON() |> unlist()
   return(qswat_output)
 }
 
@@ -136,13 +157,16 @@ make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NU
   n_digit = 3L
   
   # value to write in place of NAs
-  na_value = 1
+  na_value = -99L
   
   # the sub-directory name to use in the project directory
   weather_nm = 'weather_template'
   
   # check that the expected QSWAT output file is there and read it
-  qswat_path = run_qswat(data_dir)['output'] |> readLines() |> jsonlite::fromJSON()
+  config_path = run_qswat(data_dir)['output']
+  msg_help = '\nHave you called `run_swat` yet on this `data_dir`?'
+  if( !file.exists(config_path) ) stop('file not found: ', config_path, msg_help)
+  qswat_path = config_path |> readLines() |> jsonlite::fromJSON()
   
   # set default variable names
   var_nm_default = c('pcp', 'tmp', 'rh', 'wind', 'solar')
@@ -178,12 +202,17 @@ make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NU
   
   # loop for vectorized calls (set pts to avoid st_read every time)
   names(var_nm) = var_nm
-  if( length(var_nm) > 1 ) return(lapply(var_nm, \(nm) make_weather(data_dir, 
-                                                                    overwrite = overwrite, 
-                                                                    var_nm = nm, 
-                                                                    to = to, 
-                                                                    from = from,
-                                                                    pts = pts) ))
+  if( length(var_nm) > 1 ) {
+    
+    path_out = lapply(var_nm, \(nm) make_weather(data_dir,
+                                                 overwrite = overwrite, 
+                                                 var_nm = nm, 
+                                                 to = to, 
+                                                 from = from,
+                                                 pts = pts) )
+                                      
+    return(invisible(path_out))
+  }
 
   # define the paths to write
   n_pts = nrow(pts)
@@ -224,16 +253,60 @@ make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NU
   weather_txt = paste0(format(from, '%Y%m%d'), data_txt)
   for(i in seq(n_pts) ) weather_txt |> writeLines(path_out[['data']][i])
   
-  return(path_out)
+  return( invisible(path_out))
 }
 
 #' Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut" 
 #'
 #' @return vector of file paths
 #' @export
-run_editor = function() {
+run_editor = function(data_dir) {
   
+  # build the full command line call string and execute
+  cat('\n>> setting up project in SWATEditor\n')
   
+  # check that the expected QSWAT output file is there and read it
+  config_path = run_qswat(data_dir)['output']
+  msg_help = '\nHave you called `run_swat` yet on this `data_dir`?'
+  if( !file.exists(config_path) ) stop('file not found: ', config_path, msg_help)
+  qswat_path = config_path |> readLines() |> jsonlite::fromJSON()
+  
+  # check that weather files are in expected location
+  weather_path = unlist( make_weather(data_dir) )
+  is_weather_valid = weather_path |> file.exists()
+  n_miss = sum(!is_weather_valid)
+  if( n_miss > 0 ) {
+    
+    msg_help = '\nHave you called `make_weather` yet on this `data_dir`?'
+    msg_miss = weather_path[!is_weather_valid] |> head(1)
+    if( n_miss > 1 ) msg_miss = msg_miss |> paste('and', n_miss-1, 'other(s)')
+    stop('weather file(s) not found:\n', msg_miss, msg_help)
+  }
+  
+  # CLI arguments for SWAT+ Editor
+  import_format = 'old'
+  import_wgn = 'database'
+  db_path =  qswat_path[['sql']]
+  editor_path = qswat_path[['editor_exe']]
+  editor_dir = dirname(editor_path)
+  editor_file = basename(editor_path)
+  weather_dir = weather_path |> head(1) |> dirname()
+  
+
+  # helper function formats directory strings for NT shell
+  dir2shell = \(d) normalizePath(d) |> dQuote(q=FALSE)
+  cli_args = c('--cmd-only',
+               '--weather-dir' |> paste(dir2shell(weather_dir)),
+               '--weather-import-format' |> paste(import_format),
+               '--wgn-import-method' |> paste(import_wgn))
+
+  cd_string = paste('pushd', dir2shell(editor_dir), '&&')
+  call_string = paste(cd_string, 
+                      editor_file, 
+                      dir2shell(db_path), 
+                      paste(cli_args, collapse=' '))
+  
+  return( shell(call_string) )
 }
 
 

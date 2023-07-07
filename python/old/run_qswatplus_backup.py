@@ -19,23 +19,31 @@
 
 import sys
 import os.path
-import json
 import subprocess
+import json
 import shutil                   # delete nonempty directory
+import re                       # regular expressions
+from osgeo import gdal          # spatial libraries
 from pathlib import Path        # Windows path handler
 
 
 '''---------- initialize QGIS and import QSWAT+ dependencies  -----------'''
 
-# We find the location of the QSWATPlus3_64 installation directory using
-# QtCore.QStandardPaths, so this must be loaded before the import calls that
-# follow.
+# first argument is the config file path and parent directory for project tree
+cfg_path = Path('D:/rswat_data/yellowstone/split/lava_creek/qswat/qswat_input.json')
+#cfg_path = Path(sys.argv[1])
+print('creating new QSWAT project in ' + str(cfg_path.parent))
+
+# I have been unable to get the 'Processing' module loaded properly without
+# first doing initQgis(). We also find the location of the QSWATPlus3_64
+# installation directory using QtCore.QStandardPaths, so this must be loaded
+# before the import calls that follow.
 
 # PyQGIS modules
 print('\n>> loading PyQGIS and QSWATPlus')
 from qgis.core import QgsApplication, QgsProject
-from PyQt5.QtCore import QStandardPaths
-from qgis.gui import QgsMapCanvas
+from PyQt5.QtCore import QSettings, QFileInfo, QStandardPaths
+#from qgis.gui import QgsMapCanvas
 
 # initialize the QGIS environment object (second arg suppresses GUI)
 qgs = QgsApplication([], False)
@@ -53,16 +61,15 @@ user_path = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
 # add this to path then import what is needed from QSWAT+
 QSWAT_user_relpath = 'QGIS/QGIS3/profiles/default/python/plugins/'
 sys.path.append(str(Path(os.path.dirname(user_path)) / QSWAT_user_relpath))
-from QSWATPlus3_9.QSWATPlus.QSWATPlusMain import QSWATPlus
+from QSWATPlus3_9.QSWATPlus.QSWATPlusMain import QSWATPlus, Parameters
 from QSWATPlus3_9.QSWATPlus.delineation import Delineation
 from QSWATPlus3_9.QSWATPlus.hrus import HRUs
+from QSWATPlus3_9.QSWATPlus.QSWATUtils import QSWATUtils, FileTypes
 
+# uncomment to disable MS MPI parallel processing
+# QSettings().setValue('/QSWATPlus/NumProcesses', 0)
 
 '''---------- project configuration and directories  --------------'''
-
-# first argument is the config file path and parent directory for project tree
-cfg_path = Path(sys.argv[1])
-print('\ncreating new QSWAT project in ' + str(cfg_path.parent))
 
 # read in the JSON config file
 with open(cfg_path) as f:
@@ -87,7 +94,7 @@ snap_threshold = cfg['snap_threshold'][0]
 
 # set project name according to the JSON
 project_path = cfg_path.parent / str(project_name)
-print('setting QSWAT project directory to ' + str(project_path))
+print('\nsetting QSWAT project directory to ' + str(project_path))
 
 # remove existing project directory and make new empty directory
 shutil.rmtree(project_path, ignore_errors=True)
@@ -96,16 +103,16 @@ project_path.mkdir(exist_ok=True)
 
 '''----------------- create project file  ------------------------'''
 
-# pass QGIS interface object to initialize the plugin
+# initialize the QSWAT3 plugin object by passing QGIS environment object
 plugin = QSWATPlus(qgs)
 
-# initialize the QGIS project file in the new project folder
+# define and initialize the QGIS project file in the new project folder
 proj_file = str(project_path / project_name) + '.qgs'
 proj = QgsProject.instance()
 proj.setFileName(proj_file)
 proj.write()
 
-# build new QSWAT+ project (arg 2 enables batch mode to avoid prompts)
+# set up a new QSWAT3 project, setting parameters and creating directories
 plugin.setupProject(proj, True)
 
 
@@ -116,7 +123,7 @@ print('\n>> starting delineation\n')
 delin = Delineation(plugin._gv, False)
 delin.init()
 
-# set global variable in QSWAT and "push ok"
+# set global variable in QSWAT and "push" the ok button
 print('copying DEM from ' + str(dem_src))
 delin._gv.demFile = str(dem_src)
 delin._dlg.selectDem.setText(str(dem_src))
@@ -138,19 +145,20 @@ delin._dlg.numCellsCh.setText(str(int(channel_threshold)))
 delin._dlg.numCellsSt.setText(str(int(stream_threshold)))
 delin._dlg.snapThreshold.setText(str(int(snap_threshold)))
 
-# modify iface method to avoid errors with setActiveLayer()
+# monkey-patch the iface method to avoid errors with setActiveLayer()
 delin._gv.iface.setActiveLayer = lambda *args: True
 
 # makes stream reach network and subbasins shapefile, and other stuff
 print('\n>> running TauDEM\n')
 delin.runTauDEM2()
+
 print('\nfinishing delineation')
 delin.finishDelineation()
 
 
 '''------------ HRUs pt 1: assign input layers  --------------'''
 
-# initialize HRUs subroutine
+# initialize HRUs object
 hrus = HRUs(plugin._gv, plugin._odlg.reportsBox)
 hrus.init()
 
@@ -182,6 +190,9 @@ hrus._dlg.selectLanduseTable.setCurrentIndex(names.index(landlu_table))
 hrus.landuseTable = landlu_table
 hrus.setToReadFromMaps()
 
+# anotherpatch for an attempted palette assignment below
+#FileTypes.colourLanduses = lambda *args: True
+
 # patch iface method again to avoid errors on pushMessage() calls:
 class dummyClass:
     def __init__(self, dummyFun=lambda msg, level, duration: None):
@@ -194,17 +205,27 @@ hrus.readFiles()
 # make subbasin and watershed shapefiles
 print('\n>> calculating HRUs\n')
 hrus.calcHRUs()
+
+hrus._gv
+
+# save results so far
+hrus._dlg.close()
 proj.write()
 
-'''---------------------- tidy up  -----------------------'''
 
-# patch for column name bug (adapted from SWAT+ Editor's "setup.py")
-writeCursor = hrus._gv.db.conn.cursor()
-sql_prefix = 'ALTER TABLE plants_plt RENAME COLUMN'
-writeCursor.execute(sql_prefix + ' wnd_dead TO rsd_pctcov')
-writeCursor.execute(sql_prefix + ' wnd_flat TO rsd_covfac')
-hrus._gv.db.conn.close()
-proj.write()
+
+##
+##
+### save and reload project (fixes a database issue?)
+##plugin._gv.db.conn.close()
+##plugin._gv.db.connectToProjectDatabase()
+##proj.write()
+##
+###proj.read(proj_file)
+##proj.write()
+
+
+#plugin._gv.db.conn.close()
 
 # copy some important paths
 json_data = {
@@ -229,8 +250,8 @@ json_data = {
     'txt':Path(plugin._gv.resultsDir).parent / str('TxtInOut'),
 
     # we use the editor CLI later on to populate TxtInOut
-    'editor_exe':Path(plugin._gv.findSWATPlusEditor()),
-    'simulator_dir':Path(plugin._gv.SWATPlusDir)
+    'editor_exe':Path(plugin._gv.findSWATPlusEditor())
+    #TODO: find the SWAT+ simulator executable
 }
 
 # coerce to strings with forward slashes for readability
@@ -245,7 +266,20 @@ with open(str(json_path), 'w') as outfile:
 
 # finished with QSWAT+ and PyQGIS
 print('\n>> finished running QSWAT+')
-plugin.finish()
+
+plugin._odlg.accept()
+#plugin._dlg.close()
 proj.write()
+plugin.finish()
+
+##plugin = QSWATPlus(qgs)
+##plugin._gv.db.connectToProjectDatabase()
+
 qgs.exitQgis()
+
+##proj = plugin.existingProject(proj_file)
+##plugin.setupProject(proj, False)
+##proj.write()
+##plugin.finish()
+
 sys.exit(0)

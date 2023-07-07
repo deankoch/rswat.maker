@@ -7,17 +7,21 @@
 run_qswat(
   data_dir,
   overwrite = FALSE,
+  name = basename(data_dir),
   osgeo_dir = NULL,
   lake_threshold = 50L,
   channel_threshold = 0.001,
   stream_threshold = 0.01,
-  snap_threshold = 300L
+  snap_threshold = 300L,
+  do_check = TRUE
 )
 }
 \arguments{
 \item{data_dir}{character, path to the directory for input/output files}
 
 \item{overwrite}{logical, whether to write the output or just return the file paths}
+
+\item{name}{character, name of the sub-directory to use for project files}
 
 \item{osgeo_dir}{character, path to the QGIS 3 installation directory (AKA "OSGEO4W_ROOT")}
 
@@ -28,29 +32,45 @@ run_qswat(
 \item{stream_threshold}{numeric > 0, stream creation threshold as fraction of basin area}
 
 \item{snap_threshold}{integer > 0, maximum distance (metres) to snap outlets to flow lines}
+
+\item{do_check}{logical, if \code{TRUE} the function appends '_test' to \code{name} (see details)}
 }
 \value{
 list of paths related to the created QSWAT+ project
 }
 \description{
 This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
-created by \code{save_qswat}. This is Windows-only and has some external dependencies
-\itemize{
-\item see below. Note that when \code{overwrite=TRUE},  any existing files in the 'qswat/project/'
-sub-directory of \code{data_dir} will be deleted.
-}
+created by \code{save_qswat}. This is Windows-only and has some external dependencies (see Details).
+Note that when \code{overwrite=TRUE}, any existing files in the 'qswat/project/' sub-directory of
+\code{data_dir} will be deleted.
 }
 \details{
-All output is written to the sub-directory "qswat": QSWAT+/SWAT+ files go in the
-"project" directory tree, and a set of essential input and output paths for the project
-are written to "qswatplus_input.json" and "qswatplus_output.json". The function returns
-the contents of "qswatplus_output.json" as an R list:
+All output is written to the "qswat" directory of \code{data_dir}. A list of input paths and
+parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
+that runs the QSWAT+ workflow: A project tree for QSWAT+ is written to sub-directory
+\code{name}, then SWAT+ Editor is called to populate the "TxtInOut" directory with SWAT+
+configuration files.
+
+When setup is finished, a set of important output paths are stored in the file
+"qswatplus_output.json". The function returns its contents in a list:
 \itemize{
-\item exe: path to the SWAT+ Editor executable (needed for creating the files in "TxtInOut")
-\item sql: path to the project SQLite database file
-\item sub: path to the project sub-basins shape file (relevant features have \code{Subbasin != 0})
+\item dir: path to the project directory (\code{name})
+\item sql: path to the project SQLite database file (needed by SWAT+ Editor)
 \item txt: path to the project "TxtInOut" directory (configuration files for SWAT+ simulator)
+\item channel: path to the project channels shape file
+\item stream: path to the project streams shape file
+\item outlet: path to the project outlets shape file (after snapping)
+\item lake: path to the project lakes shape file
+\item hru, hru_full: paths to the project HRUs shape files
+\item lsu, lsu_full: paths to the project LSUs shape files
+\item editor_exe: path to the SWAT+ Editor executable (needed for creating the files in "TxtInOut")
+\item simulator_dir: directory containing SWAT+ executable (runs the model defined in "TxtInOut")
 }
+
+When \code{do_check=TRUE}, the function appends '_test' to \code{name} before running QSWAT+.
+The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
+delineation or snapping issues. Note that these checks happen whenever \code{name} contains
+the string "test" (even if \code{do_check=FALSE}).
 
 Before calling this function you will need to install QGIS 3.32.0 and the latest SWAT+
 bundle, including QSWAT+ and SWAT+ Editor. You will also need to set \code{osgeo_dir} to point
@@ -62,5 +82,5 @@ The function calls a Windows batch file that launches Python3 for QGIS3 and runs
 script 'run_qswatplus.py'. This script uses the QSWAT+ plugin to complete the essential
 SWAT+ model creation steps, including: delineation with TauDEM, loading soils and land use
 to define HRUs using "Dominant HRU" method, and creating a database to link everything.
-A second function call to SWAT+ Editor produces plaintext SWAT+ config files (in "TxtInOut")
+A system call to the SWAT+ Editor CLI produces plaintext SWAT+ config files in "TxtInOut".
 }

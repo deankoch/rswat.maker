@@ -30,17 +30,22 @@ make_weather(
 vector of file paths
 }
 \description{
-This writes empty weather files for the specified date range - ie all values are
-NA, which triggers the SWAT+ weather generator.
+This writes empty weather files for the specified date range. All data values are
+set to -99. If you have weather generators set up for the project, this will cause
+SWAT+ to generate (ie randomly draw) weather for the period \code{from} - \code{to} during
+simulations.
 }
 \details{
 A weather station is created at the centroid of each sub-basin from the QSWAT+ project
-in \code{data_dir} (or at \code{pts}, if supplied), and the associated files are written to
-the "TxtInOut" directory for the project. NAs are assigned for all data values (to be
-replaced later by the user).
+in \code{data_dir} (or at \code{pts}, if supplied), and a corresponding data file containing the
+date range \code{from} - \code{to} in daily steps is written to  the "weather" sub-directory of
+the project root.
 
-\code{pts} is used internally to avoid opening the sub-basin shape file repeatedly.
-It normally is used to pass the sub-basin centroids, but any set of points can be
-passed as long as they have a coherent set of 'Subbasin' keys (ie one for each of
-the project's sub-basins keys), and 'Elevation' values (meters)
+If either \code{from} or \code{to} is missing, the function sets a 7 day period to start/end at
+the supplied date. If both are missing, \code{to} is assigned \code{Sys.Date()}.
+
+\code{pts} is used internally to avoid opening the sub-basin shape file many times in a loop.
+We use it to pass the sub-basin centroids, but any set of points can be supplied
+(overriding what's in \code{data_dir}) as long as they have a coherent 'Elevation' (m),
+and a (1-indexed) 'Subbasin' field mapping to the project's sub-basins keys.
 }
