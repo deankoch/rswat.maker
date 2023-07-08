@@ -13,7 +13,8 @@ run_qswat(
   channel_threshold = 0.001,
   stream_threshold = 0.01,
   snap_threshold = 300L,
-  do_check = TRUE
+  do_check = TRUE,
+  quiet = FALSE
 )
 }
 \arguments{

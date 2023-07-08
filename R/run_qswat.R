@@ -65,7 +65,8 @@ run_qswat = function(data_dir,
                      channel_threshold = 1e-3,
                      stream_threshold = 1e-2,
                      snap_threshold = 300L,
-                     do_check = TRUE) {
+                     do_check = TRUE,
+                     quiet = FALSE) {
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
@@ -83,9 +84,10 @@ run_qswat = function(data_dir,
   # output filenames (project directory must be listed first)
   out_nm = c(qswat=paste0(name, ifelse(do_check, '_test', '')),
              input='qswat_input.json', 
-             output='qswat_output.json')
+             output='qswat_output.json',
+             log='qswat_log.txt')
   
-  # output paths to (over)write
+  # output paths to overwrite
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
   if( !overwrite ) return(dest_path)
   
@@ -112,13 +114,41 @@ run_qswat = function(data_dir,
   # write to disk as JSON
   json_list |> jsonlite::toJSON(pretty=TRUE) |> write(dest_path[['input']])
   
+  # expected path of project file (will be created at the beginning of setup)
+  qgs_path = dest_dir |> file.path(json_list[['name']], json_list[['name']]) |> paste0('.qgs')
+  
   # build shell command to change directory then execute QSWAT+ setup
+  message('running QSWAT+ to create project: ', out_nm['qswat'])
   cd_string = paste('pushd', paste0('"', normalizePath(batch_dir), '" &&'))
   call_string = paste0(batch_name, ' "', dest_path[['input']], '" "', osgeo_dir, '"')
-  paste(cd_string, call_string) |> shell()
+  shell_result = paste(cd_string, call_string) |> 
+    shell(intern=TRUE, mustWork=NA) |>
+    suppressWarnings()
   
+  # write stdout from setup, captured by shell(), to log file
+  writeLines(shell_result, dest_path['log'])
+
+  # report any lines beginning with ERROR (errors reported to QgsMessageLog)
+  is_error = any(grepl('^Traceback', shell_result))
+  if( any(is_error) ) {
+    
+    info_1 = 'Check the log for errors and try opening the project in QGIS:'
+    info_2 = paste('\nlog file:', dest_path['log'])
+    info_3 = paste('\nQGIS project file:', qgs_path)
+    msg_warn = paste('There was a problem running QSWAT+ setup.', info_1, info_2, info_3)
+    if(do_check) stop(msg_warn)
+    warning(msg_warn)
+  }
+
   # read the output JSON (paths)
-  qswat_output = readLines(dest_path[['output']]) |> jsonlite::fromJSON() |> unlist()
+  qswat_output = NULL
+  if( file.exists(dest_path[['output']]) ) {
+    
+    qswat_output = readLines(dest_path[['output']]) |>
+      jsonlite::fromJSON() |> 
+      unlist()
+  }
+  
   return(qswat_output)
 }
 
@@ -260,11 +290,8 @@ make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NU
 #'
 #' @return vector of file paths
 #' @export
-run_editor = function(data_dir) {
-  
-  # build the full command line call string and execute
-  cat('\n>> setting up project in SWATEditor\n')
-  
+run_editor = function(data_dir, overwrite=FALSE) {
+
   # check that the expected QSWAT output file is there and read it
   config_path = run_qswat(data_dir)['output']
   msg_help = '\nHave you called `run_swat` yet on this `data_dir`?'
@@ -283,6 +310,17 @@ run_editor = function(data_dir) {
     stop('weather file(s) not found:\n', msg_miss, msg_help)
   }
   
+  # output filenames
+  out_nm = c(txt=qswat_path[['txt']],
+             log='editor_log.txt')
+  
+  # output paths to overwrite
+  dest_path = dirname(config_path) |> file.path(out_nm) |> stats::setNames(names(out_nm))
+  if( !overwrite ) return(dest_path)
+  
+  # remove any existing log
+  if( file.exists(dest_path['log']) ) unlink(dest_path['log'])
+  
   # CLI arguments for SWAT+ Editor
   import_format = 'old'
   import_wgn = 'database'
@@ -299,14 +337,35 @@ run_editor = function(data_dir) {
                '--weather-dir' |> paste(dir2shell(weather_dir)),
                '--weather-import-format' |> paste(import_format),
                '--wgn-import-method' |> paste(import_wgn))
-
+  
+  # build shell command to change directory
+  message('running SWAT+ Editor')
+  # qswat_path['txt']
   cd_string = paste('pushd', dir2shell(editor_dir), '&&')
   call_string = paste(cd_string, 
                       editor_file, 
                       dir2shell(db_path), 
                       paste(cli_args, collapse=' '))
   
-  return( shell(call_string) )
+  # collect error messages for tidier output
+  shell_result = paste(cd_string, call_string) |> 
+    shell(intern=TRUE) |> 
+    suppressWarnings()
+  
+  # write log file to disk
+  shell_result |> writeLines(dest_path['log'])
+    
+  # report any problems relayed by shell()
+  if( any(grepl('^(Traceback)', shell_result)) ) {
+    
+    info_1 = 'Check the log for errors:'
+    info_2 = ifelse(log_exists, paste('\nlog file:', dest_path['log']), '')
+    msg_warn = paste('There was a problem running SWAT+ Editor setup.', info_1, info_2)
+    if(do_check) stop(msg_warn)
+    warning(msg_warn)
+  }
+
+  return( invisible(dest_path) )
 }
 
 
