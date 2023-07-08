@@ -13,28 +13,32 @@
 #' * lookup table for land use (as CSV)
 #' * inlets/outlets shape file
 #' 
+#' Users should first run all of the `get_*` functions (`get_catch`, `get_dem`, etc) to
+#' download the necessary datasets before calling `save_qswat`.
+#' 
 #' Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 #' This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
 #' network based on the DEM alone. The function creates stream reaches by expanding flow lines
 #' to form channel polygons of width `burn`. It then uses `terra::rasterizes` to reduce
 #' the value of any DEM pixel that overlaps with a channel by the fixed value `burn`.
 #' 
-#' Outlets and inlets are automatically snapped to the nearest flow-line.
+#' The main outlet is always included in the output, along with any inlets listed in the
+#' 'inlet.geojson' and 'gage.geojson' files (created by get_split). If the 'site_no' for
+#' one of these inlets/outlets matches a row in the gage file, then the coordinates for
+#' that point are replaced with the (unsnapped) gage coordinates.
 #' 
-#' If `sub=TRUE` the function writes its output to the sub-catchments directories
-#' created by `get_split`, in a loop. This produces a complete set of QSWAT+ files
-#' for each sub-catchment in "split".
+#' If `sub=TRUE` the function processes the sub-catchments created by `get_split` in a loop
+#' (equivalent to passing these sub-directories one at a time to `save_qswat` with `sub=FALSE`).
+#' This produces a complete set of QSWAT+ files for each of the sub-directories in "split"
 #' 
 #' All geo-referenced outputs are written in UTM coordinates, where the zone is
-#' determined by the main outlet point location (see `?to_utm`). Lakes are burned into
-#' the land use raster (code 'watr') and all raster outputs are cropped and masked to
-#' the catchment boundary.
+#' determined by the main outlet point location (see `?to_utm`).
 #' 
-#' Soil and land use rasters may have NAs (eg when a basin crosses the border into Canada),
-#' and this can cause errors in QSWAT+ when it tries to assign parameters to HRUs. Replace
-#' NAs with a specific (integer) value using `na_soil` and/or `na_soil`, or leave them `NULL`
-#' to use the mode of the non-NA values, or, when there are multiple models, the first
-#' encountered in the vectorized raster data.
+#' Lakes are burned into the land use raster with the integer code signifying 'watr'. Other
+#' `NA` values in this raster are assigned the (integer) code `na_land`, or if it is `NULL`,
+#' the mode (ie most frequent non-`NA` code, or the first encountered in case of ties).
+#' `NA` soil values are handled the same way; The function uses the `na_soil` MUKEY , or
+#' if it is `NULL`, the mode.
 #' 
 #' Note that weather files are the responsibility of the user, and should be added after
 #' calling this function (and possibly after running QSWAT+ to find HRU locations).
@@ -207,17 +211,17 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
   comid = catch_list[['outlet']][['comid']]
   site_no = catch_list[['outlet']][['site_no']]
   
-  # use outlet gage location if available
+  # use outlet gage coordinates (rather than NHD outlet) if they are available
   if( !is.null(catch_list[['gage']]) ) {
   
     gage = catch_list[['gage']] |> sf::st_transform(crs_out)
-    if(site_no %in% na.omit(gage[['site_no']])) outlet = gage[gage[['site_no']] == site_no, ]
+    if( site_no %in% na.omit(gage[['site_no']]) ) outlet = gage[gage[['site_no']] == site_no, ]
   }
   
-  # intialize QSWAT+ compatible inlet/outlet data frame with outlet gage location
+  # initialize QSWAT+ compatible inlet/outlet data frame with outlet gage location
   io_df = main_outlet |> sf::st_sf(geometry=sf::st_geometry(outlet))
   
-  # first check for inlets (may be missing in non-split case)
+  # check for inlets (these may be missing in non-split case)
   if( !is.null(catch_list[['inlet']]) ) {
     
     #  inlet points are a subset of gage 

@@ -52,28 +52,32 @@ sub-directory of your \code{data_dir}:
 \item inlets/outlets shape file
 }
 
+Users should first run all of the \verb{get_*} functions (\code{get_catch}, \code{get_dem}, etc) to
+download the necessary datasets before calling \code{save_qswat}.
+
 Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
 network based on the DEM alone. The function creates stream reaches by expanding flow lines
 to form channel polygons of width \code{burn}. It then uses \code{terra::rasterizes} to reduce
 the value of any DEM pixel that overlaps with a channel by the fixed value \code{burn}.
 
-Outlets and inlets are automatically snapped to the nearest flow-line.
+The main outlet is always included in the output, along with any inlets listed in the
+'inlet.geojson' and 'gage.geojson' files (created by get_split). If the 'site_no' for
+one of these inlets/outlets matches a row in the gage file, then the coordinates for
+that point are replaced with the (unsnapped) gage coordinates.
 
-If \code{sub=TRUE} the function writes its output to the sub-catchments directories
-created by \code{get_split}, in a loop. This produces a complete set of QSWAT+ files
-for each sub-catchment in "split".
+If \code{sub=TRUE} the function processes the sub-catchments created by \code{get_split} in a loop
+(equivalent to passing these sub-directories one at a time to \code{save_qswat} with \code{sub=FALSE}).
+This produces a complete set of QSWAT+ files for each of the sub-directories in "split"
 
 All geo-referenced outputs are written in UTM coordinates, where the zone is
-determined by the main outlet point location (see \code{?to_utm}). Lakes are burned into
-the land use raster (code 'watr') and all raster outputs are cropped and masked to
-the catchment boundary.
+determined by the main outlet point location (see \code{?to_utm}).
 
-Soil and land use rasters may have NAs (eg when a basin crosses the border into Canada),
-and this can cause errors in QSWAT+ when it tries to assign parameters to HRUs. Replace
-NAs with a specific (integer) value using \code{na_soil} and/or \code{na_soil}, or leave them \code{NULL}
-to use the mode of the non-NA values, or, when there are multiple models, the first
-encountered in the vectorized raster data.
+Lakes are burned into the land use raster with the integer code signifying 'watr'. Other
+\code{NA} values in this raster are assigned the (integer) code \code{na_land}, or if it is \code{NULL},
+the mode (ie most frequent non-\code{NA} code, or the first encountered in case of ties).
+\code{NA} soil values are handled the same way; The function uses the \code{na_soil} MUKEY , or
+if it is \code{NULL}, the mode.
 
 Note that weather files are the responsibility of the user, and should be added after
 calling this function (and possibly after running QSWAT+ to find HRU locations).

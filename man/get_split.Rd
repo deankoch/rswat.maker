@@ -2,50 +2,65 @@
 % Please edit documentation in R/get_split.R
 \name{get_split}
 \alias{get_split}
-\title{Split a catchment into sub-catchments with an NWIS gage at each outlet}
+\title{Split a catchment into sub-catchments with a gage point at each outlet}
 \usage{
 get_split(data_dir, gage = NULL, snap_main = units::set_units(100, m))
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
 
-\item{gage}{sf points data frame, point of interest at which to split the catchment}
+\item{gage}{sf points data frame, with fields 'site_no', 'station_nm', and 'count'}
 
 \item{snap_main}{numeric with units, snapping distance to set "main" outlet}
 }
 \value{
-a list with elements 'gage' and 'sub'
+a list with one element per sub-catchment
 }
 \description{
-This partitions the catchment in \code{data_dir} into a set of sub-catchments
-matching the layout of upstream NWIS gages, returning metadata about the
-gage points in \code{gage} and a nested list of geometries in \code{sub}, one for
-each sub-catchment.
+This splits the catchment in \code{data_dir} into a set of sub-catchments according
+to the layout of upstream \code{gage} points. It returns a nested list of sub-catchment
+geometries, one for each unique gage.
 }
 \details{
-The inlets and outlets linking sub-catchments are placed on the same NHD
-catchment polygons as the \code{gage} points. This ensures that each gage is
-associated with the outlet for a single sub-catchment, and that the inlets
-for this sub-catchment (if any) are themselves situated at \code{gage} points.
+As in QSWAT+ delineation, the drainage areas of inlet points are clipped from
+the downstream sub-catchment area. This results in a partition of the main outlet
+catchment into sub-catchment polygons linked to one another by inlet/outlet points.
+In this scheme each unique gage is the main outlet of one (and only one) of the
+sub-catchments. A sub-catchment may have inlets, and each of these corresponds
+to the main outlet of a different sub-catchment in the set.
 
-Sub-catchments inherit name and ID fields from row of \code{gage} mapping to its
-outlet. If multiple elements in \code{gage} map to the same sub-catchment, the one
-with the highest 'count' field (most records) is used, and the others discarded
-when building outlet objects.
+Sub-catchments inherit the 'site_no' and 'station_nm' fields (name and ID) of
+the row of \code{gage} mapping to their main outlets. 'site_no' must be unique for each
+\code{gage} point. An integer 'count' field is also expected, but is only used for
+breaking ties related to positional duplication (see below)
+
+It is possible to have multiple elements in \code{gage} mapping to the same NHDPlus
+polygon (ie COMID). For example you might have two different sets of coordinates
+for the same location due to positional errors, or simply two different gages that
+happen to lie in the same NHDPlus polygon. Duplicate situations like these are dealt
+with by keeping only the gage point with the highest 'count' field - ie the most
+records. In the output, element 'gage' will include all relevant input \code{gage}
+points (including duplicates), but 'outlet' and 'inlet' will have duplicates
+removed, and only one sub-catchment will be created for each set of duplicate
+outlets.
 
 If the main outlet of the catchment is not found within snapping distance
-\code{snap_main} of a point in \code{gage}, the function appends the outlet point
-automatically. This ensures the set of output sub-catchment polygons always
-forms a partition of the whole catchment.
+\code{snap_main} of a point in \code{gage}, the function appends a new main outlet
+point automatically. This ensures the set of output sub-catchment polygons always
+form a partition of the whole catchment. Depending on \code{snap_main} and the
+layout of the NHDPlus model in your study area, this can result in the creation of
+an additional sub-catchment named "main outlet created by rswat".
 
-The "true" outlet point for a sub-catchment (under the NHD model) lies at the
-intersection of the boundary of the NHD polygon for the outlet COMID, and its
-flow line. These points are calculated and returned in \code{outlet}. Note that \code{gage}
-points from NWIS will often be located slightly upstream of the true outlet for
-their NHD polygon. Thus two sets of boundary polygons are returned: \code{boundary}
-is the partition; and \code{boundary_outer} is a copy where the polygons for any
-inlets have been joined to the downstream sub-catchment boundaries.
+The "true" outlet point for a sub-catchment under the NHD model lies at the
+intersection of the boundary of the NHD polygon for the outlet COMID and its
+flow line. These points are calculated and returned in \code{outlet} and \code{inlet}.
+
+Note that a \code{gage} point (from NWIS) will often be located slightly upstream of the
+outlet associated with its COMID (see \code{?get_catch}). Thus the function returns two
+versions of the boundary polygon for a sub-catchment: \code{boundary} is the partition;
+and \code{boundary_outer} is a copy where the NHPlus polygons for all inlets/outlets have
+been joined to their downstream sub-catchment boundaries (introducing overlap).
 
 See also \code{split_catch}, which does most of the work of following flow-lines and
-building boundaries with set operations.
+building boundaries with logical set operations.
 }

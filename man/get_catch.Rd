@@ -11,7 +11,7 @@ get_catch(outlet, crs_out = 4326, fast = FALSE, no_download = FALSE)
 
 \item{crs_out}{output CRS, anything acceptable to \code{sf::st_crs} or NULL to use UTM zone of outlet}
 
-\item{fast}{logical, if TRUE the \code{catchment} object is not returned, speeding things somewhat}
+\item{fast}{logical, if TRUE some detailed objects are omitted from results, speeding things somewhat}
 
 \item{no_download}{logical, if TRUE the \code{nhdR::nhd_plus_get} call is skipped (for debugging)}
 }
@@ -19,33 +19,21 @@ get_catch(outlet, crs_out = 4326, fast = FALSE, no_download = FALSE)
 list
 }
 \description{
-This uses the \code{nhdR} package to manage ETL of NHD data collections related to
-the catchment of the point \code{outlet}.  If \code{outlet} is a character string, it is
-passed to \code{nominatim_point} to get the point from OSM.
+Download and extract geometries and other data related the NHDPlus model for the
+catchment of \code{outlet}, using \code{nhdR}. If \code{outlet} is a character string, it
+is first passed to \code{nominatim_point} to get coordinates from OpenStreetMap.
 }
 \details{
-The function downloads three collections from NHD (see \code{?get_upstream}) containing
-geometries and attributes on stream networks, (sub)catchments, and water bodies
-upstream of \code{outlet}. It returns the relevant objects in a list, including a
-boundary polygon representing the full catchment.
-
-Users who are only interested in this boundary polygon can speed things somewhat by
-setting \code{fast=TRUE}. This returns the boundary along with the outlet point and its
-COMID, and omits the more detailed data model for the stream network and sub-catchments.
-
-Note that \code{nhdR} uses \code{rappdirs} to manage persistent storage. This will set
-up a default data storage folder on your system and, whenever possible, use cached
-files instead of downloading things repeatedly.
-
-\code{crs_out} can be set to NA to return everything in its original projection.
-Otherwise the function transforms all geo-referenced output data to the supplied
-CRS or EPSG code. If \code{crs_out=NULL}, the function assigns the UTM projection for the
-zone overlying the \code{outlet},
+The function uses \code{nhdR::nhd_plus_get} to fetch the relevant data packages, setting
+\code{temporary=FALSE} so that persistent storage is used to cache files instead of
+downloading them repeatedly between R sessions. In subsequent calls to \code{get_catch},
+you can set \code{no_download=TRUE} to avoid \code{nhdR::nhd_plus_get} altogether (this can
+be helpful if you the data already cached locally but are getting 404 errors).
 
 The function returns a list with the following
 \itemize{
-\item \code{comid} integer  associated with the outlet
-\item \code{outlet} sf points data frame, the outlet point and some metadata
+\item \code{comid} integer key value associated with the outlet
+\item \code{outlet} sf points data frame, the outlet point (snapped to NHDPlus model) and some metadata
 \item \code{boundary} sfc_POLYGON, the catchment boundary inscribing all areas draining to \code{outlet}
 }
 
@@ -60,6 +48,12 @@ If \code{fast=FALSE}, the returned list also includes
 All geo-referenced outputs are converted to the common projection \code{crs_out}. If this
 is \code{NULL} (the default) the function uses the UTM zone overlying \code{outlet}.
 
-See https://cran.r-project.org/package=nhdplusTools and the references pages linked
-there for more on the NHDPlus data model, and how the COMID ties things together.
+See also \code{?get_upstream} which handles computations for this function.
+
+Note that in the NHDPlus model the landscape is partitioned into small non-overlapping
+patches of land, each draining to a unique outlet point. The function finds the polygon
+on which the user-supplied \code{outlet} lies, then snaps the outlet to polygon's drainage point -
+ie it returns the outlet associated with the COMID, which may be slightly downstream of the
+input coordinates. See https://cran.r-project.org/package=nhdplusTools and the references
+pages linked there for more on the NHDPlus data model, and how the COMID ties things together.
 }

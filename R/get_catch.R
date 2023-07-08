@@ -1,31 +1,18 @@
 #' Return a list of NHD geometry objects modelling the catchment for an outlet
 #'
-#' This uses the `nhdR` package to manage ETL of NHD data collections related to
-#' the catchment of the point `outlet`.  If `outlet` is a character string, it is
-#' passed to `nominatim_point` to get the point from OSM.
+#' Download and extract geometries and other data related the NHDPlus model for the
+#' catchment of `outlet`, using `nhdR`. If `outlet` is a character string, it
+#' is first passed to `nominatim_point` to get coordinates from OpenStreetMap. 
 #' 
-#' The function downloads three collections from NHD (see `?get_upstream`) containing
-#' geometries and attributes on stream networks, (sub)catchments, and water bodies
-#' upstream of `outlet`. It returns the relevant objects in a list, including a
-#' boundary polygon representing the full catchment.
-#' 
-#' Users who are only interested in this boundary polygon can speed things somewhat by
-#' setting `fast=TRUE`. This returns the boundary along with the outlet point and its
-#' COMID, and omits the more detailed data model for the stream network and sub-catchments. 
-#' 
-#' Note that `nhdR` uses `rappdirs` to manage persistent storage. This will set
-#' up a default data storage folder on your system and, whenever possible, use cached
-#' files instead of downloading things repeatedly.
-#' 
-#' `crs_out` can be set to NA to return everything in its original projection.
-#' Otherwise the function transforms all geo-referenced output data to the supplied
-#' CRS or EPSG code. If `crs_out=NULL`, the function assigns the UTM projection for the
-#' zone overlying the `outlet`, 
+#' The function uses `nhdR::nhd_plus_get` to fetch the relevant data packages, setting
+#' `temporary=FALSE` so that persistent storage is used to cache files instead of
+#' downloading them repeatedly between R sessions. In subsequent calls to `get_catch`,
+#' you can set `no_download=TRUE` to avoid `nhdR::nhd_plus_get` altogether (this can
+#' be helpful if you the data already cached locally but are getting 404 errors).
 #' 
 #' The function returns a list with the following
 #' 
-#' * `comid` integer  associated with the outlet 
-#' * `outlet` sf points data frame, the outlet point and some metadata
+#' * `outlet` sf points data frame, the outlet point (snapped to NHDPlus model) and some metadata
 #' * `boundary` sfc_POLYGON, the catchment boundary inscribing all areas draining to `outlet`
 #' 
 #' If `fast=FALSE`, the returned list also includes
@@ -36,17 +23,23 @@
 #' * `lake` sf data frame with polygon geometries, the upstream water bodies
 #' 
 #' All geo-referenced outputs are converted to the common projection `crs_out`. If this
-#' is `NULL` (the default) the function uses the UTM zone overlying `outlet`.
+#' is `NULL` (the default) the function uses the UTM zone overlying `outlet`. 
 #' 
-#' See https://cran.r-project.org/package=nhdplusTools and the references pages linked
-#' there for more on the NHDPlus data model, and how the COMID ties things together.
+#' See also `?get_upstream` which handles computations for this function. 
+#' 
+#' Note that in the NHDPlus model the landscape is partitioned into small non-overlapping
+#' patches of land, each draining to a unique outlet point. The function finds the polygon
+#' on which the user-supplied `outlet` lies, then snaps the outlet to polygon's drainage point -
+#' ie it returns the outlet associated with the COMID, which may be slightly downstream of the
+#' input coordinates. See https://cran.r-project.org/package=nhdplusTools and the references
+#' pages linked there for more on the NHDPlus data model, and how the COMID ties things together.
 #'
 #' @param outlet character to query OSM for location or else a point accepted by `sf::st_geometry`
 #' @param crs_out output CRS, anything acceptable to `sf::st_crs` or NULL to use UTM zone of outlet
-#' @param fast logical, if TRUE the `catchment` object is not returned, speeding things somewhat
+#' @param fast logical, if TRUE some detailed objects are omitted from results, speeding things somewhat
 #' @param no_download logical, if TRUE the `nhdR::nhd_plus_get` call is skipped (for debugging)
 #'
-#' @return list
+#' @return list of geometries and data frames (see details)
 #' @export
 get_catch = function(outlet, crs_out=4326, fast=FALSE, no_download=FALSE) {
   

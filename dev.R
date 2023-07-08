@@ -28,18 +28,18 @@ document()
 # TODO: run SWAT+ Editor at the end of `run_qswat`
 
 
-data_dir = 'D:/rswat_data/yellowstone'
+#data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/tuolumne'
-#data_dir = 'D:/rswat_data/snake'
+data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/ausable'
 #data_dir = 'D:/rswat_data/bigthompson'
 
-outlet = nominatim_point("Carter's Bridge, MT")
+#outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
-#outlet = nominatim_point("Alpine Junction, WY")
+outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
 #outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
@@ -53,7 +53,7 @@ outlet |> fetch_all(data_dir, overwrite=TRUE, no_download=TRUE)
 # save_split(data_dir, sub_list, overwrite=TRUE)
 # qswat_dir = save_qswat(data_dir, sub=T, overwrite=TRUE)
 
-# i=6 didn't exclude the inlet again
+
 
 
 data_dir |> plot_rast('dem')
@@ -65,9 +65,27 @@ paste(i, '/', length(subs)) |> cat()
 subs[i] |> plot_rast('dem')
 
 #save_qswat(subs[i], sub=F, overwrite=TRUE)
-qswat_path = run_qswat(subs[i], overwrite=TRUE, do_check=FALSE)
+qswat_path = run_qswat(subs[i], overwrite=TRUE, do_check=TRUE)
+
+
+# TODO: check percent overlap of old and new boundary and set a 
+# conservative threshold to catch inlet issues like like snake i=5,6
+# subs_sf = qswat_path['sub'] |> 
+#   sf::st_read(quiet=T) |> 
+#   dplyr::filter(Subbasin != 0) |> 
+#   sf::st_geometry() |>
+#   sf::st_make_valid() |> 
+#   sf::st_union() |>
+#   
+#   
+# 
+# boundary = save_catch(data_dir)['boundary'] |> 
+#   sf::st_read(quiet=T) |> 
+#   sf::st_transform(sf::st_crs(subs_sf)) |>
+#   sf::st_geometry()
+
 make_weather(subs[i], overwrite=TRUE)
-run_editor(subs[i])
+run_editor(subs[i], overwrite=TRUE)
 
 # fetch shapefile data from QSWAT+
 channel_sf = qswat_path['channel'] |> sf::st_read(quiet=T)
@@ -80,6 +98,19 @@ subs_sf |> dplyr::filter(Subbasin != 0) |> sf::st_geometry() |> plot(add=TRUE, b
 idx_in = subs_sf |> dplyr::filter(Subbasin != 0) |> dplyr::pull(PolygonId)
 channel_sf[channel_sf$BasinNo %in% idx_in,] |> sf::st_geometry() |> plot(add=TRUE, col=adjustcolor('blue', .5))
 lsu_sf |> sf::st_geometry() |> plot(add=T, col=adjustcolor('white', .2), border=NA)
+
+
+
+data_dir = subs[i]
+overwrite = TRUE
+lake_threshold=50L
+channel_threshold = 1e-3
+stream_threshold = 1e-2
+osgeo_dir=NULL
+snap_threshold = 300L
+do_check = TRUE
+name = basename(data_dir)
+quiet = FALSE
 
 
 
@@ -191,14 +222,6 @@ open_catch(subs[i]) |> plot_catch(add=TRUE)
 
 
 
-data_dir = subs[i]
-overwrite = TRUE
-lake_threshold=50L
-channel_threshold = 5e-3
-stream_threshold = 1e-2
-osgeo_dir=NULL
-snap_in_R = TRUE
-taudem_only = FALSE
 
 # data_dir = subs[i]
 sub=F
