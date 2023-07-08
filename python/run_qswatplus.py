@@ -57,12 +57,12 @@ from QSWATPlus3_9.QSWATPlus.QSWATPlusMain import QSWATPlus
 from QSWATPlus3_9.QSWATPlus.delineation import Delineation
 from QSWATPlus3_9.QSWATPlus.hrus import HRUs
 
-
 '''---------- project configuration and directories  --------------'''
 
 # first argument is the config file path and parent directory for project tree
 cfg_path = Path(sys.argv[1])
-print('\ncreating new QSWAT project in ' + str(cfg_path.parent))
+cfg_path_unix = str(cfg_path.parent).replace('\\', '/')
+print('\ncreating new QSWAT project in ' + cfg_path_unix)
 
 # read in the JSON config file
 with open(cfg_path) as f:
@@ -87,7 +87,8 @@ snap_threshold = cfg['snap_threshold'][0]
 
 # set project name according to the JSON
 project_path = cfg_path.parent / str(project_name)
-print('setting QSWAT project directory to ' + str(project_path))
+project_path_unix = str(project_path).replace('\\', '/')
+print('setting QSWAT project directory to ' + project_path_unix)
 
 # remove existing project directory and make new empty directory
 shutil.rmtree(project_path, ignore_errors=True)
@@ -196,6 +197,7 @@ print('\n>> calculating HRUs\n')
 hrus.calcHRUs()
 proj.write()
 
+
 '''---------------------- tidy up  -----------------------'''
 
 # patch for column name bug (adapted from SWAT+ Editor's "setup.py")
@@ -238,7 +240,7 @@ for key in json_data.keys():
     json_data[key] = str(json_data[key]).replace(os.sep, '/')
 
 # write to JSON
-print('\nwriting ' + str(json_path))
+print('\nwriting ' + str(json_path).replace('\\', '/'))
 with open(str(json_path), 'w') as outfile:
     json.dump(json_data, outfile, indent=1)
     outfile.write('\n')
