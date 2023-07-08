@@ -190,18 +190,21 @@ plot_catch = function(sub_list,
 #' @export
 plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE, mask=FALSE, a=1) {
 
+  
   # open catchment data
   if(catch) {
    
     catch_list = data_dir |> open_catch()
     if( is.null(main) ) {
       
+      # set a default title
       comid = catch_list[['outlet']][['comid']]
-      basin_nm = catch_list[['flow']] |> most_frequent('GNIS_NAME')
+      basin_nm = basename(data_dir)
       main_lyr = switch(what, 'dem'='elevation', 'land'='land use', 'soil'='soil map units')
       main = paste0(basin_nm, ' (', comid, '): ', main_lyr)
     }
   }
+  
   
   # set a default title
   if( is.null(main) ) main = basename(data_dir)
