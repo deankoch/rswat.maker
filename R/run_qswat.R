@@ -2,10 +2,10 @@
 #' 
 #' This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
 #' created by `save_qswat`. This is Windows-only and has some external dependencies (see Details).
-#' Note that when `overwrite=TRUE`, any existing files in the 'qswat/project/' sub-directory of
-#' `data_dir` will be deleted.
+#' Note that when `overwrite=TRUE`, the function first deletes all existing files in the output
+#' directory. 
 #' 
-#' All output is written to the "qswat" directory of `data_dir`. A list of input paths and
+#' Output is written to the "qswat" directory of `data_dir`. A list of input paths and
 #' parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
 #' that runs the QSWAT+ workflow: A project tree for QSWAT+ is written to sub-directory
 #' `name`, then SWAT+ Editor is called to populate the "TxtInOut" directory with SWAT+
@@ -30,9 +30,9 @@
 #' 
 #' The function uses `shell(intern=TRUE)` run QSWAT+ and captures stdout in the file
 #' "qswatplus_log.txt". Errors are detected by scanning this log file after the `shell` call,
-#' and communicated to the user as warnings by default, or errors when `do_check=TRUE`.
+#' and communicated to the user as warnings by default (or as errors, when `do_test=TRUE`).
 #' 
-#' When `do_check=TRUE`, the function also appends '_test' to `name` before running QSWAT+.
+#' When `do_test=TRUE`, the function also appends '_test' to `name` before running QSWAT+.
 #' The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
 #' delineation or snapping issues. These checks can produce false positives so they are
 #' disabled by default. Note however that the checks will happen whenever a QSWAT+ project
@@ -58,7 +58,9 @@
 #' @param channel_threshold  numeric > 0, channel creation threshold as fraction of basin area 
 #' @param stream_threshold numeric > 0, stream creation threshold as fraction of basin area
 #' @param snap_threshold integer > 0, maximum distance (metres) to snap outlets to flow lines
-#' @param do_check logical, if `TRUE` the function appends '_test' to `name` (see details) 
+#' @param do_test logical, if `TRUE` the function appends '_test' to `name` (see details) 
+#' @param quiet logical
+#' @param dem_path character
 #'
 #' @return list of paths related to the created QSWAT+ project
 #' @export
@@ -70,8 +72,10 @@ run_qswat = function(data_dir,
                      channel_threshold = 1e-3,
                      stream_threshold = 1e-2,
                      snap_threshold = 300L,
-                     do_check = FALSE,
-                     quiet = FALSE) {
+                     do_test = FALSE,
+                     quiet = FALSE,
+                     dem_path = NULL,
+                     outlet_path = NULL) {
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
@@ -87,7 +91,7 @@ run_qswat = function(data_dir,
   if( !dir.exists(dest_dir) ) stop('destination directory not found: ', dest_dir, msg_help)
   
   # output filenames (project directory must be listed first)
-  out_nm = c(qswat=paste0(name, ifelse(do_check, '_test', '')),
+  out_nm = c(qswat=paste0(name, ifelse(do_test, '_test', '')),
              input='qswat_input.json', 
              output='qswat_output.json',
              log='qswat_log.txt')
@@ -106,8 +110,8 @@ run_qswat = function(data_dir,
   # list of information needed by QSWAT+
   json_list = list(info = paste('configuration file created by rswat on', Sys.Date()),
                    name = out_nm['qswat'],
-                   dem = input_path[['dem']],
-                   outlet = input_path[['outlet']],
+                   dem = ifelse(is.null(dem_path), input_path[['dem']], dem_path),
+                   outlet = ifelse(is.null(outlet_path), input_path[['outlet']], outlet_path),
                    landuse_lookup = input_path[['land_lookup']],
                    landuse = input_path[['land']],
                    soil = input_path[['soil']],
@@ -141,7 +145,7 @@ run_qswat = function(data_dir,
     info_2 = paste('\nlog file:', dest_path['log'])
     info_3 = paste('\nQGIS project file:', qgs_path)
     msg_warn = paste('There was a problem running QSWAT+ setup.', info_1, info_2, info_3)
-    if(do_check) stop(msg_warn)
+    if(do_test) stop(msg_warn)
     warning(msg_warn)
   }
 
@@ -366,108 +370,10 @@ run_editor = function(data_dir, overwrite=FALSE) {
     info_1 = 'Check the log for errors:'
     info_2 = ifelse(log_exists, paste('\nlog file:', dest_path['log']), '')
     msg_warn = paste('There was a problem running SWAT+ Editor setup.', info_1, info_2)
-    if(do_check) stop(msg_warn)
+    if(do_test) stop(msg_warn)
     warning(msg_warn)
   }
 
   return( invisible(dest_path) )
-}
-
-# TODO: add docs and fix up comid_up to allow different field names, to clean this ode
-check_qswat = function(data_dir, make_plot=TRUE) {
-  
-  # flag to pass all tests
-  is_okay = TRUE
-  
-  # check that input paths can be found and read them
-  output_json = run_qswat(data_dir)[['output']]
-  err_info = '\nHave you called `run_qswat` yet?'
-  if( !file.exists(output_json) ) stop('file not found: ', output_json, err_info)
-  qswat_path = output_json |> readLines() |> jsonlite::fromJSON()
-  
-  # load relevant geometries and filter to sub-basins with SWAT+ keys
-  subs_sf = qswat_path['sub'] |> sf::st_read(quiet=T) |> dplyr::filter(Subbasin > 0)
-  outlet_sf = qswat_path['outlet'] |> sf::st_read(quiet=T) 
-  channel_sf = qswat_path['channel'] |> sf::st_read(quiet=T)
-  
-  # filter to channels associated with sub-basins
-  idx_in = subs_sf |> dplyr::filter(Subbasin > 0) |> dplyr::pull(PolygonId) |> sort()
-  channel_sf = channel_sf |> dplyr::filter(BasinNo %in% idx_in)
-  
-  # find flow lines associated with main outlet and inlets (if any)
-  idx_main = outlet_sf |> dplyr::filter(INLET==0) |> sf::st_distance(channel_sf) |> which.min()
-  inlet_sf = outlet_sf |> dplyr::filter(INLET==1) 
-  
-  if( nrow(inlet_sf) > 0 ) {
-    
-    # snap to channels
-    idx_inlet = seq( nrow(inlet_sf) ) |> 
-      sapply(\(i) which.min(sf::st_distance(inlet_sf[i,], channel_sf)))
-    
-    # build a data frame of linkages understood by comid_up()
-    linkno = channel_sf[['LINKNO']]
-    linkno[ linkno == linkno[idx_main] ] = -2
-    edge = do.call(rbind, apply(channel_sf, 1, \(x) {
-      
-      data.frame(FROMCOMID = ( 1 + c(channel_sf[['LINKNO']],
-                                     channel_sf[['USLINKNO1']],
-                                     channel_sf[['USLINKNO2']]) ) |> as.character(),
-                 
-                 TOCOMID = ( 1 + c(channel_sf[['DSLINKNO']],
-                                   channel_sf[['LINKNO']],
-                                   channel_sf[['LINKNO']]) ) |> as.character())
-      
-    }))
-    edge = edge[ edge[['FROMCOMID']] != 0, ] |> dplyr::distinct()
-    
-    # check linkages upstream of inlets
-    linkno_inlet = linkno[idx_inlet]
-    comid_inlet = as.character(1 + linkno_inlet)
-    comid_up = comid_up(comid_inlet, edge) |> unique()
-    
-    # allow up to one upstream linkage
-    comid_allow = comid_up(comid_inlet, edge, first_only=TRUE) |> unique() |> c(comid_inlet)
-    comid_up = comid_up[ !(comid_up %in% comid_allow) ]
-    link_check = as.integer(comid_up) - 1
-    
-    # find flow lines without a downstream or upstream linkage, excluding outlets
-    # is_linked_ds = channel_sf[['DSLINKNO']] %in% linkno 
-    # is_linked_us = (channel_sf[['USLINKNO1']] %in% linkno) | (channel_sf[['USLINKNO2']] %in% linkno)
-    # link_check = linkno[ !(is_linked_us | is_linked_ds) ]
-    # link_check = link_check[link_check != linkno_main]
-    
-    # warn of any stubs
-    if( length(link_check) > 0 ) {
-      
-      is_okay = FALSE
-      id_check = channel_sf |> dplyr::filter(LINKNO %in% link_check) |> dplyr::pull(BasinNo)
-      poly_check = subs_sf |> dplyr::filter(PolygonId %in% id_check)
-      sub_check = poly_check[['Subbasin']] |> unique()
-      msg_info_1 = paste('subbasin(s):', paste(sub_check, collapse=', '))
-      msg_info_2 = paste('\nDSLINKNO:', paste(link_check, collapse=', '))
-      msg_problem = paste('Channels found upstream of inlet in', msg_info_1, msg_info_2)
-      warning(msg_problem)
-    }
-  }
-
-  # plot problem areas
-  if(make_plot) {
-    
-    whiten = \(a=0.3) adjustcolor('white', a)
-    redden = \(a=0.3) adjustcolor('red', a)
-    
-    # base NHD features on DEM plot
-    data_dir |> plot_rast('dem')
-    
-    # overlay SWAT+ sub-basins in white, channels in blue, problem areas in red
-    subs_sf |> sf::st_geometry() |> plot(add=TRUE, border=whiten(0.5), col=whiten(0.3))
-    channel_sf |> sf::st_geometry() |> plot(add=TRUE, col='blue')
-    if( !is_okay )  {
-      
-      sf::st_geometry(poly_check) |> plot(add=TRUE, border=redden(0.5), col=redden(0.5))
-    }
-  }
-  
-  return(is_okay)
 }
 

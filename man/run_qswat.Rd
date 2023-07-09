@@ -13,8 +13,10 @@ run_qswat(
   channel_threshold = 0.001,
   stream_threshold = 0.01,
   snap_threshold = 300L,
-  do_check = FALSE,
-  quiet = FALSE
+  do_test = FALSE,
+  quiet = FALSE,
+  dem_path = NULL,
+  outlet_path = NULL
 )
 }
 \arguments{
@@ -34,7 +36,11 @@ run_qswat(
 
 \item{snap_threshold}{integer > 0, maximum distance (metres) to snap outlets to flow lines}
 
-\item{do_check}{logical, if \code{TRUE} the function appends '_test' to \code{name} (see details)}
+\item{do_test}{logical, if \code{TRUE} the function appends '_test' to \code{name} (see details)}
+
+\item{quiet}{logical}
+
+\item{dem_path}{character}
 }
 \value{
 list of paths related to the created QSWAT+ project
@@ -42,11 +48,11 @@ list of paths related to the created QSWAT+ project
 \description{
 This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
 created by \code{save_qswat}. This is Windows-only and has some external dependencies (see Details).
-Note that when \code{overwrite=TRUE}, any existing files in the 'qswat/project/' sub-directory of
-\code{data_dir} will be deleted.
+Note that when \code{overwrite=TRUE}, the function first deletes all existing files in the output
+directory.
 }
 \details{
-All output is written to the "qswat" directory of \code{data_dir}. A list of input paths and
+Output is written to the "qswat" directory of \code{data_dir}. A list of input paths and
 parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
 that runs the QSWAT+ workflow: A project tree for QSWAT+ is written to sub-directory
 \code{name}, then SWAT+ Editor is called to populate the "TxtInOut" directory with SWAT+
@@ -70,9 +76,9 @@ When setup is finished, a set of important output paths are stored in the file
 
 The function uses \code{shell(intern=TRUE)} run QSWAT+ and captures stdout in the file
 "qswatplus_log.txt". Errors are detected by scanning this log file after the \code{shell} call,
-and communicated to the user as warnings by default, or errors when \code{do_check=TRUE}.
+and communicated to the user as warnings by default (or as errors, when \code{do_test=TRUE}).
 
-When \code{do_check=TRUE}, the function also appends '_test' to \code{name} before running QSWAT+.
+When \code{do_test=TRUE}, the function also appends '_test' to \code{name} before running QSWAT+.
 The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
 delineation or snapping issues. These checks can produce false positives so they are
 disabled by default. Note however that the checks will happen whenever a QSWAT+ project
