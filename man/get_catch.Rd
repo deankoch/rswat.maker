@@ -16,7 +16,7 @@ get_catch(outlet, crs_out = 4326, fast = FALSE, no_download = FALSE)
 \item{no_download}{logical, if TRUE the \code{nhdR::nhd_plus_get} call is skipped (for debugging)}
 }
 \value{
-list
+list of geometries and data frames (see details)
 }
 \description{
 Download and extract geometries and other data related the NHDPlus model for the
@@ -32,7 +32,6 @@ be helpful if you the data already cached locally but are getting 404 errors).
 
 The function returns a list with the following
 \itemize{
-\item \code{comid} integer key value associated with the outlet
 \item \code{outlet} sf points data frame, the outlet point (snapped to NHDPlus model) and some metadata
 \item \code{boundary} sfc_POLYGON, the catchment boundary inscribing all areas draining to \code{outlet}
 }

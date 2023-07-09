@@ -32,8 +32,8 @@ vector of file paths
 \description{
 This writes empty weather files for the specified date range. All data values are
 set to -99. If you have weather generators set up for the project, this will cause
-SWAT+ to generate (ie randomly draw) weather for the period \code{from} - \code{to} during
-simulations.
+SWAT+ to generate weather (ie randomly draw values from empirical climatic distributions)
+for the period \code{from} - \code{to} during simulations.
 }
 \details{
 A weather station is created at the centroid of each sub-basin from the QSWAT+ project

@@ -110,7 +110,7 @@ proj.write()
 plugin.setupProject(proj, True)
 
 
-'''----------------- delineation pt1: DEM file  -----------------'''
+'''----------------- delineation  -----------------'''
 
 # initialize watershed delineation object
 print('\n>> starting delineation\n')
@@ -123,16 +123,11 @@ delin._gv.demFile = str(dem_src)
 delin._dlg.selectDem.setText(str(dem_src))
 delin.btnSetDEM()
 
-
-'''----------- delineation pt2: inlets and outlets  --------------'''
-
 # copy inlets/outlets shapefile (and its babies) the same way
 print('copying outlets from ' + str(outlets_src))
 delin._gv.outletFile = str(outlets_src)
 delin._dlg.selectOutlets.setText(str(outlets_src))
 delin.btnSetOutlets()
-
-'''--------------- delineation pt3: run TauDEM  ----------------'''
 
 # set threshold parameters
 delin._dlg.numCellsCh.setText(str(int(channel_threshold)))
@@ -149,7 +144,7 @@ print('\nfinishing delineation')
 delin.finishDelineation()
 
 
-'''------------ HRUs pt 1: assign input layers  --------------'''
+'''------------ HRUs --------------'''
 
 # initialize HRUs subroutine
 hrus = HRUs(plugin._gv, plugin._odlg.reportsBox)

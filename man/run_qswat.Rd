@@ -13,7 +13,7 @@ run_qswat(
   channel_threshold = 0.001,
   stream_threshold = 0.01,
   snap_threshold = 300L,
-  do_check = TRUE,
+  do_check = FALSE,
   quiet = FALSE
 )
 }
@@ -68,10 +68,15 @@ When setup is finished, a set of important output paths are stored in the file
 \item simulator_dir: directory containing SWAT+ executable (runs the model defined in "TxtInOut")
 }
 
-When \code{do_check=TRUE}, the function appends '_test' to \code{name} before running QSWAT+.
+The function uses \code{shell(intern=TRUE)} run QSWAT+ and captures stdout in the file
+"qswatplus_log.txt". Errors are detected by scanning this log file after the \code{shell} call,
+and communicated to the user as warnings by default, or errors when \code{do_check=TRUE}.
+
+When \code{do_check=TRUE}, the function also appends '_test' to \code{name} before running QSWAT+.
 The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
-delineation or snapping issues. Note that these checks happen whenever \code{name} contains
-the string "test" (even if \code{do_check=FALSE}).
+delineation or snapping issues. These checks can produce false positives so they are
+disabled by default. Note however that the checks will happen whenever a QSWAT+ project
+\code{name} contains the string "test".
 
 Before calling this function you will need to install QGIS 3.32.0 and the latest SWAT+
 bundle, including QSWAT+ and SWAT+ Editor. You will also need to set \code{osgeo_dir} to point
