@@ -34,16 +34,16 @@ library(devtools)
 load_all()
 document()
 
-#data_dir = 'D:/rswat_data/yellowstone'
-data_dir = 'D:/rswat_data/snake'
+data_dir = 'D:/rswat_data/yellowstone'
+#data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/ausable'
 #data_dir = 'D:/rswat_data/bigthompson'
 
-#outlet = nominatim_point("Carter's Bridge, MT")
-outlet = nominatim_point("Alpine Junction, WY")
+outlet = nominatim_point("Carter's Bridge, MT")
+#outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
 #outlet = nominatim_point("Clayton, ID")
@@ -59,26 +59,36 @@ outlet = nominatim_point("Alpine Junction, WY")
 #data_dir |> plot_rast('dem')
 subs = save_split(data_dir)[['sub']]
 
+# snake i=6 can't be saved, a good example of finding problems for manual intervention
 # eg nooksack i=8, multiple iterations needed
-i = 0
+# eg. 
+for(i in seq_along(subs)) {
 
-i = i + 1
+  message('')
+  message(paste(i, '/', length(subs)))
+  #subs[i] |> plot_rast('dem')
+  
+  save_qswat(subs[i], sub=F, overwrite=TRUE)
+  qswat_path = run_qswat(subs[i], overwrite=TRUE)
+}
 
-paste(i, '/', length(subs)) |> cat()
-subs[i] |> plot_rast('dem')
 
-save_qswat(subs[i], sub=F, overwrite=TRUE)
-qswat_path = run_qswat(subs[i], overwrite=TRUE)
 
+
+#check_qswat(data_dir=subs[i], make_plot=TRUE)
 
 
 
 check_result = check_qswat(data_dir=subs[i], make_plot=TRUE)
-
-
+data_dir=subs[i]
+make_plot=TRUE
+nudge_dist=NULL
+allow=0
+draw
 
 
 data_dir=subs[i]
+overwrite=TRUE
 name = basename(data_dir)
 osgeo_dir = NULL
 lake_threshold = 50L
@@ -93,6 +103,7 @@ nudge_clear = TRUE
 nudge_dist = NULL
 nudge_nmax = 5
 nudge_plot=TRUE
+nudge_nm = 'outlet_moved'
 
 
 

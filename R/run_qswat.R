@@ -158,29 +158,56 @@ run_qswat = function(data_dir,
   # write stdout from setup captured by shell() to log file
   writeLines(shell_result, dest_path['log'])
 
-  # report lines starting with ERROR (from QgsMessageLog) or Traceback (from R)
-  is_error = any(grepl('^(Traceback|ERROR)', shell_result))
-  if( any(is_error) ) {
-    
-    info_1 = 'Check the log for errors and try opening the project in QGIS:'
-    info_2 = paste('\nlog file:', dest_path['log'])
-    info_3 = paste('\nQGIS project file:', qgs_path)
-    msg_warn = paste('There was a problem running QSWAT+ setup.', info_1, info_2, info_3)
-    if(do_test) stop(msg_warn)
-    warning(msg_warn)
-  }
-
-  # run check to see if we need to try nudging
+  # validity checks
   message('running delineation checks')
   check_result = check_qswat(data_dir, make_plot=nudge_plot)
-  nudge = check_result[['nudge']] 
-  passed_check = nrow(nudge) == 0
+  nudge_dist = check_result[['nudge_dist']] 
+ 
+  # this case needs manual intervention
+  if( !check_result[['output_exists']] & !check_result[['snap_problem']] ) {
+    
+    # skip further tests
+    passed_check = FALSE
+    nudge_max = 0
+    nudge = data.frame()
+    
+  } else { nudge = check_result[['nudge']] }
+
+  # end of error checking
+  if( is.null(nudge) ) nudge = data.frame()
+  passed_check = !check_result[['snap_problem']] & ( nrow(nudge) == 0 )
   
-  # run repair loop
+  # run outlet re-positioning loop
   if(nudge_nmax > 0) {
 
     # run repair
     if( !passed_check) {
+      
+      # for snap failures, run again with bigger snap radius
+      if( check_result[['snap_problem']] ) {
+
+        # run QSwAT+ without clearing nudge history
+        snap_threshold_new = snap_threshold + nudge_dist
+        message('')
+        message('increasing snap threshold to: ', round(snap_threshold_new), ' m')
+        message(nudge_nmax-1, ' setup attempts remaining')
+        return(run_qswat(data_dir,
+                         overwrite = overwrite,
+                         name = name,
+                         osgeo_dir = osgeo_dir,
+                         lake_threshold = lake_threshold,
+                         min_ncell = min_ncell,
+                         channel_threshold = channel_threshold,
+                         stream_threshold = stream_threshold,
+                         snap_threshold = snap_threshold_new,
+                         do_test = do_test,
+                         dem_path = dem_path,
+                         outlet_path = outlet_path,
+                         nudge_clear = FALSE,
+                         nudge_dist = nudge_dist,
+                         nudge_nmax = nudge_nmax-1,
+                         nudge_nm = nudge_nm)) 
+      }
       
       # delete/create the nudged points directory as needed
       if( dir.exists(nudge_dir) & nudge_clear ) unlink(nudge_dir, recursive=TRUE)
@@ -221,239 +248,119 @@ run_qswat = function(data_dir,
   
   # report any unsolved issues
   msg_fail = 'Try increasing nudge_nmax, changing thresholds, or inspect the points in QSWAT'
-  if( !passed_check ) { warning('unresolved delineation errors. ', msg_fail) } else {
+  if( passed_check ) {
     
+    # report total distance for any moved points
+    result_moved = report_moved(data_dir)
     message('QSWAT+ completed and passed checks')
-  }
-  
-  # report total distance for any moved points
-  report_moved(data_dir)
-
-  # read the output JSON (paths)
-  qswat_output = NULL
-  if( file.exists(dest_path[['output']]) ) {
     
-    qswat_output = readLines(dest_path[['output']]) |>
-      jsonlite::fromJSON() |> 
-      unlist()
+  } else { 
+    
+    warning('unresolved delineation errors. ', msg_fail)
+    result_moved = NULL
   }
+
+  # # read the output JSON (paths)
+  # qswat_output = NULL
+  # if( file.exists(dest_path[['output']]) ) {
+  #   
+  #   qswat_output = readLines(dest_path[['output']]) |>
+  #     jsonlite::fromJSON() |> 
+  #     unlist()
+  # }
   
-  return(qswat_output)
+  return(result_moved)
 }
 
-#' Create a set of dummy weather files positioned at sub-basin centroids 
-#'
-#' This writes empty weather files for the specified date range. All data values are
-#' set to -99. If you have weather generators set up for the project, this will cause
-#' SWAT+ to generate weather (ie randomly draw values from empirical climatic distributions)
-#' for the period `from` - `to` during simulations.
+
+#' Load shape files from a QSWAT+ project
 #' 
-#' A weather station is created at the centroid of each sub-basin from the QSWAT+ project
-#' in `data_dir` (or at `pts`, if supplied), and a corresponding data file containing the
-#' date range `from` - `to` in daily steps is written to  the "weather" sub-directory of
-#' the project root.
+#' This loads the channels, sub-basins, and outlets shape-files created
+#' during QSWAT+ setup and returns them as sf geometry data frames, in a list
+#' along with a character vector of standard output from the `shell` call to QSWAT+.
 #' 
-#' If either `from` or `to` is missing, the function sets a 7 day period to start/end at
-#' the supplied date. If both are missing, `to` is assigned `Sys.Date()`.
+#' This is meant for projects created using `run_qswat`; The function expects an
+#' input JSON file in the "qswat" directory (parent of the QGIS project directory)
+#' which it uses to find the correct input DEM path. The output JSON in this directory
+#' (if found) is used to locate the output  QSWAT+ "Shapes" directory. If QSWAT+
+#' completes delineation but halts afterwards (eg due to failed checks or database
+#' issues), the function will attempt load the shape files anyway by guessing their
+#' path in the `data_dir` directory tree.
 #' 
-#' `pts` is used internally to avoid opening the sub-basin shape file many times in a loop.
-#' We use it to pass the sub-basin centroids, but any set of points can be supplied
-#' (overriding what's in `data_dir`) as long as they have a coherent 'Elevation' (m),
-#' and a (1-indexed) 'Subbasin' field mapping to the project's sub-basins keys. 
+#' The function returns only the subset of sub-basin polygons with positive 'Subbasin'
+#' keys, and the channels mapping to them. The returned outlets have coordinates snapped
+#' to channels already (by QSWAT+).
+#' 
 #'
-#' @param data_dir character, path to the directory for input/output files
-#' @param overwrite logical, whether to write the output or just return the file paths
-#' @param var_nm character vector, variable names to write 
-#' @param to Date, final date in the daily time series
-#' @param from Date, initial date in the daily time series
-#' @param pts sf data frame, with points geometry and 'Subbasin' key (integer column)
+#' @param data_dir character path to "qswat" subdirectory 
+#' @param quiet logical if `TRUE` a warning is suppressed
 #'
-#' @return vector of file paths
+#' @return list with geometries 'sub', 'channel', 'outlet', as well as 'log', 'nudge_default'
 #' @export
-make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NULL, pts=NULL) {
+load_qswat = function(data_dir, quiet=FALSE) {
   
-  # number of digits to write after decimal place
-  n_digit = 3L
+  # initialize output list
+  load_list = list(sub = NULL,
+                   channel = NULL,
+                   outlet = NULL,
+                   log = '')
   
-  # value to write in place of NAs
-  na_value = -99L
+  # get paths to output files from QSWAT+ setup (if it completed)
+  output_json = run_qswat(data_dir)[['output']]
+  log_path = run_qswat(data_dir)[['log']]
   
-  # the sub-directory name to use in the project directory
-  weather_nm = 'weather_template'
+  # read log file if it exists
+  log_txt = ''
+  if(file.exists(log_path)) log_txt = readLines(log_path)
   
-  # check that the expected QSWAT output file is there and read it
-  config_path = run_qswat(data_dir)['output']
-  msg_help = '\nHave you called `run_swat` yet on this `data_dir`?'
-  if( !file.exists(config_path) ) stop('file not found: ', config_path, msg_help)
-  qswat_path = config_path |> readLines() |> jsonlite::fromJSON()
-  
-  # set default variable names
-  var_nm_default = c('pcp', 'tmp', 'rh', 'wind', 'solar')
-  if( is.null(var_nm) ) var_nm = var_nm_default
-  
-  # validity check
-  var_nm = var_nm[ var_nm %in% var_nm_default ]
-  msg_nm = paste(var_nm_default, collapse=', ')
-  if( length(var_nm) == 0 ) stop('Valid options for var_nm are ', msg_nm)
-  
-  # set default dates
-  if( length(c(to, from)) == 0 ) to = Sys.Date()
-  if( length(from) == 0 ) from = to - 7L
-  if( length(to) == 0 ) to = from + 7L
-  
-  # validity check
-  if( !all( sapply(list(to, from), \(x) is(x, 'Date')) ) ) stop('to/from must be Date class objects')
-  if( from > to ) stop('from cannot be later than to!')
-  
-  # open the sub-basins and extract centroids 
-  if( is.null(pts) ) {
+  # read QSWAT+ outputs
+  if( file.exists(output_json) ) {
     
-    # key 0 means the sub-basin was discarded during delineation
-    subs = qswat_path[['sub']] |> sf::st_read(quiet=TRUE) |> dplyr::filter(Subbasin > 0)
-    pts_geometry = subs['Subbasin'] |> sf::st_geometry() |> sf::st_centroid()
-    pts = sf::st_sf(subs['Subbasin'], geometry=pts_geometry)
+    # the output file paths
+    qswat_path = output_json |> readLines() |> jsonlite::fromJSON()
+    qswat_dir = dirname(qswat_path[['sub']])
     
-    # get elevations from DEM
-    dem = terra::rast(save_qswat(data_dir)['dem'])
-    pts[['Elevation']] = terra::extract(dem, pts)[[names(dem)[1]]]
-    pts = sf::st_sf(pts)
+  } else {
+    
+    # get input parameters for QSWAT+ setup
+    input_json = run_qswat(data_dir)[['input']]
+    if( !file.exists(input_json) ) {
+      
+      if(!quiet) warning('file not found: ', input_json, '\nHave you called `run_qswat` yet?')
+      return(load_list)
+    }
+    
+    # if setup didn't complete, try guessing the paths
+    input_path = input_json |> readLines() |> jsonlite::fromJSON()
+    qswat_dir = dirname(input_json) |> file.path(input_path[['name']], 'Watershed/Shapes')
+    qswat_path = list(channel=file.path(qswat_dir, 'demchannel/demchannel.shp'),
+                      sub=file.path(qswat_dir, 'demsubbasins.shp'),
+                      outlet=file.path(qswat_dir, 'outlet_snap.shp'))
   }
   
-  # loop for vectorized calls (set pts to avoid st_read every time)
-  names(var_nm) = var_nm
-  if( length(var_nm) > 1 ) {
+  # shorten path by leaving out data_dir
+  qswat_dir_str = qswat_dir |> substr(1+nchar(data_dir), nchar(qswat_dir))
+  if( !quiet ) message('loading QSWAT+ model geometries from ', qswat_dir_str)
+  
+  # load relevant geometries
+  load_geom = \(p) if( file.exists(p) ) sf::st_read(p, quiet=TRUE) else NULL
+  swat_sub = qswat_path[['sub']] |> load_geom()
+  swat_channel = qswat_path[['channel']] |> load_geom()
+  swat_outlet = qswat_path[['outlet']] |> load_geom()
+  
+  # tidy using available information
+  if( !is.null(swat_outlet) ) swat_outlet = swat_outlet |> dplyr::arrange(INLET)
+  if( !is.null(swat_sub) ) swat_sub = swat_sub |> dplyr::filter(Subbasin > 0)
+  if( !is.null(swat_channel) & !is.null(swat_sub) ) {
     
-    path_out = lapply(var_nm, \(nm) make_weather(data_dir,
-                                                 overwrite = overwrite, 
-                                                 var_nm = nm, 
-                                                 to = to, 
-                                                 from = from,
-                                                 pts = pts) )
-                                      
-    return(invisible(path_out))
+    basin_no = swat_sub |> dplyr::pull(PolygonId) |> sort()
+    swat_channel = swat_channel |> dplyr::filter(BasinNo %in% basin_no)
   }
 
-  # define the paths to write
-  n_pts = nrow(pts)
-  weather_dir = run_qswat(data_dir)[['qswat']] |> file.path(weather_nm)
-  station_file = paste0(var_nm, '.txt')
-  data_file = paste0(var_nm, seq(n_pts), '.txt')
-  path_out = list(station = file.path(weather_dir, station_file), 
-                  data = file.path(weather_dir, data_file))  
-  
-  if(!overwrite) return(path_out)
-  
-  # make the directory if necessary and remove any existing output files
-  if( !dir.exists(weather_dir) ) dir.create(weather_dir, recursive=TRUE)
-  lapply(path_out, \(p) {
-    
-    is_over = file.exists(p)
-    if( any(is_over) ) unlink(p[is_over])
-  })
-
-  # stations data frame
-  longlat = pts |> sf::st_transform(4326) |> sf::st_coordinates() |> as.data.frame()
-  station_df = data.frame(ID = pts[['Subbasin']],
-                          NAME = tools::file_path_sans_ext(data_file),
-                          LAT = longlat[['Y']],
-                          LONG = longlat[['X']],
-                          ELEVATION = round(pts[['Elevation']]))
-  
-  # convert to text and write to disk
-  station_df |> write.csv(path_out[['station']], row.names=FALSE, quote=FALSE)
-
-  # weather data text line by line
-  n_data = as.integer(to-from) + 1L
-  data_string = round(na_value, n_digit) |> as.character()
-  if(var_nm == 'tmp') data_string = paste(rep(data_string, 2), collapse=',')
-  data_txt = paste0('\n', data_string) |> rep(n_data) |> paste(collapse='')
-  
-  # concatenate and write to files
-  weather_txt = paste0(format(from, '%Y%m%d'), data_txt)
-  for(i in seq(n_pts) ) weather_txt |> writeLines(path_out[['data']][i])
-  
-  return( invisible(path_out))
+  return( list(outlet = swat_outlet,
+               sub = swat_sub,
+               channel = swat_channel,
+               log = log_txt) )
 }
 
-#' Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut" 
-#'
-#' @return vector of file paths
-#' @export
-run_editor = function(data_dir, overwrite=FALSE) {
-
-  # check that the expected QSWAT output file is there and read it
-  config_path = run_qswat(data_dir)['output']
-  msg_help = '\nHave you called `run_swat` yet on this `data_dir`?'
-  if( !file.exists(config_path) ) stop('file not found: ', config_path, msg_help)
-  qswat_path = config_path |> readLines() |> jsonlite::fromJSON()
-  
-  # check that weather files are in expected location
-  weather_path = unlist( make_weather(data_dir) )
-  is_weather_valid = weather_path |> file.exists()
-  n_miss = sum(!is_weather_valid)
-  if( n_miss > 0 ) {
-    
-    msg_help = '\nHave you called `make_weather` yet on this `data_dir`?'
-    msg_miss = weather_path[!is_weather_valid] |> head(1)
-    if( n_miss > 1 ) msg_miss = msg_miss |> paste('and', n_miss-1, 'other(s)')
-    stop('weather file(s) not found:\n', msg_miss, msg_help)
-  }
-  
-  # output filenames
-  out_nm = c(txt=qswat_path[['txt']],
-             log='editor_log.txt')
-  
-  # output paths to overwrite
-  dest_path = dirname(config_path) |> file.path(out_nm) |> stats::setNames(names(out_nm))
-  if( !overwrite ) return(dest_path)
-  
-  # remove any existing log
-  if( file.exists(dest_path['log']) ) unlink(dest_path['log'])
-  
-  # CLI arguments for SWAT+ Editor
-  import_format = 'old'
-  import_wgn = 'database'
-  db_path =  qswat_path[['sql']]
-  editor_path = qswat_path[['editor_exe']]
-  editor_dir = dirname(editor_path)
-  editor_file = basename(editor_path)
-  weather_dir = weather_path |> head(1) |> dirname()
-  
-
-  # helper function formats directory strings for NT shell
-  dir2shell = \(d) normalizePath(d) |> dQuote(q=FALSE)
-  cli_args = c('--cmd-only',
-               '--weather-dir' |> paste(dir2shell(weather_dir)),
-               '--weather-import-format' |> paste(import_format),
-               '--wgn-import-method' |> paste(import_wgn))
-  
-  # build shell command to change directory
-  message('running SWAT+ Editor')
-  # qswat_path['txt']
-  cd_string = paste('pushd', dir2shell(editor_dir), '&&')
-  call_string = paste(cd_string, 
-                      editor_file, 
-                      dir2shell(db_path), 
-                      paste(cli_args, collapse=' '))
-  
-  # collect error messages for tidier output
-  shell_result = paste(cd_string, call_string) |> 
-    shell(intern=TRUE) |> 
-    suppressWarnings()
-  
-  # write log file to disk
-  shell_result |> writeLines(dest_path['log'])
-    
-  # report any problems relayed by shell()
-  if( any(grepl('^(Traceback)', shell_result)) ) {
-    
-    info_1 = 'Check the log for errors:'
-    info_2 = ifelse(log_exists, paste('\nlog file:', dest_path['log']), '')
-    msg_warn = paste('There was a problem running SWAT+ Editor setup.', info_1, info_2)
-    if(do_test) stop(msg_warn)
-    warning(msg_warn)
-  }
-
-  return( invisible(dest_path) )
-}
 

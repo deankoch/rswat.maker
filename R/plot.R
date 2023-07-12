@@ -322,7 +322,10 @@ plot_qswat = function(data_dir, check_result=NULL, what='dem', quiet=FALSE) {
   qswat[['channel']] |> sf::st_geometry() |> plot(add=TRUE, col='blue')
   qswat[['outlet']] |> sf::st_geometry() |> plot(add=TRUE, cex=2)
   
-  # overlay check results when passed
+  # draw lines showing snapping translation
+  data_dir |> report_moved(draw=TRUE, quiet=TRUE)
+  
+  # overlay check results when supplied
   if( !is.null(check_result) ) {
     
     nudge = check_result[['nudge']]

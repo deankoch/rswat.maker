@@ -4,7 +4,7 @@
 \alias{check_qswat}
 \title{Check for QSWAT+ delineation problems and fix them by nudging outlets(s) downstream}
 \usage{
-check_qswat(data_dir, make_plot = TRUE, nudge_dist = NULL, allow = 0)
+check_qswat(data_dir, make_plot = TRUE, nudge_dist = NULL)
 }
 \arguments{
 \item{data_dir}{character path the the project directory}
@@ -12,8 +12,6 @@ check_qswat(data_dir, make_plot = TRUE, nudge_dist = NULL, allow = 0)
 \item{make_plot}{logical, whether to draw a plot showing the QSWAT+ delineation results}
 
 \item{nudge_dist}{numeric distance (metres) to move inlets/outlets}
-
-\item{allow}{integer number of un-mapped channels allowed (any more and the main outlet is moved)}
 }
 \value{
 list with elements 'nudge' and 'trim'
@@ -22,7 +20,8 @@ list with elements 'nudge' and 'trim'
 This checks for inlet/outlet snapping issues in the stream network shape file of a
 QSWAT+ project. If any problems are detected the function attempts to fix them by
 nudging (ie re-positioning) the problematic outlet points in the downstream direction
-by distance \code{nudge_dist} (m).
+by distance \code{nudge_dist} (m), or else suggests to increase the \code{snap_threshold} in
+the \code{run_qswat} call.
 }
 \details{
 Imprecision in elevation models and/or outlet coordinates can prevent QSWAT+
@@ -32,10 +31,6 @@ issues and attempts to fix them automatically:
 \item Not all channels drain to the main outlet (ie the chain of \code{LINKNO} keys is broken somewhere)
 \item Some/all of the inlet drainage remains attached to the basin (ie QSWAT+ failed to remove it)
 }
-
-Issue (1) can sometimes be ignored when only a small number of channels have been
-lost. Argument \code{allow} sets the maximum number of disconnected channel segments allowed
-before the main outlet is nudged.
 
 Both problems can usually be resolved by re-positioning the outlet point
 to fall on a different DEM cell. Users can do it by hand using the "Review Snapped"

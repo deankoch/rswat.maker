@@ -3,7 +3,8 @@
 #' This checks for inlet/outlet snapping issues in the stream network shape file of a
 #' QSWAT+ project. If any problems are detected the function attempts to fix them by
 #' nudging (ie re-positioning) the problematic outlet points in the downstream direction
-#' by distance `nudge_dist` (m).
+#' by distance `nudge_dist` (m), or else suggests to increase the `snap_threshold` in
+#' the `run_qswat` call.
 #' 
 #' Imprecision in elevation models and/or outlet coordinates can prevent QSWAT+
 #' from correctly delineating your stream network. This function checks for two possible
@@ -11,10 +12,6 @@
 #' 
 #' 1. Not all channels drain to the main outlet (ie the chain of `LINKNO` keys is broken somewhere)
 #' 2. Some/all of the inlet drainage remains attached to the basin (ie QSWAT+ failed to remove it) 
-#' 
-#' Issue (1) can sometimes be ignored when only a small number of channels have been
-#' lost. Argument `allow` sets the maximum number of disconnected channel segments allowed
-#' before the main outlet is nudged. 
 #' 
 #' Both problems can usually be resolved by re-positioning the outlet point
 #' to fall on a different DEM cell. Users can do it by hand using the "Review Snapped"
@@ -42,20 +39,55 @@
 #' @param data_dir character path the the project directory
 #' @param make_plot logical, whether to draw a plot showing the QSWAT+ delineation results
 #' @param nudge_dist numeric distance (metres) to move inlets/outlets
-#' @param allow integer number of un-mapped channels allowed (any more and the main outlet is moved)
 #'
 #' @return list with elements 'nudge' and 'trim'
 #' @export
-check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
+check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL) {
+
+  # default nudge distance is one-half diagonal pixel width of DEM
+  if( is.null(nudge_dist)) nudge_dist = save_qswat(data_dir)[['dem']] |> 
+      terra::rast() |> terra::res() |> mean()
   
-  # load QSWAT+ output files
+  # initialize output
+  check_result = list(trim = NULL, 
+                      nudge = NULL, 
+                      nudge_dist = nudge_dist,
+                      snap_problem = FALSE,
+                      output_exists = FALSE)
+  
+  # load QSWAT+ output files (or return some info if required outputs can't be found)
   qswat = load_qswat(data_dir)
+  if( any( sapply(qswat[c('outlet', 'log')], is.null) ) ) return( check_result )
   outlet = qswat[['outlet']]
+  shell_result = qswat[['log']]
+  
+  # deal with ERROR (from QgsMessageLog) or Traceback (from R)
+  qswat_error = any(grepl('^(Traceback|ERROR)', shell_result))
+  if( qswat_error ) {
+    
+    # report log file where the error message can be found
+    message(paste('QSWAT+ reported a problem in', run_qswat(data_dir)[['log']]))
+    
+    # load the input outlets shape file
+    input_json = run_qswat(data_dir)[['input']] |> readLines() |> jsonlite::fromJSON()
+    outlet_in = input_json[['outlet']] |> sf::st_read(quiet=TRUE)
+    
+    # check for unsnapped outlets
+    outlet_miss = outlet_in[!(outlet_in[['ID']] %in% outlet[['ID']]),]
+    if( nrow(outlet_miss) > 0 ) {
+      
+      # indicate snapping problem and finish
+      check_result[['snap_problem']] = TRUE
+      msg_outlet = paste(outlet_miss[['ID']], collapse=', ')
+      message('outlet(s) ', msg_outlet, ' not snapped to channel network')
+    }
+  }
+  
+  # return some info if required outputs can't be found
+  if( any(sapply(qswat[c('channel', 'sub')], is.null)) ) return( check_result )
+  check_result[['output_exists']] = TRUE
   channel = qswat[['channel']]
   subbasin = qswat[['sub']]
-  
-  # default based on input DEM
-  if( is.null(nudge_dist) ) nudge_dist = qswat[['nudge_default']]
 
   # find flow line LINKNO associated with main outlet and inlets (if any)
   n_out = nrow(outlet)
@@ -77,8 +109,8 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
   # trace upstream connections to identify unmapped elements
   channel_valid = channel[['LINKNO']] %in% upstream_linkno
   linkno_check = channel[['LINKNO']][!channel_valid] |> sort() |> list()
-  main_invalid = sum(!channel_valid) > allow
-  msg_problem = 'Channel(s) not draining to the main outlet'
+  main_invalid = sum(!channel_valid) > 0
+  msg_problem = 'delineation error: channel(s) not draining to the main outlet'
   
   # deal with main outlet issues first
   if( main_invalid ) { outlet_check = outlet[ outlet[['INLET']] == 0, ] } else { 
@@ -99,20 +131,21 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
       if( any(is_inlet_problem) ) {
 
         linkno_check = linkno_check[is_inlet_problem]
-        msg_problem = 'Channel(s) found upstream of inlet'
+        msg_problem = 'delineation error: channel(s) found upstream of inlet'
         outlet_check = outlet[outlet[['INLET']] == 1, ][is_inlet_problem, ]
       }
     }
   }
 
-  # warn of problem outlets and attempt to repair them in a loop
+  # warn of problem outlets and attempt to repair them
   if( nrow(outlet_check) > 0 ) {
     
+    # loop over problem outlets
     for( idx in seq(nrow(outlet_check)) ) {
 
       # identify outlet, channels, and basins affected
       outlet_i = outlet_check[idx,]
-      linkno_i = linkno_check[[idx]] |> sort()
+      linkno_i = linkno_check[[idx]] |> unique() |> sort()
       channel_i = channel[ channel[['LINKNO']] %in% linkno_i, ]
       basin_i = channel_i[['BasinNo']]
 
@@ -122,7 +155,7 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
   
       # print information about problematic objects
       msg_sub = paste('subbasin(s):', paste(subno_check, collapse=', '))
-      msg_link = paste('\nDSLINKNO:', paste(linkno_i, collapse=', '))
+      msg_link = paste('\nthis affects channels with DSLINKNO:', paste(linkno_i, collapse=', '))
       message(paste(msg_problem, 'in', msg_sub, msg_link))
       message('computing new position for ', ifelse(main_invalid, 'main outlet', 'inlet'))
       
@@ -137,7 +170,7 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
       nudge_dest = sf::st_coordinates(outlet_i)
       nudge_vector = nudge_dest - nudge_origin
       nudge_norm = sqrt(sum(nudge_vector^2))
-      outlet_snap_xy = nudge_dest + ( nudge_dist / nudge_norm ) * nudge_vector
+      outlet_snap_xy = nudge_dest + ( check_result[['nudge_dist']] / nudge_norm ) * nudge_vector
       outlet_snap = sf::st_point(outlet_snap_xy) |> sf::st_sfc(crs=sf::st_crs(subbasin))
       
       # replace coordinates in output points object
@@ -150,85 +183,82 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, allow=0) {
     }
   }
   
+  # copy loop results to output list
+  check_result[['nudge']] = outlet_check
+  check_result[['trim']] = subbasin_check
+  
   # plot problem areas and return diagnostics
-  check_result = list(trim=subbasin_check, nudge=outlet_check)
   if(make_plot) plot_qswat(data_dir, check_result, quiet=TRUE)
-
   return( invisible(check_result) )
 }
 
 
-#' Load shape files from a QSWAT+ project
+#' Check if any inlet/outlet points were moved this package and/or QSWAT+ and report the distances
 #' 
-#' This loads the channels, sub-basins, and outlets shape-files created
-#' during QSWAT+ setup and returns them as sf geometry data frames, in a list
-#' along with a suggested nudge distance for moving outlets (see `?check_qswat`).
+#' This reports the total distances between different versions of outlet points
+#' after re-positioning by `check_qswat` and saving the results with a `run_qswat` call.
 #' 
-#' This is meant for projects created using `run_qswat`; The function expects an
-#' input JSON file in the "qswat" directory (parent of the QGIS project directory)
-#' which it uses to find the correct input DEM path. The output JSON in this directory
-#' (if found) is used to locate the output  QSWAT+ "Shapes" directory. If QSWAT+
-#' completes delineation but halts afterwards (eg due to failed checks or database
-#' issues), the function  will attempt load the shape files anyway by guessing their
-#' path in the `data_dir` directory tree.
-#' 
-#' The function returns only the subset of sub-basin polygons with positive 'Subbasin'
-#' keys, and the channels mapping to them. The returned outlets have coordinates snapped
-#' to channels already (by QSWAT+).
+#' With default arguments `run_qswat` will run `check_qswat` and then re-run QSWAT+ setup
+#' until the project passes the checks, each time changing the path of the outlets file
+#' to a new modified version. This function checks if this has happened, and if so it
+#' reports the distances 
 #'
-#' @param data_dir character path to "qswat" subdirectory 
+#' @param data_dir character path the the project directory
 #'
-#' @return list with geometries 'sub', 'channel', 'outlet' and parameter 'nudge_default'
+#' @return the latest outlet points data frame with new field 'distance' (m)
 #' @export
-load_qswat = function(data_dir, quiet=FALSE) {
+report_moved = function(data_dir, draw=FALSE, line_col='black', snapped=TRUE, quiet=FALSE) {
   
-  # get input parameters for QSWAT+ setup
-  err_info = '\nHave you called `run_qswat` yet?'
-  input_json = run_qswat(data_dir)[['input']]
-  if( !file.exists(input_json) ) stop('file not found: ', input_json, err_info)
-  input_path = input_json |> readLines() |> jsonlite::fromJSON()
+  # load the positions we started with
+  input_default = save_qswat(data_dir)
+  outlet_first = input_default[['outlet']] |> sf::st_read(quiet=TRUE)
   
-  # default nudge distance is one-half diagonal pixel width of DEM
-  nudge_default = terra::res( terra::rast(input_path[['dem']]) ) |> mean()
-  
-  # get paths to output files from QSWAT+ setup (if it completed)
-  output_json = run_qswat(data_dir)[['output']]
-  if( file.exists(output_json) ) {
+  # outlet positions post- or pre-snapping
+  if( snapped & file.exists(run_qswat(data_dir)[['output']]) ) {
     
-    # the output file paths
-    qswat_path = output_json |> readLines() |> jsonlite::fromJSON()
-    qswat_dir = dirname(qswat_path[['sub']])
+    # paths to latest copy used to run QSWAT+
+    output_qswat = run_qswat(data_dir)[['output']] |> readLines() |> jsonlite::fromJSON()
+    outlet_path = output_qswat[['outlet']]
     
   } else {
     
-    # if setup didn't complete, try guessing the paths
-    qswat_dir = dirname(input_json) |> file.path(input_path[['name']], 'Watershed/Shapes')
-    qswat_path = list(channel=file.path(qswat_dir, 'demchannel/demchannel.shp'),
-                      sub=file.path(qswat_dir, 'demsubbasins.shp'),
-                      outlet=file.path(qswat_dir, 'outlet_snap.shp'))
-    
-    # if setup didn't get that far, there's nothing left to do in this function
-    missing_path = paste(c(output_json, qswat_path), collapse=', ')
-    err_file = paste0('files not found: ', missing_path,  err_info)
-    if( !all(sapply(qswat_path, file.exists)) ) stop(err_file)
+    # paths to latest copy used to run QSWAT+
+    input_qswat = run_qswat(data_dir)[['input']] |> readLines() |> jsonlite::fromJSON()
+    outlet_path = input_qswat[['outlet']]
   }
+ 
+  # load the snapped/nudged version
+  outlet_latest = outlet_path |> sf::st_read(quiet=TRUE) 
+  for(i in seq( nrow(outlet_latest) )) {
+    
+    # iterate over individual inlet/outlet points, matching ID fields
+    j = match(outlet_latest[['ID']][i], outlet_first[['ID']])
+    
+    # distance between the two versions
+    outlet_latest[['distance']][i] = outlet_latest[i,] |> 
+      sf::st_distance(outlet_first[j,]) |> 
+      units::drop_units()
+    
+    # report nonzero distances only
+    if( outlet_latest[['distance']][i] > 0 ) {
+      
+      msg_type = ifelse(outlet_latest[['INLET']][i], 'inlet', 'outlet')
+      msg_move = paste(msg_type, outlet_latest[['ID']][i], 'moved ')
+      if( !quiet ) message(msg_move, paste(round(outlet_latest[['distance']][i]), 'm in total'))
+      
+      # draw line segment showing snap
+      if(draw) {
   
-  if( !quiet ) message('loading QSWAT+ model geometries from: ', qswat_dir)
-  
-  # load relevant geometries and filter to sub-basins with SWAT+ keys
-  all_subs = qswat_path[['sub']] |> sf::st_read(quiet=T)
-  swat_outlets = qswat_path[['outlet']] |> sf::st_read(quiet=T) |> dplyr::arrange(INLET)
-  all_channels = qswat_path[['channel']] |> sf::st_read(quiet=T)
-  
-  # filter to channels associated with sub-basins
-  swat_subs = all_subs |> dplyr::filter(Subbasin > 0)
-  swat_basin_no = swat_subs |> dplyr::pull(PolygonId) |> sort()
-  swat_channels = all_channels |> dplyr::filter(BasinNo %in% swat_basin_no)
-  return( list(sub = swat_subs,
-               channel = swat_channels,
-               outlet = swat_outlets,
-               nudge_default = nudge_default) )
+        p1 = sf::st_coordinates(outlet_first[j,]) |> c()
+        p2 = sf::st_coordinates(outlet_latest[i,]) |> c()
+        lines(c(p1[1], p2[1]), c(p1[2], p2[2]), col=line_col)
+      }
+    }
+  }
+
+  return(outlet_latest)
 }
+
 
 #' Make a data frame of channel network links from QSWAT+ channels shape-file
 #' 
