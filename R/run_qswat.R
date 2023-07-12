@@ -74,6 +74,7 @@
 #' @param outlet_path character, path to outlets to use as input (instead of default in `data_dir`)  
 #' @param nudge_dist numeric > 0 or NULL (for default pixel width), distance to reposition points
 #' @param nudge_nmax integer, the maximum number of iterations of nudging allowed
+#' @param nudge_nm character, sub-directory name for the nudged outlet file(s)
 #'
 #' @return list of paths related to the created QSWAT+ project
 #' @export
@@ -92,7 +93,8 @@ run_qswat = function(data_dir,
                      nudge_clear = TRUE,
                      nudge_dist = NULL,
                      nudge_nmax = 5,
-                     nudge_plot = TRUE) {
+                     nudge_plot = TRUE,
+                     nudge_nm = 'outlet_moved') {
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
@@ -115,6 +117,7 @@ run_qswat = function(data_dir,
              log='qswat_log.txt')
   
   # output paths to overwrite
+  nudge_dir = dest_dir |> file.path(nudge_nm)
   dest_path = dest_dir |> file.path(out_nm) |> stats::setNames(names(out_nm))
   if( !overwrite ) return(dest_path)
   
@@ -167,20 +170,19 @@ run_qswat = function(data_dir,
     warning(msg_warn)
   }
 
-  # run check/repair loop
+  # run check to see if we need to try nudging
+  message('running delineation checks')
+  check_result = check_qswat(data_dir, make_plot=nudge_plot)
+  nudge = check_result[['nudge']] 
+  passed_check = nrow(nudge) == 0
+  
+  # run repair loop
   if(nudge_nmax > 0) {
-    
-    # run check to see if we need to try nudging
-    message('running delineation checks')
-    check_result = check_qswat(data_dir, make_plot=nudge_plot)
-    nudge = check_result[['nudge']] 
-    
+
     # run repair
-    if( nrow(nudge) > 0 ) {
+    if( !passed_check) {
       
       # delete/create the nudged points directory as needed
-      nudge_nm = 'outlet_moved'
-      nudge_dir = dest_dir |> file.path(nudge_nm)
       if( dir.exists(nudge_dir) & nudge_clear ) unlink(nudge_dir, recursive=TRUE)
       if( !dir.exists(nudge_dir) ) dir.create(nudge_dir)
       
@@ -196,6 +198,7 @@ run_qswat = function(data_dir,
       outlet |> sf::st_write(new_outlet_path, quiet=TRUE)
 
       # run QSwAT+ using new outlet file (and don't clear nudge directory)
+      message('')
       message(nudge_nmax-1, ' outlet repositioning attempt(s) remaining')
       return(run_qswat(data_dir,
                        overwrite = overwrite,
@@ -211,10 +214,21 @@ run_qswat = function(data_dir,
                        outlet_path = new_outlet_path,
                        nudge_clear = FALSE,
                        nudge_dist = nudge_dist,
-                       nudge_nmax = nudge_nmax-1))    
+                       nudge_nmax = nudge_nmax-1,
+                       nudge_nm = nudge_nm))    
     }
   }
   
+  # report any unsolved issues
+  msg_fail = 'Try increasing nudge_nmax, changing thresholds, or inspect the points in QSWAT'
+  if( !passed_check ) { warning('unresolved delineation errors. ', msg_fail) } else {
+    
+    message('QSWAT+ completed and passed checks')
+  }
+  
+  # report total distance for any moved points
+  report_moved(data_dir)
+
   # read the output JSON (paths)
   qswat_output = NULL
   if( file.exists(dest_path[['output']]) ) {

@@ -20,7 +20,8 @@ run_qswat(
   nudge_clear = TRUE,
   nudge_dist = NULL,
   nudge_nmax = 5,
-  nudge_plot = TRUE
+  nudge_plot = TRUE,
+  nudge_nm = "outlet_moved"
 )
 }
 \arguments{
@@ -51,6 +52,8 @@ run_qswat(
 \item{nudge_dist}{numeric > 0 or NULL (for default pixel width), distance to reposition points}
 
 \item{nudge_nmax}{integer, the maximum number of iterations of nudging allowed}
+
+\item{nudge_nm}{character, sub-directory name for the nudged outlet file(s)}
 }
 \value{
 list of paths related to the created QSWAT+ project
