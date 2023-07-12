@@ -43,7 +43,7 @@ writes nothing but returns the file paths that would be written.
 }
 \details{
 When \code{overwrite=TRUE} and \code{sub=FALSE} the following are written to the "qswat"
-sub-directory of your \code{data_dir}:
+sub-directory of your \code{data_dir}.
 \itemize{
 \item copy of the DEM with streams burned-in (as GeoTIFF)
 \item land use raster
@@ -52,8 +52,11 @@ sub-directory of your \code{data_dir}:
 \item inlets/outlets shape file
 }
 
-Users should first run all of the \verb{get_*} functions (\code{get_catch}, \code{get_dem}, etc) to
-download the necessary datasets before calling \code{save_qswat}.
+Users must first run all of the \verb{get_*} functions (\code{get_catch}, \code{get_dem}, etc) to
+download the necessary datasets before calling \code{save_qswat}. Note that calling this
+function with \code{overwrite=TRUE} does not delete existing QSWAT+ project files found in
+"qswat" (but these should be regenerated with \code{run_qswat} after making any changes to
+inputs).
 
 Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing

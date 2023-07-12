@@ -5,7 +5,7 @@
 #' writes nothing but returns the file paths that would be written.
 #' 
 #' When `overwrite=TRUE` and `sub=FALSE` the following are written to the "qswat"
-#' sub-directory of your `data_dir`:
+#' sub-directory of your `data_dir`.
 #' 
 #' * copy of the DEM with streams burned-in (as GeoTIFF)
 #' * land use raster
@@ -13,8 +13,11 @@
 #' * lookup table for land use (as CSV)
 #' * inlets/outlets shape file
 #' 
-#' Users should first run all of the `get_*` functions (`get_catch`, `get_dem`, etc) to
-#' download the necessary datasets before calling `save_qswat`.
+#' Users must first run all of the `get_*` functions (`get_catch`, `get_dem`, etc) to
+#' download the necessary datasets before calling `save_qswat`. Note that calling this
+#' function with `overwrite=TRUE` does not delete existing QSWAT+ project files found in
+#' "qswat" (but these should be regenerated with `run_qswat` after making any changes to
+#' inputs). 
 #' 
 #' Burn-in refers to artificially reducing the elevation in the DEM under known stream reaches.
 #' This is to assist the TauDEM algorithm (used in QSWAT+) in finding the correct routing
@@ -86,11 +89,10 @@ save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
                                             lake_area=lake_area,
                                             burn=burn)) )
   }
-  
-  if( overwrite & !quiet ) message('writing ', basename(data_dir))
-  
+
   # set output directory
   dest_dir = data_dir |> file.path('qswat')
+  if( overwrite & !quiet ) message('writing ', basename(data_dir), ' project to ', dest_dir)
 
   # output filenames
   out_nm = c(outlet='outlet.shp', 
