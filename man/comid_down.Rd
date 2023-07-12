@@ -10,6 +10,12 @@ comid_down(comid, edge, first_only = FALSE, from = "FROMCOMID", to = "TOCOMID")
 \item{comid}{character vector, the key(s) downstream of \code{comid}}
 
 \item{edge}{data frame, the NHD "PlusFlow" table or similar (see \code{?get_upstream})}
+
+\item{first_only}{logical, whether to return only the first level of downstream COMID(s)}
+
+\item{from}{character field name, the origin key}
+
+\item{to}{character field name, the destination key}
 }
 \value{
 character vector, the key values encountered on the way to the outlet (in order)

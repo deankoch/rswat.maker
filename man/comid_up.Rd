@@ -10,7 +10,7 @@ comid_up(
   first_only = FALSE,
   from = "FROMCOMID",
   to = "TOCOMID",
-  headwater = "0"
+  hw = "0"
 )
 }
 \arguments{
@@ -19,6 +19,12 @@ comid_up(
 \item{edge}{data frame, the NHD "PlusFlow" table (see \code{?get_upstream}) or similar}
 
 \item{first_only}{logical, whether to return only the first level of upstream COMID(s)}
+
+\item{from}{character field name, the origin key}
+
+\item{to}{character field name, the destination key}
+
+\item{hw}{length-1 of class matching the \code{from} and \code{to} columns of \code{edge}, headwater code}
 }
 \value{
 character vector, the COMID values for polygons draining to (one of) \code{comid}
@@ -26,15 +32,15 @@ character vector, the COMID values for polygons draining to (one of) \code{comid
 \description{
 By default this uses 'FROMCOMID' and 'TOCOMID' fields in the \code{edge} table to
 follow the directed graph of flow lines upstream from key value \code{comid}. All flow
-lines are assumed to terminate at \code{to=headwater}, which for NHD data uses the
+lines are assumed to terminate at \code{to=hw}, which for NHD data uses the
 character key '0'.
 }
 \details{
 This was originally written for COMID fields in NHD tables returned by \code{nhdR}, but
 it should work with any similarly structured data frame. Set \code{from} and \code{to} to
 used to specify different columns to follow (eg DSLINK fields from TauDEM output
-returned by QSWAT+), making sure that \code{headwater} is set properly. Keys can be
-integer or character.
+returned by QSWAT+), making sure that \code{hw} is set properly. Keys can be integer
+or character.
 
 If \code{first_only=TRUE} the function returns only the key(s) found immediately
 upstream (if any). Otherwise the function exhaustively checks all relevant branches in

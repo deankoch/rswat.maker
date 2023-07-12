@@ -61,6 +61,9 @@ datum_to_epsg = \(code) {
 #'
 #' @param comid character vector, the key(s) downstream of `comid`
 #' @param edge data frame, the NHD "PlusFlow" table or similar (see `?get_upstream`) 
+#' @param first_only logical, whether to return only the first level of downstream COMID(s)
+#' @param from character field name, the origin key
+#' @param to character field name, the destination key
 #'
 #' @return character vector, the key values encountered on the way to the outlet (in order)
 #' @export
@@ -84,25 +87,25 @@ comid_down = function(comid, edge, first_only=FALSE, from='FROMCOMID', to='TOCOM
   if(first_only) return( edge[[to]][ edge[[from]] %in% comid ] )
   
   # if no downstream links return current node(s) only
-  comid_found = comid_down(comid, edge, first_only=TRUE)
+  comid_found = comid_down(comid, edge, first_only=TRUE, from=from, to=to)
   if( length(comid_found) == 0 ) return(comid)
   
   # else call the function recursively on downstream node(s)
-  return( unique( c(comid, comid_down(comid_found, edge)) ) )
+  return( unique( c(comid, comid_down(comid_found, edge, from=from, to=to)) ) )
 }
 
 #' Return a vector of all upstream COMID values
 #'
 #' By default this uses 'FROMCOMID' and 'TOCOMID' fields in the `edge` table to
 #' follow the directed graph of flow lines upstream from key value `comid`. All flow
-#' lines are assumed to terminate at `to=headwater`, which for NHD data uses the
+#' lines are assumed to terminate at `to=hw`, which for NHD data uses the
 #' character key '0'.
 #' 
 #' This was originally written for COMID fields in NHD tables returned by `nhdR`, but
 #' it should work with any similarly structured data frame. Set `from` and `to` to 
 #' used to specify different columns to follow (eg DSLINK fields from TauDEM output
-#' returned by QSWAT+), making sure that `headwater` is set properly. Keys can be
-#' integer or character.
+#' returned by QSWAT+), making sure that `hw` is set properly. Keys can be integer
+#' or character.
 #' 
 #' If `first_only=TRUE` the function returns only the key(s) found immediately
 #' upstream (if any). Otherwise the function exhaustively checks all relevant branches in
@@ -116,6 +119,9 @@ comid_down = function(comid, edge, first_only=FALSE, from='FROMCOMID', to='TOCOM
 #' @param comid character vector, the key value to start from
 #' @param edge data frame, the NHD "PlusFlow" table (see `?get_upstream`) or similar 
 #' @param first_only logical, whether to return only the first level of upstream COMID(s)
+#' @param from character field name, the origin key
+#' @param to character field name, the destination key
+#' @param hw length-1 of class matching the `from` and `to` columns of `edge`, headwater code
 #'
 #' @return character vector, the COMID values for polygons draining to (one of) `comid`
 #' @export
@@ -132,22 +138,22 @@ comid_down = function(comid, edge, first_only=FALSE, from='FROMCOMID', to='TOCOM
 #' # follow from one side of fork then the other
 #' comid_up('10', edge_eg)
 #' comid_up('11', edge_eg)
-comid_up = function(comid, edge, first_only=FALSE, from='FROMCOMID', to='TOCOMID', headwater='0') { 
+comid_up = function(comid, edge, first_only=FALSE, from='FROMCOMID', to='TOCOMID', hw='0') { 
   
   # returns immediate upstream COMID(s) or empty character (if none)
   if(first_only) {
     
     comid_found = edge[[from]][ edge[[to]] %in% comid ]
-    comid_found = comid_found[ comid_found != headwater ]
+    comid_found = comid_found[ comid_found != hw ]
     return(comid_found) 
   }
   
   # if no upstream links return current node(s) only
-  comid_found = comid_up(comid, edge, first_only=TRUE)
+  comid_found = comid_up(comid, edge, first_only=TRUE, from=from, to=to, hw=hw)
   if( length(comid_found) == 0 ) return(comid)
   
   # else call the function on upstream nodes
-  return( c(comid, comid_up(comid_found, edge)) )
+  return( c(comid, comid_up(comid_found, edge, from=from, to=to, hw=hw)) )
 }
 
 
