@@ -10,13 +10,17 @@ run_qswat(
   name = basename(data_dir),
   osgeo_dir = NULL,
   lake_threshold = 50L,
+  min_ncell = 16L,
   channel_threshold = 0.001,
   stream_threshold = 0.01,
   snap_threshold = 300L,
   do_test = FALSE,
-  quiet = FALSE,
   dem_path = NULL,
-  outlet_path = NULL
+  outlet_path = NULL,
+  nudge_clear = TRUE,
+  nudge_dist = NULL,
+  nudge_nmax = 5,
+  nudge_plot = TRUE
 )
 }
 \arguments{
@@ -30,6 +34,8 @@ run_qswat(
 
 \item{lake_threshold}{integer > 0, the percent overlap for a cell to become (part of) a lake}
 
+\item{min_ncell}{integer > 0, minimum number of cells to define a channel drainage}
+
 \item{channel_threshold}{numeric > 0, channel creation threshold as fraction of basin area}
 
 \item{stream_threshold}{numeric > 0, stream creation threshold as fraction of basin area}
@@ -38,9 +44,13 @@ run_qswat(
 
 \item{do_test}{logical, if \code{TRUE} the function appends '_test' to \code{name} (see details)}
 
-\item{quiet}{logical}
+\item{dem_path}{character, path to DEM to use as input (instead of default in \code{data_dir})}
 
-\item{dem_path}{character}
+\item{outlet_path}{character, path to outlets to use as input (instead of default in \code{data_dir})}
+
+\item{nudge_dist}{numeric > 0 or NULL (for default pixel width), distance to reposition points}
+
+\item{nudge_nmax}{integer, the maximum number of iterations of nudging allowed}
 }
 \value{
 list of paths related to the created QSWAT+ project
@@ -49,7 +59,7 @@ list of paths related to the created QSWAT+ project
 This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
 created by \code{save_qswat}. This is Windows-only and has some external dependencies (see Details).
 Note that when \code{overwrite=TRUE}, the function first deletes all existing files in the output
-directory.
+QGIS project sub-directory \code{name}.
 }
 \details{
 Output is written to the "qswat" directory of \code{data_dir}. A list of input paths and
@@ -77,6 +87,16 @@ When setup is finished, a set of important output paths are stored in the file
 The function uses \code{shell(intern=TRUE)} run QSWAT+ and captures stdout in the file
 "qswatplus_log.txt". Errors are detected by scanning this log file after the \code{shell} call,
 and communicated to the user as warnings by default (or as errors, when \code{do_test=TRUE}).
+
+After QSWAT+ setup is finished the function runs \code{check_qswat} to identify delineation
+issues and attempts to fix them automatically by re-positioning outlets and calling
+\code{run_qswat} again. This is repeated until the check is passed or \code{nudge_nmax} iterations
+is reached (set to \code{0} to disable checking).
+
+The re-positioned outlet shape files from all iterations are stored in the sub-directory
+"qswat/nudge_outlet" of \code{data_dir} and the "qswatplus_input.json" file is always updated
+to point to the one currently in use. The default \code{nudge_clear=TRUE} deletes this directory
+at the beginning of the function call to avoid a build-up of old garbage.
 
 When \code{do_test=TRUE}, the function also appends '_test' to \code{name} before running QSWAT+.
 The prompts QSWAT+ to run some internal consistency checks that are helpful for catching

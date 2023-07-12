@@ -3,7 +3,7 @@
 #' This executes a minimal QSWAT+ workflow (delineation, HRUs, etc) using the input files
 #' created by `save_qswat`. This is Windows-only and has some external dependencies (see Details).
 #' Note that when `overwrite=TRUE`, the function first deletes all existing files in the output
-#' directory. 
+#' QGIS project sub-directory `name`. 
 #' 
 #' Output is written to the "qswat" directory of `data_dir`. A list of input paths and
 #' parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
@@ -32,6 +32,16 @@
 #' "qswatplus_log.txt". Errors are detected by scanning this log file after the `shell` call,
 #' and communicated to the user as warnings by default (or as errors, when `do_test=TRUE`).
 #' 
+#' After QSWAT+ setup is finished the function runs `check_qswat` to identify delineation
+#' issues and attempts to fix them automatically by re-positioning outlets and calling
+#' `run_qswat` again. This is repeated until the check is passed or `nudge_nmax` iterations
+#' is reached (set to `0` to disable checking).
+#' 
+#' The re-positioned outlet shape files from all iterations are stored in the sub-directory
+#' "qswat/nudge_outlet" of `data_dir` and the "qswatplus_input.json" file is always updated
+#' to point to the one currently in use. The default `nudge_clear=TRUE` deletes this directory
+#' at the beginning of the function call to avoid a build-up of old garbage.
+#' 
 #' When `do_test=TRUE`, the function also appends '_test' to `name` before running QSWAT+.
 #' The prompts QSWAT+ to run some internal consistency checks that are helpful for catching
 #' delineation or snapping issues. These checks can produce false positives so they are
@@ -54,13 +64,16 @@
 #' @param overwrite logical, whether to write the output or just return the file paths
 #' @param name character, name of the sub-directory to use for project files
 #' @param osgeo_dir character, path to the QGIS 3 installation directory (AKA "OSGEO4W_ROOT")
-#' @param lake_threshold integer > 0, the percent overlap for a cell to become (part of) a lake
+#' @param min_ncell integer > 0, minimum number of cells to define a channel drainage
 #' @param channel_threshold  numeric > 0, channel creation threshold as fraction of basin area 
 #' @param stream_threshold numeric > 0, stream creation threshold as fraction of basin area
 #' @param snap_threshold integer > 0, maximum distance (metres) to snap outlets to flow lines
+#' @param lake_threshold integer > 0, the percent overlap for a cell to become (part of) a lake
 #' @param do_test logical, if `TRUE` the function appends '_test' to `name` (see details) 
-#' @param quiet logical
-#' @param dem_path character
+#' @param dem_path character, path to DEM to use as input (instead of default in `data_dir`) 
+#' @param outlet_path character, path to outlets to use as input (instead of default in `data_dir`)  
+#' @param nudge_dist numeric > 0 or NULL (for default pixel width), distance to reposition points
+#' @param nudge_nmax integer, the maximum number of iterations of nudging allowed
 #'
 #' @return list of paths related to the created QSWAT+ project
 #' @export
@@ -69,19 +82,23 @@ run_qswat = function(data_dir,
                      name = basename(data_dir),
                      osgeo_dir = NULL,
                      lake_threshold = 50L,
+                     min_ncell = 16L,
                      channel_threshold = 1e-3,
                      stream_threshold = 1e-2,
                      snap_threshold = 300L,
                      do_test = FALSE,
-                     quiet = FALSE,
                      dem_path = NULL,
-                     outlet_path = NULL) {
+                     outlet_path = NULL,
+                     nudge_clear = TRUE,
+                     nudge_dist = NULL,
+                     nudge_nmax = 5,
+                     nudge_plot = TRUE) {
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
   batch_dir = path.package('rswat.uyr') |> file.path('python')
   
-  # it would be nice to be able to discover this automatically somehow...
+  # it would be nice to be able to discover this automatically somehow 
   if( is.null(osgeo_dir) ) osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
   
   # expected paths of input files
@@ -89,6 +106,7 @@ run_qswat = function(data_dir,
   dest_dir = input_path[['outlet']] |> dirname()
   msg_help = '\nHave you run `save_qswat` on this `data_dir` yet?'
   if( !dir.exists(dest_dir) ) stop('destination directory not found: ', dest_dir, msg_help)
+  if(is.null(outlet_path)) outlet_path = input_path[['outlet']]
   
   # output filenames (project directory must be listed first)
   out_nm = c(qswat=paste0(name, ifelse(do_test, '_test', '')),
@@ -111,13 +129,13 @@ run_qswat = function(data_dir,
   json_list = list(info = paste('configuration file created by rswat on', Sys.Date()),
                    name = out_nm['qswat'],
                    dem = ifelse(is.null(dem_path), input_path[['dem']], dem_path),
-                   outlet = ifelse(is.null(outlet_path), input_path[['outlet']], outlet_path),
+                   outlet = outlet_path,
                    landuse_lookup = input_path[['land_lookup']],
                    landuse = input_path[['land']],
                    soil = input_path[['soil']],
                    lake_threshold = lake_threshold,
-                   channel_threshold = ceiling(channel_threshold * n_pixel),
-                   stream_threshold = ceiling(stream_threshold * n_pixel),
+                   channel_threshold = pmax(min_ncell, ceiling(channel_threshold * n_pixel)),
+                   stream_threshold = pmax(min_ncell, ceiling(stream_threshold * n_pixel)),
                    snap_threshold = snap_threshold)  
   
   # write to disk as JSON
@@ -134,7 +152,7 @@ run_qswat = function(data_dir,
     shell(intern=TRUE, mustWork=NA) |>
     suppressWarnings()
   
-  # write stdout from setup, captured by shell(), to log file
+  # write stdout from setup captured by shell() to log file
   writeLines(shell_result, dest_path['log'])
 
   # report lines starting with ERROR (from QgsMessageLog) or Traceback (from R)
@@ -149,6 +167,54 @@ run_qswat = function(data_dir,
     warning(msg_warn)
   }
 
+  # run check/repair loop
+  if(nudge_nmax > 0) {
+    
+    # run check to see if we need to try nudging
+    message('running delineation checks')
+    check_result = check_qswat(data_dir, make_plot=nudge_plot)
+    nudge = check_result[['nudge']] 
+    
+    # run repair
+    if( nrow(nudge) > 0 ) {
+      
+      # delete/create the nudged points directory as needed
+      nudge_nm = 'outlet_moved'
+      nudge_dir = dest_dir |> file.path(nudge_nm)
+      if( dir.exists(nudge_dir) & nudge_clear ) unlink(nudge_dir, recursive=TRUE)
+      if( !dir.exists(nudge_dir) ) dir.create(nudge_dir)
+      
+      # load the existing outlets file and print the path to the new one
+      outlet = outlet_path |> sf::st_read(quiet=TRUE)
+      new_outlet_path = nudge_dir |> file.path(basename(tempfile('outlet_'))) |> paste0('.shp')
+      message('writing new outlets file to: ', file.path(nudge_nm, basename(new_outlet_path)))
+
+      # replace the affected points and write to disk
+      id_replace = nudge[['ID']]
+      nm_outlet = names(outlet)
+      outlet[match(id_replace, outlet[['ID']]), nm_outlet] = nudge[nm_outlet]
+      outlet |> sf::st_write(new_outlet_path, quiet=TRUE)
+
+      # run QSwAT+ using new outlet file (and don't clear nudge directory)
+      message(nudge_nmax-1, ' outlet repositioning attempt(s) remaining')
+      return(run_qswat(data_dir,
+                       overwrite = overwrite,
+                       name = name,
+                       osgeo_dir = osgeo_dir,
+                       lake_threshold = lake_threshold,
+                       min_ncell = min_ncell,
+                       channel_threshold = channel_threshold,
+                       stream_threshold = stream_threshold,
+                       snap_threshold = snap_threshold,
+                       do_test = do_test,
+                       dem_path = dem_path,
+                       outlet_path = new_outlet_path,
+                       nudge_clear = FALSE,
+                       nudge_dist = nudge_dist,
+                       nudge_nmax = nudge_nmax-1))    
+    }
+  }
+  
   # read the output JSON (paths)
   qswat_output = NULL
   if( file.exists(dest_path[['output']]) ) {

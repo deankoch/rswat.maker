@@ -178,7 +178,7 @@ plot_catch = function(sub_list,
 #' the catchment boundary over top (see `?plot_catch` to add more features)
 #' Coordinates are projected to the UTM zone of the main outlet before plotting.
 #'
-#' @param data_dir character path to the data directory passed to `fetch_all`
+#' @param data_dir character path to the data directory
 #' @param what character, the layer to plot, either 'dem', 'land', or 'soil'
 #' @param main character or NULL (for automatic), the title of the plot
 #' @param catch logical, whether to plot the catchment boundary in black
@@ -293,6 +293,50 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
 }
 
 
+#' Plot QSWAT+ geometries 
+#'
+#' @param data_dir character path to the data directory
+#' @param check_result list, the result of `check_qswat` (to overlay)
+#' @param what character, either 'dem', 'land', or, 'soil'
+#'
+#' @return nothing but draws a plot
+#' @export
+plot_qswat = function(data_dir, check_result=NULL, what='dem', quiet=FALSE) {
+  
+  # default transparency helpers
+  white = \(a=0.3) adjustcolor('white', a)
+  red = \(a=0.5) adjustcolor('red', a)
+  
+  # load inputs from QSWAT+ directory
+  qswat = load_qswat(data_dir, quiet=quiet)
+  
+  # optional inputs returned by `qswat_check` but not `qswat_load`
+  if( is.null(qswat[['trim']]) ) qswat[['trim']] = data.frame()
+  if( is.null(qswat[['snap']]) ) qswat[['trim']] = data.frame()
+
+  # base layer from NHD with heatmap specified by `what`
+  data_dir |> plot_rast(what)
+  
+  # SWAT+ sub-basins in white, channels in blue, outlets as black circle outlines
+  qswat[['sub']] |> sf::st_geometry() |> plot(add=TRUE, border=white(0.5), col=white(0.3))
+  qswat[['channel']] |> sf::st_geometry() |> plot(add=TRUE, col='blue')
+  qswat[['outlet']] |> sf::st_geometry() |> plot(add=TRUE, cex=2)
+  
+  # overlay check results when passed
+  if( !is.null(check_result) ) {
+    
+    nudge = check_result[['nudge']]
+    trim = check_result[['trim']]
+    
+    # problem sub-basins in red 
+    if( nrow(trim) > 0 ) sf::st_geometry(trim) |> plot(add=TRUE, border=red(), col=red())
+    
+    # any suggested new inlet locations in black with white outline
+    if( nrow(nudge) > 0 ) draw_outlet(nudge, col_in='black', col_out='white')
+  }
+}
+
+
 #' Draw one or more points with filled circles
 #' 
 #' Wrapper for `sf::plot.sf(p)`. This adds to an existing plot in the same
@@ -311,7 +355,7 @@ draw_outlet = function(p, cex=1, col_in='white', col_out='grey20') {
    
     # solid color for interior, then dark outline
     p |> sf::st_geometry() |> plot(add=TRUE, pch=16, col=col_in, cex=cex)
-    p |> sf::st_geometry() |> plot(add=T, lwd=2, col=col_out, cex=cex) 
+    p |> sf::st_geometry() |> plot(add=TRUE, col=col_out, cex=cex) 
   }
   
   return(invisible())

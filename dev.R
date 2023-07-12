@@ -6,10 +6,6 @@
 # 
 # main_stem_split = main_stem_utm |> sf::st_intersection(boundary_utm) |> sf::st_transform(4326)
 
-library(devtools)
-load_all()
-document()
-
 # It's easy to find new examples like this. Just browse web app at
 # https://dashboard.waterdata.usgs.gov/ and look for small headwater
 # basins with active gages (paying attention to the total size of the
@@ -27,90 +23,224 @@ document()
 # TODO: extract sub-basin centroids and write dummy weather files
 # TODO: run SWAT+ Editor at the end of `run_qswat`
 
+# yellowstone i=6 THIS WORKS after 1 ITERATION
+# snake i=4 THIS WORKS AFTER 2 ITERATIONS
+
+# TODO: check main outlet drainage is nonempty
+# snake i=5 1 ITERATION HELPS BUT LEFT WITH MAIN OUTLET ISSUE
+
+
+library(devtools)
+load_all()
+document()
 
 #data_dir = 'D:/rswat_data/yellowstone'
+data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/tuolumne'
-data_dir = 'D:/rswat_data/snake'
 #data_dir = 'D:/rswat_data/salmon'
 #data_dir = 'D:/rswat_data/ausable'
 #data_dir = 'D:/rswat_data/bigthompson'
 
 #outlet = nominatim_point("Carter's Bridge, MT")
+outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Nugents Corner, WA")
 #outlet = nominatim_point("Tuolumne River, CAL Fire Southern Region")
-outlet = nominatim_point("Alpine Junction, WY")
 #outlet = nominatim_point("Clayton, ID")
 #outlet = nominatim_point("Cooke Dam Pond, MI")
 #outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
 # this command only updates NWIS if you've already built the project
-outlet |> fetch_all(data_dir, overwrite=TRUE, no_download=TRUE)
-
-
-# # # 
+#outlet |> fetch_all(data_dir, overwrite=TRUE, no_download=TRUE)
 # sub_list = get_split(data_dir)
 # save_split(data_dir, sub_list, overwrite=TRUE)
 # qswat_dir = save_qswat(data_dir, sub=T, overwrite=TRUE)
 
-
-
-
-data_dir |> plot_rast('dem')
+#data_dir |> plot_rast('dem')
 subs = save_split(data_dir)[['sub']]
 
+# eg nooksack i=8, multiple iterations needed
 i = 0
+
 i = i + 1
+
 paste(i, '/', length(subs)) |> cat()
 subs[i] |> plot_rast('dem')
 
-#save_qswat(subs[i], sub=F, overwrite=TRUE)
-qswat_path = run_qswat(subs[i], overwrite=TRUE, do_check=TRUE)
+save_qswat(subs[i], sub=F, overwrite=TRUE)
+qswat_path = run_qswat(subs[i], overwrite=TRUE)
 
 
-# TODO: check percent overlap of old and new boundary and set a 
-# conservative threshold to catch inlet issues like like snake i=5,6
-# subs_sf = qswat_path['sub'] |> 
-#   sf::st_read(quiet=T) |> 
-#   dplyr::filter(Subbasin != 0) |> 
-#   sf::st_geometry() |>
-#   sf::st_make_valid() |> 
-#   sf::st_union() |>
+
+
+check_result = check_qswat(data_dir=subs[i], make_plot=TRUE)
+
+
+
+
+data_dir=subs[i]
+name = basename(data_dir)
+osgeo_dir = NULL
+lake_threshold = 50L
+min_ncell = 16L
+channel_threshold = 1e-3
+stream_threshold = 1e-2
+snap_threshold = 300L
+do_test = FALSE
+dem_path = NULL
+outlet_path = NULL
+nudge_clear = TRUE
+nudge_dist = NULL
+nudge_nmax = 5
+nudge_plot=TRUE
+
+
+
+
+
+# TODO: put snapped outlets into subdirectory, automate loop
+# with maximum iterations and total snap distance
+if( nrow(check_result[['snap']]) > 0 ) {
+  
+  # load the existing outlets file
+  input_json = run_qswat(subs[i])[['input']] |> readLines() |> jsonlite::fromJSON()
+  outlet_path = input_json[['outlet']]
+  outlet = outlet_path |> sf::st_read(quiet=TRUE)
+  
+  # replace inlet(s) with snapped version
+  id_replace = check_result[['snap']][['ID']]
+  nm_outlet = names(outlet)
+  outlet[match(id_replace, outlet[['ID']]), nm_outlet] = check_result[['snap']][nm_outlet]
+
+  # write snapped file
+  outlet_temp_path = dirname(outlet_path) |> file.path(basename(tempfile('outlet_snap_'))) |> paste0('.shp')
+  outlet |> sf::st_write(outlet_temp_path, quiet=TRUE)
+
+  # run QSwAT+ and check again
+  qswat_path = run_qswat(subs[i], overwrite=TRUE, outlet_path=outlet_temp_path)
+  check_result = check_qswat(data_dir=subs[i], make_plot=TRUE)
+}
+
+
+
+if(0) {
+  
+  # clean the polygon to avoid invalid geometry errors
+  nudge_poly = sub_problem |> 
+    sf::st_make_valid() |>
+    sf::st_union() |> 
+    biggest_poly() |> 
+    sf::st_transform(crs_out)
+  
+  
+  # DEBUGGING: run anyway
+  # proceed only if the outlet of interest lies in this polygon
+  if( TRUE ) { #sf::st_intersects(outlet, nudge_poly, sparse=FALSE) ) {
+    
+    # # outlet/inlet sub-basin
+    outlet_basin = swat_channels[['BasinNo']][ swat_channels[['LINKNO']] %in% outlet_linkno ]
+    outlet_poly = swat_subs[['Subbasin']][swat_subs[['PolygonId']] %in% outlet_basin]
+    #   
+    # outlet_poly |> sf::st_area()
+    # 
+    # sub_problem |> sf::st_buffer(1)
+    # 
+    # 
+    # # crop swat_channels to the smaller polygon  (coerce to POINT for better precision)
+    # all_points = swat_channels |> sf::st_cast('POINT') |> suppressWarnings()
+    # plot(all_points, pch=16, add=T)
+    # 
+    # linkno_nudge = all_points[['LINKNO']][sf::st_intersects(all_points, outlet_poly, sparse=FALSE)]
+    # 
+    # outlet_channel = swat_channels[,]
+    # 
+    # 
+    # 
+    # outlet_poly |> plot(col='blue')
+    # plot(sf::st_geometry(swat_channels), add=T, col='red')
+    # sf::st_crosses(outlet_poly, swat_channels, sparse=FALSE) |> any()
+    # sf::st_intersects(swat_channels, outlet_poly, sparse=FALSE, model='open') |> any()
+    # sf::st_overlaps(swat_channels, outlet_poly, sparse=FALSE) |> any()
+    # 
+    # 
+    # sf::st_intersects(swat_channels, outlet_poly, sparse=FALSE, model='open')
+    
+    #outlet_channel = swat_channels[swat_channels[['LINKNO']] %in% outlet_linkno]
+    #outlet_channel = swat_channels
+    # 
+    # sf::st_intersects(outlet, all_subs, sparse=FALSE)
+    # outlet_poly = sf::st_geometry(all_subs)[]
+    # 
+    # sf::st_intersects(all_subs, outlet, sparse=FALSE)
+    
+    outlet_channel = all_channels
+    
+    
+    # use another helper function to snap to boundary
+    catch = sf::st_sf(data.frame(comid='1'), nudge_poly)
+    flow = sf::st_sf(data.frame(COMID='1'), geometry=sf::st_geometry(outlet_channel))
+    edge_dummy = data.frame(FROMCOMID='1', TOCOMID='1')
+    outlet_snap = find_outlet(catch, edge_dummy, flow, outlet) |> sf::st_transform(crs_out)
+    
+    # make a bubble around the boundary point and convert to set of points
+    nudge_options = outlet_snap |>
+      sf::st_buffer(nudge_dist) |> 
+      sf::st_difference(nudge_poly) |>
+      sf::st_cast('POINT')
+    
+    # nudge towards catchment interior (away from invalid area) by picking max distance option
+    sf::st_geometry(outlet) = nudge_options[which.max(sf::st_distance(nudge_options, nudge_poly))]
+    
+    # report distance then replace coordinates in output points object
+    message('total distance : ', round(sf::st_distance(outlet_check[idx,], outlet)), ' m')
+    outlet_check[idx,] = outlet
+  }
+  
+}
+
+
+# # TESTING: try masking the DEM and running again
+# na_dem=-32768
+# if( !is.null(poly_check) ) {
 #   
+#   input_json_path = run_qswat(subs[i])[['input']]
+#   output_json_path = run_qswat(subs[i])[['output']]
+#   input_json = jsonlite::fromJSON(readLines(input_json_path))
+#   output_json = jsonlite::fromJSON(readLines(output_json_path))
 #   
+#   # temporary DEM and outlet file paths
+#   dem_path = input_json[['dem']]
+#   outlet_path = input_json[['outlet']]
+#   snap_path = output_json[['outlet']]
+#   dem_temp_path = dirname(dem_path) |> file.path(basename(tempfile('dem_'))) |> paste0('.tif')
+#   outlet_temp_path = dirname(outlet_path) |> file.path(basename(tempfile('outlet_'))) |> paste0('.shp')
+#   
+#   # write masked DEM
+#   dem = terra::rast(dem_path)
+#   dem_mask_inv = terra::rasterize(poly_check, dem)
+#   dem[!is.na(dem_mask_inv)[]] = NA
+#   dem |> terra::plot()
+#   dem |> terra::writeRaster(dem_temp_path, overwrite=TRUE)
+#   
+#   # write snapped outlets
+#   outlet = snap_path |> sf::st_read(quiet=TRUE)
+#   outlet |> sf::st_write(outlet_temp_path, quiet=TRUE)
+#   
+#   # modify the JSON to load the new masked file
+#   # input_json[['dem']] = dem_path
+#   # input_json |> jsonlite::toJSON() |> writeLines(input_json_path)
+#   
+#   # overwrite outlet file with QSWAT+ snapped version
+#   
+#   # run QSwAT+ again
+#   qswat_path = run_qswat(subs[i], overwrite=TRUE, dem_path=dem_temp_path, outlet_path=outlet_temp_path)
 # 
-# boundary = save_catch(data_dir)['boundary'] |> 
-#   sf::st_read(quiet=T) |> 
-#   sf::st_transform(sf::st_crs(subs_sf)) |>
-#   sf::st_geometry()
+# }
+# poly_check
+
 
 make_weather(subs[i], overwrite=TRUE)
 run_editor(subs[i], overwrite=TRUE)
-
-# fetch shapefile data from QSWAT+
-channel_sf = qswat_path['channel'] |> sf::st_read(quiet=T)
-subs_sf = qswat_path['sub'] |> sf::st_read(quiet=T)
-hru_sf = qswat_path['hru_full'] |> sf::st_read(quiet=T)
-lsu_sf = qswat_path['lsu_full'] |> sf::st_read(quiet=T)
-
-# overlay on DEM plot
-subs_sf |> dplyr::filter(Subbasin != 0) |> sf::st_geometry() |> plot(add=TRUE, border=adjustcolor('white', .5))
-idx_in = subs_sf |> dplyr::filter(Subbasin != 0) |> dplyr::pull(PolygonId)
-channel_sf[channel_sf$BasinNo %in% idx_in,] |> sf::st_geometry() |> plot(add=TRUE, col=adjustcolor('blue', .5))
-lsu_sf |> sf::st_geometry() |> plot(add=T, col=adjustcolor('white', .2), border=NA)
-
-
-
-data_dir = subs[i]
-overwrite = TRUE
-lake_threshold=50L
-channel_threshold = 1e-3
-stream_threshold = 1e-2
-osgeo_dir=NULL
-snap_threshold = 300L
-do_check = TRUE
-name = basename(data_dir)
-quiet = FALSE
 
 
 

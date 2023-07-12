@@ -15,7 +15,7 @@ plot_rast(
 )
 }
 \arguments{
-\item{data_dir}{character path to the data directory passed to \code{fetch_all}}
+\item{data_dir}{character path to the data directory}
 
 \item{what}{character, the layer to plot, either 'dem', 'land', or 'soil'}
 
