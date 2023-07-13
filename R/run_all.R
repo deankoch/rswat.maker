@@ -1,15 +1,30 @@
-#' Fetches all required data for a QSWAT+ model build
+#' Download input data and run QSWAT+ for the basin defined by `outlet`
 #' 
 #' By default (`overwrite=FALSE`) this returns a list of the file paths written by the
-#' function, in the order they are processed. With `overwrite=TRUE` the function generates
-#' each group of files in sequence by downloading data (from USGS and USDA) on various
-#' upstream catchment features.
+#' function, in the order they are processed. When `overwrite=TRUE` the function runs
+#' the model setup workflow on the catchment upstream of `oulet`, by downloading and
+#' processing watershed data and passing it to QSWAT+.
 #' 
-#' The function produces a set of files in `data_dir` sufficient for building a SWAT+ model
-#' for the basin draining to `outlet`. Output files are ready to use with QSWAT+.
+#' With default settings and `overwrite=TRUE`, the function does the following:
 #' 
-#' Steps can be run individually, and if any fails you should be able to try again by
-#' deleting to sub-directory for that step. 
+#' 1. downloads public data on the landscape and hydrology
+#' 2. partitions the data into sub-catchments that can be modelled individually
+#' 3. runs automated QSWAT+ setup on each of the sub-catchments
+#' 4. runs SWAT+ Editor to build "TxtInOut" from the QSWAT+ project database
+#' 
+#' For details on (1) see `?get_catch`, `?get_nwis`, `?get_dem`, `?get_land`, `?get_soil`,
+#' `?get_split` (which are called in sequence); For details on partitioning, see `?get_split`;
+#' And for details on SWAT+ setup (3-4), see `?save_qswat` and `?run_qswat`.
+#' 
+#' "TxtInOut" is the directory name for a SWAT+ model, ie for the set of plaintext
+#' configuration files that parametrize the simulator. The path to this directory can
+#' be passed to `rswat` to manage model fitting and execution.
+#' 
+#' Each step in this workflow produces a new sub-directory in `data_dir`, and for every
+#' `get_*` function there is a `save_*` function that returns the file paths written within:
+#' eg for `get_dem`, call `save_dem(data_dir)` to get the paths. Users can repeat a step
+#' manually for debugging by deleting the sub-directory for the step and running the
+#' `get_*(...) |> save_*(...,overwrite=TRUE)` pair again.
 #'
 #' @param outlet geo-referenced point object passed to `sf::st_geometry`, the main outlet
 #' @param data_dir character path to the directory to use for output files
