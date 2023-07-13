@@ -4,11 +4,42 @@
 \alias{run_editor}
 \title{Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut"}
 \usage{
-run_editor(data_dir, overwrite = FALSE)
+run_editor(data_dir, weather_dir = NULL, overwrite = FALSE)
+}
+\arguments{
+\item{data_dir}{character, path to the project (sub)directory for the (sub)catchment}
+
+\item{weather_dir}{character, optional path to user-supplied weather files}
+
+\item{overwrite}{logical, whether to write the output or just return the file paths}
 }
 \value{
 vector of file paths
 }
 \description{
-Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut"
+This uses \code{shell} to call the SWAT+ Editor executable and run model construction,
+which creates the plaintext files in "TxtInOut" that control the SWAT+ simulator.
+With default \code{overwrite=FALSE} the function returns the file paths that would be
+modified.
+}
+\details{
+When \code{overwrite=TRUE} the function runs the workflow and returns the paths to the
+log file with standard output from shell, and to the "TxtInOut" directory.
+
+This uses the command line interface for SWAT+ Editor to import weather files using
+the "old" SWAT2012 format (at present it is better documented than the new format).
+It also uses the "database" weather generator import option, which requires users
+to have installed the optional databases bundled with SWAT+ (enabled by default
+when doing a full install).
+
+Users with their own SWAT2012 weather files import them by setting \code{weather_dir}
+to point to their parent directory. If \code{weather_dir=NULL} the function creates a
+set of stations located at the sub-basin centroids and sets their values to the
+missing data flag. Without further modification, these files will have no effect
+on your simulation (SWAT+ will just generate simulated weather as thought you
+had no observed weather stations).
+}
+\examples{
+# Error if called without having called `run_swat` first
+# run_editor('')
 }

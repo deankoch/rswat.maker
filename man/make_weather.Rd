@@ -49,3 +49,7 @@ We use it to pass the sub-basin centroids, but any set of points can be supplied
 (overriding what's in \code{data_dir}) as long as they have a coherent 'Elevation' (m),
 and a (1-indexed) 'Subbasin' field mapping to the project's sub-basins keys.
 }
+\examples{
+# Error if called without having called `run_swat` first
+# make_weather('')
+}

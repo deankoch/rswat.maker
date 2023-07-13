@@ -1,8 +1,37 @@
 #' Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut" 
+#' 
+#' This uses `shell` to call the SWAT+ Editor executable and run model construction,
+#' which creates the plaintext files in "TxtInOut" that control the SWAT+ simulator.
+#' With default `overwrite=FALSE` the function returns the file paths that would be
+#' modified.
+#' 
+#' When `overwrite=TRUE` the function runs the workflow and returns the paths to the
+#' log file with standard output from shell, and to the "TxtInOut" directory. 
+#' 
+#' This uses the command line interface for SWAT+ Editor to import weather files using
+#' the "old" SWAT2012 format (at present it is better documented than the new format).
+#' It also uses the "database" weather generator import option, which requires users
+#' to have installed the optional databases bundled with SWAT+ (enabled by default
+#' when doing a full install). 
+#' 
+#' Users with their own SWAT2012 weather files import them by setting `weather_dir`
+#' to point to their parent directory. If `weather_dir=NULL` the function creates a
+#' set of stations located at the sub-basin centroids and sets their values to the
+#' missing data flag. Without further modification, these files will have no effect
+#' on your simulation (SWAT+ will just generate simulated weather as thought you
+#' had no observed weather stations).
+#' 
+#' @param data_dir character, path to the project (sub)directory for the (sub)catchment
+#' @param weather_dir character, optional path to user-supplied weather files
+#' @param overwrite logical, whether to write the output or just return the file paths
 #'
 #' @return vector of file paths
 #' @export
-run_editor = function(data_dir, overwrite=FALSE) {
+#' 
+#' @examples
+#' # Error if called without having called `run_swat` first
+#' # run_editor('')
+run_editor = function(data_dir, weather_dir=NULL, overwrite=FALSE) {
   
   # check that the expected QSWAT output file is there and read it
   config_path = run_qswat(data_dir)['output']
@@ -10,61 +39,53 @@ run_editor = function(data_dir, overwrite=FALSE) {
   if( !file.exists(config_path) ) stop('file not found: ', config_path, msg_help)
   qswat_path = config_path |> readLines() |> jsonlite::fromJSON()
   
-  # check that weather files are in expected location
-  weather_path = unlist( make_weather(data_dir) )
-  is_weather_valid = weather_path |> file.exists()
-  n_miss = sum(!is_weather_valid)
-  if( n_miss > 0 ) {
+  # add default weather stations at sub-basin centroids
+  if( is.null(weather_dir) ) {
     
-    msg_help = '\nHave you called `make_weather` yet on this `data_dir`?'
-    msg_miss = weather_path[!is_weather_valid] |> head(1)
-    if( n_miss > 1 ) msg_miss = msg_miss |> paste('and', n_miss-1, 'other(s)')
-    stop('weather file(s) not found:\n', msg_miss, msg_help)
+    # makes dummy weather files and returns paths in list
+    weather_path = make_weather(data_dir, overwrite=TRUE) |> unlist()
+    weather_dir = weather_path |> head(1) |> dirname()
   }
-  
-  # output filenames
-  out_nm = c(txt=qswat_path[['txt']],
-             log='editor_log.txt')
-  
+
+  # check that weather directory is valid
+  if( !dir.exists(weather_dir) ) stop('weather directory not found: ', weather_dir)
+
   # output paths to overwrite
-  dest_path = dirname(config_path) |> file.path(out_nm) |> stats::setNames(names(out_nm))
+  dest_path = c(txt=qswat_path[['txt']], log=file.path(dirname(config_path), 'editor_log.txt'))
   if( !overwrite ) return(dest_path)
   
   # remove any existing log
   if( file.exists(dest_path['log']) ) unlink(dest_path['log'])
   
   # CLI arguments for SWAT+ Editor
+  dir2shell = \(d) normalizePath(d) |> dQuote(q=FALSE)
   import_format = 'old'
   import_wgn = 'database'
   db_path =  qswat_path[['sql']]
   editor_path = qswat_path[['editor_exe']]
   editor_dir = dirname(editor_path)
   editor_file = basename(editor_path)
-  weather_dir = weather_path |> head(1) |> dirname()
-  
+  weather_dir = dir2shell(weather_dir)
   
   # helper function formats directory strings for NT shell
-  dir2shell = \(d) normalizePath(d) |> dQuote(q=FALSE)
   cli_args = c('--cmd-only',
-               '--weather-dir' |> paste(dir2shell(weather_dir)),
+               '--weather-dir' |> paste(weather_dir),
                '--weather-import-format' |> paste(import_format),
                '--wgn-import-method' |> paste(import_wgn))
   
+  # shorten path by leaving out data_dir
+  qswat_txt_str = qswat_path['txt'] |> substr(1+nchar(data_dir), nchar(qswat_path['txt']))
+  message('running SWAT+ Editor to populate ', qswat_txt_str)
+  
   # build shell command to change directory
-  message('running SWAT+ Editor')
-  # qswat_path['txt']
   cd_string = paste('pushd', dir2shell(editor_dir), '&&')
   call_string = paste(cd_string, 
                       editor_file, 
                       dir2shell(db_path), 
                       paste(cli_args, collapse=' '))
   
-  # collect error messages for tidier output
-  shell_result = paste(cd_string, call_string) |> 
-    shell(intern=TRUE) |> 
-    suppressWarnings()
-  
-  # write log file to disk
+  # collect error messages for tidier output and write log file to disk
+  shell_result = paste(cd_string, call_string) |> shell(intern=TRUE) |> suppressWarnings()
   shell_result |> writeLines(dest_path['log'])
   
   # report any problems relayed by shell()
@@ -110,6 +131,10 @@ run_editor = function(data_dir, overwrite=FALSE) {
 #'
 #' @return vector of file paths
 #' @export
+#' 
+#' @examples
+#' # Error if called without having called `run_swat` first
+#' # make_weather('')
 make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NULL, pts=NULL) {
   
   # number of digits to write after decimal place
