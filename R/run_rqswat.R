@@ -7,14 +7,18 @@
 #' 
 #' With default settings and `overwrite=TRUE`, the function does the following:
 #' 
-#' 1. downloads public data on the landscape and hydrology
-#' 2. partitions the data into sub-catchments that can be modelled individually
-#' 3. runs automated QSWAT+ setup on each of the sub-catchments
-#' 4. runs SWAT+ Editor to build "TxtInOut" from the QSWAT+ project database
+#' 1. check for existing files on disk
+#' 2. downloads public data on the landscape and hydrology
+#' 3. partitions the data into sub-catchments that can be modelled individually
+#' 4. runs automated QSWAT+ setup on each of the sub-catchments
+#' 5. runs SWAT+ Editor to build "TxtInOut" from the QSWAT+ project database
 #' 
-#' For details on (1) see `?get_catch`, `?get_nwis`, `?get_dem`, `?get_land`, `?get_soil`,
-#' `?get_split` (which are called in sequence); For details on partitioning, see `?get_split`;
-#' And for details on SWAT+ setup (3-4), see `?save_qswat` and `?run_qswat`.
+#' When `force_overwrite=FALSE` (the default), the function skips steps where the output
+#' is already found on disk. Set `nwis_check` to enable running the 
+#' 
+#' For details on (2) see `?get_catch`, `?get_nwis`, `?get_dem`, `?get_land`, `?get_soil`,
+#' `?get_split` (which are called in sequence); For details on (3), see `?get_split`;
+#' And for details on SWAT+ setup (4-5), see `?save_qswat` and `?run_qswat`.
 #' 
 #' "TxtInOut" is the directory name for a SWAT+ model, ie for the set of plaintext
 #' configuration files that parametrize the simulator. The path to this directory can
@@ -34,12 +38,16 @@
 #'
 #' @return a list of file paths to write
 #' @export
-fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
-                     nwis_nm = 'flow_ft', nwis_from = as.Date('2005-01-01'),
-                     no_download=FALSE) {
-  
-  # flag to skip final update if we did it already in the same call
-  update_nwis = TRUE
+run_rqswat = function(outlet,
+                      data_dir,
+                      overwrite = FALSE,
+                      force_overwrite = FALSE,
+                      nwis_check = FALSE,
+                      nwis_from = as.Date('2005-01-01'),
+                      no_download = FALSE) {
+                  
+  # constant because untested with any other choices 
+  nwis_nm = 'flow_ft'
   
   # get paths written by the function
   nhd_path = data_dir |> save_catch()
@@ -78,7 +86,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
 
     # small batch of downloads, should complete in < 5 min  
     get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
-    update_nwis = FALSE
+    nwis_check = FALSE
   }
   
   # get DEM from USGS if necessary (using 'FedData')
@@ -122,7 +130,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
     save_split(data_dir, sub_list, overwrite=TRUE, nwis_nm=nwis_nm)
   }
   
-  # make shapefiles for qswat
+  # make shape-files for QSWAT+
   message('')
   message('making qswat inputs...')
   qswat_exists = length(qswat_path) > 0
@@ -135,7 +143,7 @@ fetch_all = function(outlet, data_dir, overwrite=FALSE, force_overwrite=FALSE,
   # optionally update NWIS
   message('')
   message('updating stream gage data...')
-  if( update_nwis ) update_nwis(data_dir, nwis_nm)
+  if(nwis_check) update_nwis(data_dir, nwis_nm)
   
   message('')
   message('all done')

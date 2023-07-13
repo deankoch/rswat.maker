@@ -53,7 +53,7 @@ outlet = nominatim_point("Carter's Bridge, MT")
 #outlet = c(-105.56845, 40.34875) |> sf::st_point() |> sf::st_sfc(crs=4326) # Colorado, near
 
 # this command only updates NWIS if you've already built the project
-#outlet |> fetch_all(data_dir, overwrite=TRUE, no_download=TRUE)
+#outlet |> run_rqswat(data_dir, overwrite=TRUE, no_download=TRUE)
 # sub_list = get_split(data_dir)
 # save_split(data_dir, sub_list, overwrite=TRUE)
 # qswat_dir = save_qswat(data_dir, sub=T, overwrite=TRUE)
