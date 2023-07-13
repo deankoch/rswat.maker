@@ -96,7 +96,6 @@ get_soil = function(data_dir, force_overwrite=FALSE, mukey_replace=c(2485736)) {
 #' * 'soil.tif', a version warped to UTM (and optionally masked/cropped to the catchment)
 #' 
 #' `buffer` and `threads` determine if and how the UTM grid is masked (as in `?save_land`)
-
 #' In a normal workflow you should call `get_soil(...)` to write the two source
 #' datasets to disk and make the merged raster, then call `save_soil(overwrite=TRUE)`
 #' to save the merged raster in the two files listed above.

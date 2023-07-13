@@ -23,6 +23,8 @@ save_qswat(
 
 \item{overwrite}{logical, whether to write the output or just return the file paths}
 
+\item{quiet}{logical, suppresses certain messages (for internal use)}
+
 \item{lake_area}{numeric (in km2), lakes with area lower than \code{lake_area} are omitted}
 
 \item{burn}{numeric >= 0, stream reach burn-in depth and width, in meters}

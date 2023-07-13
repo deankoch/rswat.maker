@@ -54,6 +54,7 @@
 #' @param na_land integer value to replace NaN in land use raster (or NULL to set to mode)
 #' @param na_soil integer value to replace NaN in soils raster (or NULL to set to mode)
 #' @param na_dem integer value to replace NaN in dem raster (or NULL to set to mode)
+#' @param quiet logical, suppresses certain messages (for internal use)
 #'
 #' @return the file names to write
 #' @export

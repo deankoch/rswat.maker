@@ -480,7 +480,7 @@ data_nwis = function(nwis, site, from=NULL, param_code='00060', stat_code='00003
     dplyr::filter( site_no == site ) |> 
     dplyr::filter( parm_cd == param_code ) |>
     dplyr::filter( data_type_cd == 'dv' ) |>
-    dplyr::filter( stat_cd == stat_code ) 
+    dplyr::filter( stat_cd == stat_code )
   
   # message about site
   msg_site = paste0(record_df[['station_nm']][1], ' (', site, ')')

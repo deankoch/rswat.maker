@@ -36,6 +36,8 @@ document()
 
 data_dir = 'D:/rswat_data/yellowstone'
 #data_dir = 'D:/rswat_data/snake'
+
+
 #data_dir = 'D:/rswat_data/nooksack' # nice example
 #data_dir = 'D:/rswat_data/tuolumne'
 #data_dir = 'D:/rswat_data/salmon'
@@ -56,8 +58,23 @@ outlet = nominatim_point("Carter's Bridge, MT")
 # save_split(data_dir, sub_list, overwrite=TRUE)
 # qswat_dir = save_qswat(data_dir, sub=T, overwrite=TRUE)
 
-#data_dir |> plot_rast('dem')
-subs = save_split(data_dir)[['sub']]
+# TODO: save all this somewhere and include elev_m.tif (from NED_dem), aoi.geojson (its extent)
+if(0) {
+  #data_dir |> plot_rast('dem')
+  subs = save_split(data_dir)[['sub']]
+  
+  # collect all sub-basin geometries from sub-catchments
+  sub_df = do.call(rbind, lapply(subs, \(p) cbind(load_qswat(p)[['sub']], 
+                                                  project = basename(data_dir), 
+                                                  split = basename(p)) ))
+  
+  sub_geo_df = sub_df |> sf::st_transform(4326)
+  
+  # pass to wxArchive in a geoJSON file
+  aoi_path = 'G:/aoi_export.geojson'
+  sub_geo_df |> sf::st_write(aoi_path)
+}
+
 
 # snake i=6 can't be saved, a good example of finding problems for manual intervention
 # eg nooksack i=8, multiple iterations needed
@@ -75,6 +92,10 @@ for(i in seq_along(subs)) {
 
 
 
+#('channel', 'sub')
+
+
+
 #check_qswat(data_dir=subs[i], make_plot=TRUE)
 
 
@@ -87,7 +108,7 @@ allow=0
 draw
 
 
-data_dir=subs[i]
+n
 overwrite=TRUE
 name = basename(data_dir)
 osgeo_dir = NULL

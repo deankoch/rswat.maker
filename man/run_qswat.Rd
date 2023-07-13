@@ -25,7 +25,7 @@ run_qswat(
 )
 }
 \arguments{
-\item{data_dir}{character, path to the directory for input/output files}
+\item{data_dir}{character, path to the project (sub)directory for the (sub)catchment}
 
 \item{overwrite}{logical, whether to write the output or just return the file paths}
 

@@ -60,7 +60,7 @@
 #' to define HRUs using "Dominant HRU" method, and creating a database to link everything.
 #' A system call to the SWAT+ Editor CLI produces plaintext SWAT+ config files in "TxtInOut". 
 #'
-#' @param data_dir character, path to the directory for input/output files
+#' @param data_dir character, path to the project (sub)directory for the (sub)catchment 
 #' @param overwrite logical, whether to write the output or just return the file paths
 #' @param name character, name of the sub-directory to use for project files
 #' @param osgeo_dir character, path to the QGIS 3 installation directory (AKA "OSGEO4W_ROOT")
