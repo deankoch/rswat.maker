@@ -187,10 +187,10 @@ run_qswat = function(data_dir,
   if( is.null(nudge) ) nudge = data.frame()
   passed_check = !check_result[['snap_problem']] & ( nrow(nudge) == 0 )
   
-  # run outlet re-positioning loop
+  # outlet re-positioning loop
   if(nudge_nmax > 0) {
 
-    # run repair
+    # repairs needed?
     if( !passed_check) {
       
       # for snap failures, run again with bigger snap radius
@@ -257,7 +257,6 @@ run_qswat = function(data_dir,
   }
   
   # report any unsolved issues
-  msg_fail = 'Try increasing nudge_nmax, changing thresholds, or inspect the points in QSWAT'
   if( passed_check ) {
     
     # report total distance for any moved points
@@ -266,18 +265,10 @@ run_qswat = function(data_dir,
     
   } else { 
     
+    msg_fail = 'Try increasing nudge_nmax, changing thresholds, or inspect the points in QSWAT'
     warning('unresolved delineation errors. ', msg_fail)
-    result_moved = NULL
+    return(NULL)
   }
-
-  # # read the output JSON (paths)
-  # qswat_output = NULL
-  # if( file.exists(dest_path[['output']]) ) {
-  #   
-  #   qswat_output = readLines(dest_path[['output']]) |>
-  #     jsonlite::fromJSON() |> 
-  #     unlist()
-  # }
   
   return(result_moved)
 }

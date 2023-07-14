@@ -96,6 +96,7 @@ run_editor = function(data_dir, weather_dir=NULL, overwrite=FALSE) {
     msg_warn = paste('There was a problem running SWAT+ Editor setup.', info_1, info_2)
     if(do_test) stop(msg_warn)
     warning(msg_warn)
+    return(NULL)
   }
   
   return( invisible(dest_path) )

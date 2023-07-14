@@ -61,9 +61,15 @@
 #'
 #' @examples
 #' save_qswat('/example')
-save_qswat = function(data_dir, sub=FALSE, overwrite=FALSE, quiet=FALSE,
-                      lake_area=0.5, burn=50, 
-                      na_soil=NULL, na_land=NULL, na_dem=-32768) {
+save_qswat = function(data_dir,
+                      sub = FALSE,
+                      overwrite = FALSE,
+                      quiet = FALSE,
+                      lake_area = 0.5,
+                      burn = 50, 
+                      na_soil = NULL,
+                      na_land = NULL,
+                      na_dem = -32768) {
 
   # template for inlet/outlet shapefile fields
   main_outlet = data.frame(ID=0, RES=0, INLET=0, PTSOURCE=0)

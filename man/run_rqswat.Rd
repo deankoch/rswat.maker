@@ -10,23 +10,27 @@ run_rqswat(
   overwrite = FALSE,
   force_overwrite = FALSE,
   nwis_check = FALSE,
-  nwis_from = as.Date("2005-01-01"),
+  nwis_from = NULL,
   no_download = FALSE
 )
 }
 \arguments{
 \item{outlet}{geo-referenced point object passed to \code{sf::st_geometry}, the main outlet}
 
-\item{data_dir}{character path to the directory to use for output files}
+\item{data_dir}{character path to the directory to use for writing project files}
 
-\item{overwrite}{logical, should the function create missing files in \code{data_dir}?}
+\item{overwrite}{logical, if \code{FALSE} the function returns file paths and writes nothing}
 
 \item{force_overwrite}{logical, should the function overwrite existing files in \code{data_dir}?}
+
+\item{nwis_check}{logical, if TRUE the function updates the daily NWIS time series files}
+
+\item{nwis_from}{Date, earlier dates are ignored in NWIS records (NULL to return all)}
 
 \item{no_download}{logical, if TRUE \code{nhdR::nhd_plus_get} calls is skipped (for debugging)}
 }
 \value{
-a list of file paths to write
+a list of file paths written by the function
 }
 \description{
 By default (\code{overwrite=FALSE}) this returns a list of the file paths written by the
@@ -45,19 +49,25 @@ With default settings and \code{overwrite=TRUE}, the function does the following
 }
 
 When \code{force_overwrite=FALSE} (the default), the function skips steps where the output
-is already found on disk. Set \code{nwis_check} to enable running the
+is already found on disk. Set \code{nwis_check} to run the daily stream gage update for an
+existing project running any of the other steps.
 
 For details on (2) see \code{?get_catch}, \code{?get_nwis}, \code{?get_dem}, \code{?get_land}, \code{?get_soil},
 \code{?get_split} (which are called in sequence); For details on (3), see \code{?get_split};
 And for details on SWAT+ setup (4-5), see \code{?save_qswat} and \code{?run_qswat}.
-
-"TxtInOut" is the directory name for a SWAT+ model, ie for the set of plaintext
-configuration files that parametrize the simulator. The path to this directory can
-be passed to \code{rswat} to manage model fitting and execution.
 
 Each step in this workflow produces a new sub-directory in \code{data_dir}, and for every
 \verb{get_*} function there is a \verb{save_*} function that returns the file paths written within:
 eg for \code{get_dem}, call \code{save_dem(data_dir)} to get the paths. Users can repeat a step
 manually for debugging by deleting the sub-directory for the step and running the
 \verb{get_*(...) |> save_*(...,overwrite=TRUE)} pair again.
+
+"TxtInOut" is the directory name for a SWAT+ model, ie for the set of plaintext
+configuration files that parametrize the simulator. The path to this directory can
+be passed to \code{rswat} to manage model fitting and execution.
+
+If you are getting 404 errors on the very first step - downloading/opening the NHDPlus
+model - but you already have the necessary files cached locally (having called either
+\code{run_rqswat} or \code{save_catch} in \code{overwrite=TRUE} mode), try setting \code{no_download=TRUE}.
+This allows the function to proceed even when the web service is down.
 }
