@@ -75,6 +75,8 @@ if(0) {
   sub_geo_df |> sf::st_write(aoi_path)
 }
 
+save_subs
+
 
 # snake i=6 can't be saved, a good example of finding problems for manual intervention
 # eg nooksack i=8, multiple iterations needed
