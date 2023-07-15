@@ -1,9 +1,9 @@
 #' Run SWAT+ Editor to create SWAT+ simulator config files in "TxtInOut" 
 #' 
-#' This uses `shell` to call the SWAT+ Editor executable and run model construction,
-#' which creates the plaintext files in "TxtInOut" that control the SWAT+ simulator.
+#' This uses `shell` to call the SWAT+ Editor executable to construct the model.
+#' This creates the plaintext files in "TxtInOut" that parametrize the SWAT+ simulator.
 #' With default `overwrite=FALSE` the function returns the file paths that would be
-#' modified.
+#' modified, but does not run the workflow.
 #' 
 #' When `overwrite=TRUE` the function runs the workflow and returns the paths to the
 #' log file with standard output from shell, and to the "TxtInOut" directory. 

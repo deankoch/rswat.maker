@@ -17,10 +17,10 @@ run_editor(data_dir, weather_dir = NULL, overwrite = FALSE)
 vector of file paths
 }
 \description{
-This uses \code{shell} to call the SWAT+ Editor executable and run model construction,
-which creates the plaintext files in "TxtInOut" that control the SWAT+ simulator.
+This uses \code{shell} to call the SWAT+ Editor executable to construct the model.
+This creates the plaintext files in "TxtInOut" that parametrize the SWAT+ simulator.
 With default \code{overwrite=FALSE} the function returns the file paths that would be
-modified.
+modified, but does not run the workflow.
 }
 \details{
 When \code{overwrite=TRUE} the function runs the workflow and returns the paths to the
