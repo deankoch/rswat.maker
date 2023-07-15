@@ -2,17 +2,27 @@
 % Please edit documentation in R/load_wx.R
 \name{save_aoi}
 \alias{save_aoi}
-\title{Save sub-basins file TODO}
+\title{Save sub-basins file for wxArchive}
 \usage{
-save_aoi(data_dir, name = "aoi_export", overwrite = FALSE, quiet = FALSE)
+save_aoi(data_dir, dest_path, overwrite = FALSE, quiet = FALSE)
 }
 \arguments{
-\item{data_dir}{}
+\item{data_dir}{character path to the rqswat project directory}
 
-\item{name}{}
-
-\item{overwwrite}{}
+\item{dest_path}{character, the file path to write}
+}
+\value{
+the result of \code{sf::st_write}
 }
 \description{
-Save sub-basins file TODO
+This collects all (QSWAT+) sub-basin polygons from an \code{rqswat} project
+and writes them (with metadata) in WGS84 coordinates to \code{dest_path}.
+}
+\details{
+Normally the file name is 'aoi_export.geojson' and the parent directory is
+the \code{project_dir} from a \code{wxArchive} project. This prompts \code{wxArchive} to
+aggregate down-scaled weather data at the sub-basin level, suitable for
+use in SWAT+.
+
+This function should be called at some point before \code{load_wx} (see \code{?load_wx})
 }

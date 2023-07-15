@@ -7,8 +7,8 @@
 load_wx(
   wx_dir,
   data_dir,
+  var_nm = NULL,
   sub_dir = NULL,
-  var_nm = "pcp_mean",
   subbasin_id = NULL,
   from = NULL,
   quiet = FALSE
@@ -19,11 +19,15 @@ load_wx(
 
 \item{data_dir}{character path to the \code{rqswat} data directory for the (sub)catchment}
 
-\item{var_nm}{character, one of "tmp_max", "tmp_min", "hum_mean", "pcp_mean", "wnd_mean"}
+\item{var_nm}{character, see choices by calling with \code{var_nm=NULL}}
+
+\item{sub_dir}{character, the sub-catchment directory name}
 
 \item{subbasin_id}{integer key from QSWAT+ identifying the sub-basin}
 
 \item{from}{integer or \code{NULL}, the year to start from (this and all later years copied)}
+
+\item{quiet}{logical, suppresses console messages}
 }
 \value{
 list with 'values' (the data), 'date' (mapping to rows), 'poly' (mapping to columns)
@@ -35,17 +39,17 @@ that this requires having an up-to-date \code{wxArchive} project whose extent
 covers the requested sub-basin(s).
 }
 \details{
-Before calling this function, users must first save the output of
-\code{load_qswat(data_dir, 'sub', sub=TRUE)} to "aoi_export.geojson" in \code{wx_dir},
-then run the "downscale" and "extract" operations in \code{wxArchive} to compute
-the time series. See \code{?wxArchive::workflow_downscale} and
-\code{?wxArchive::workflow_extract} for details.
+This function simply loads existing output from \code{wxArchive} in a convenient
+format. Before calling this function, users must call \code{save_aoi} to write
+"aoi_export.geojson" in \code{wx_dir}, then run the "downscale" and "extract"
+operations in \code{wxArchive} to compute the output time series. See
+\code{?wxArchive::workflow_downscale} and \code{?wxArchive::workflow_extract} for details.
 
 Optional argument \code{subbasin_id} specifies the QSWAT+ "Subbasin" code of a
 particular set of sub-basins. Leave this at its default \code{NULL} to return data
 for all sub-basins.
 
-The five options for \code{var_nm} are designed to serve as drop-in replacements for
+The options for \code{var_nm} are designed to serve as drop-in replacements for
 the standard SWAT+ weather station data files - eg values from \code{var_nm='pcp_mean'}
 can be copied to ".pcp" files using \code{rswat_open} and \code{rswat_write}.
 }

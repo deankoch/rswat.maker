@@ -6,16 +6,23 @@ data_dir = 'D:/rswat_data/yellowstone'
 wx_dir = 'G:'
 
 # full update
-outlet = nominatim_point("Carter's Bridge, MT")
-outlet |> run_rqswat(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
+# outlet = nominatim_point("Carter's Bridge, MT")
+# outlet |> run_rqswat(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
 
 subs = save_split(data_dir)[['sub']]
+
 i = 1 
+sub_dir = subs[i]
+sub_dir
+overwrite=FALSE
+quiet=FALSE
+wx_list = load_wx(wx_dir, data_dir, var_nm='pcp_mean', sub_dir=subs[i])
+load_wx(wx_dir, data_dir)
 
-load_result = load_wx(wx_dir, data_dir, var_nm='pcp_mean', sub_dir=subs[i])
-load_result |> str()
 
-sub_dir=subs[i]
+
+
+wx_list |> str()
 
 
 
