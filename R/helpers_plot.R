@@ -171,7 +171,7 @@ plot_catch = function(sub_list,
 #' Draw a heatmap plot showing the DEM, land use, or soil MUKEYs
 #' 
 #' Set `what` to one of 'dem', 'land', or 'soil' after running the corresponding
-#' workflow (`run_rqswat`, or its subroutines, `get_dem`, `save_dem`, etc) to create
+#' workflow (`rqswat`, or its subroutines, `get_dem`, `save_dem`, etc) to create
 #' a heat map plot of the requested layer.
 #' 
 #' The function selects an appropriate theme for the layer and optionally draws

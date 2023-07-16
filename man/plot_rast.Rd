@@ -34,7 +34,7 @@ nothing, but creates a plot
 }
 \description{
 Set \code{what} to one of 'dem', 'land', or 'soil' after running the corresponding
-workflow (\code{run_rqswat}, or its subroutines, \code{get_dem}, \code{save_dem}, etc) to create
+workflow (\code{rqswat}, or its subroutines, \code{get_dem}, \code{save_dem}, etc) to create
 a heat map plot of the requested layer.
 }
 \details{
