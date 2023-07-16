@@ -37,6 +37,8 @@ load_wx = function(wx_dir,
                    from = NULL,
                    quiet = FALSE) {
   
+  
+  
   # the expected file mapping sub-basins to CSV files
   aoi_file = 'aoi_export.geojson'
   
@@ -107,13 +109,31 @@ load_wx = function(wx_dir,
 #' @param sub_dir character path to the (sub)catchment directory
 #' @param wx_list list returned from `load_wx` for `sub_dir`
 #' @param overwrite logical, if FALSE the function returns the file paths but writes nothing
+#' @param bounds named list of numeric (length-2) vectors to replace default bounds 
+#' @param add logical, if `TRUE` the function keeps existing rows for dates not found in `wx_list`
 #' @param quiet logical, suppresses console messages
 #'
 #' @return vector of file paths modified
 #' @export
-write_wx = function(sub_dir, wx_list, overwrite=FALSE, quiet=FALSE) {
+write_wx = function(sub_dir, 
+                    wx_list, 
+                    overwrite = FALSE,
+                    bounds = NULL,
+                    add = TRUE,
+                    quiet = FALSE) {
 
+  # natural limits for variables, used to truncate implausible inputs
+  bounds_default = list(tmp=c(-70, 70), # degC
+                        hmd=c(0, 100), # %
+                        pcp=c(0, 1e4), # mm
+                        wnd=c(0, 100)) # m/s  
+  
+  # overwrite with any user-supplied bounds
+  if( is.null(bounds) ) bounds = bounds_default
+  bounds = bounds |> utils::modifyList(bounds)
+  
   # load the dependency
+  if( !quiet )  message('loading rswat...')
   is_loaded = requireNamespace(package='rswat')
   if( is_loaded ) {
     
@@ -135,32 +155,80 @@ write_wx = function(sub_dir, wx_list, overwrite=FALSE, quiet=FALSE) {
                                                  'wnd_mean' = 'wnd', 
                                                  'unknown')
     
-    # load the climate file
-    if(climate_file=='unknown') stop('unknown weather variable name "', wx_list[['name']], '"')
+    # load the climate file (a list of file names)
+    if(climate_prefix=='unknown') stop('unknown weather variable name "', wx_list[['name']], '"')
     weather_file = rswat::rswat_open( paste0(climate_prefix, '.cli'))[['filename']]
     
+    # deal with file names being different from variable name for some reason
+    climate_alt = climate_prefix
+    if(climate_prefix=='hmd') climate_alt = 'rh'
+    if(climate_prefix=='wnd') climate_alt = 'wind'
+
     # map to sub-basin IDs with regex on file names
-    weather_id = paste0('\\.*', climate_prefix) |> 
+    weather_id = paste0('\\.*', '(', climate_prefix, '|', climate_alt, ')') |> 
       gsub('', basename(weather_file), perl=TRUE) |> 
       as.integer()
+
+    # requested sub-basins and mapping from rows of poly to `weather_file`
+    sub_in = wx_list[['poly']][['Subbasin']]
+    sub_idx = sub_in  |> match(weather_id)
+    dest_path = txt_dir |> file.path(weather_file[sub_idx])
+    if( !overwrite ) return(dest_path)
     
     # overwrite all files in a loop
-    if( !quiet )  message('overwriting ', length(weather_id), ' ', climate_prefix, ' files')
-    for(i in seq_along(weather_id)) {
-      
-      # column to copy from input matrix in wx_list
-      j = wx_list[['poly']][['j']][ match(weather_id[i], wx_list[['poly']][['Subbasin']]) ]
+    if( !quiet )  message('overwriting ', length(sub_idx), ' ', climate_prefix, ' files')
+    for(i in seq_along(sub_idx)) {
       
       # open the existing weather file and copy the station data frame 
-      weather_list = rswat::rswat_open(weather_file[i])
-      station_df = weather_list[[1]]
+      weather_list = rswat::rswat_open( weather_file[ sub_idx[i] ] )
+      station_df = weather_list[[1L]]
       
       # build replacement for existing data frame
-      data_df = as.Date(wx_list[['date']]) |> 
+      date_new = as.Date(wx_list[['date']])
+      data_df = date_new |> 
         rswat::rswat_date_conversion() |>
-        cbind(wx_list[['values']][,j]) |>
+        cbind(wx_list[['values']][, i]) |>
         stats::setNames(c('year', 'jday', climate_prefix))
 
+      # enforce bounds
+      low = bounds[[climate_prefix]] |> head(1)
+      high = bounds[[climate_prefix]] |> tail(1)
+      data_df[[climate_prefix]][ data_df[[climate_prefix]] < low ] = low
+      data_df[[climate_prefix]][ data_df[[climate_prefix]] > high ] = high
+      
+      # check existing dates in the file
+      date_existing = rswat_date_conversion(weather_list[[2L]][c('year', 'jday')])[['date']]
+      is_overwritten = date_existing %in% date_new
+      
+      # add second data column for tmp files
+      if( climate_prefix == 'tmp' ) {
+        
+        # double the existing column and fix names
+        data_df = data_df |> 
+          cbind(data_df[[climate_prefix]]) |> 
+          stats::setNames(c('year', 'jday', 'tmp_min', 'tmp_max'))
+        
+        # identify the column that wasn't supplied and initialize to NA
+        col_replace = ifelse(endsWith(wx_list[['name']], 'max'), 'tmp_max', 'tmp_min')
+        col_keep = ifelse(endsWith(wx_list[['name']], 'max'), 'tmp_min', 'tmp_max')
+        data_df[[col_keep]] = as.numeric(NA)
+        
+        # add back existing data
+        if( any(is_overwritten) ) {
+          
+          idx_overwritten = match(date_existing[is_overwritten], date_new) 
+          data_df[[col_keep]][idx_overwritten] = weather_list[[2L]][[col_keep]][is_overwritten]
+        }
+      }
+      
+      # add back existing dates not found in new input
+      if(add) {
+        
+        is_retained = !( date_existing %in% date_new )
+        idx_retain = c(date_new, date_existing[is_retained]) |> order()
+        data_df = rbind(data_df, weather_list[[2L]][is_retained,])[idx_retain,]
+      }
+      
       # copy rswat attributes back
       weather_attr = attributes(weather_list[[2]])
       weather_attr = weather_attr[ startsWith(names(weather_attr), 'rswat') ]
@@ -170,29 +238,10 @@ write_wx = function(sub_dir, wx_list, overwrite=FALSE, quiet=FALSE) {
       station_df[['nbyr']] = length(unique(data_df[['year']]))
       
       # overwrite the file
-      list(station_df, data_df) |> rswat::rswat_write()
-      
-      
+      list(station_df, data_df) |> rswat::rswat_write(overwrite=TRUE, refresh=FALSE, quiet=TRUE)
     }
     
-    #weather_file = data.frame(path=)
-    
-    
-    
-    
-    
-    # get info about weather files
-    rswat::rswat_files(include='weather')
-    rswat::rswat_files(include='climate')
-    
-    wx_list |> str()
-    
-    
-    dest_path = txt_dir
-    
-    
-    if( !overwrite ) return(dest_path)
-    
+    return(dest_path)
   }
   
   stop('the rswat package could not be loaded. Have you installed it?')
