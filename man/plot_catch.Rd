@@ -22,7 +22,7 @@ plot_catch(
 )
 }
 \arguments{
-\item{sub_list}{list returned by \code{get_split} or \code{get_catch}}
+\item{sub_list}{list or geometries returned by \code{get_split}, \code{get_catch}, or \code{open_catch}}
 
 \item{crs_out}{CRS code accepted by \code{sf::st_crs} or NULL to use local UTM}
 

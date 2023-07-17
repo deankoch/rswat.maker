@@ -422,7 +422,7 @@ list_nwis = function(data_dir, nwis_nm='flow_ft',
   boundary_path = save_catch(data_dir, overwrite=FALSE)['boundary']
   
   # set UTM zone for computations
-  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> get_utm() |> suppressMessages()
   
   # load the catchment bounding box and add padding
   boundary_utm = boundary_path |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)

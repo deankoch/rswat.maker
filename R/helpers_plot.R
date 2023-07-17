@@ -36,7 +36,7 @@
 #' Note that `add_scale` and `main` have no effect when adding to an existing plot
 #' with `add=TRUE`.
 #'
-#' @param sub_list list returned by `get_split` or `get_catch`
+#' @param sub_list list or geometries returned by `get_split`, `get_catch`, or `open_catch`
 #' @param crs_out CRS code accepted by `sf::st_crs` or NULL to use local UTM
 #' @param add logical whether to add to an existing plot, or (if `FALSE`) create a new one
 #' @param lwd line width for stem lines and boundaries
@@ -67,7 +67,7 @@ plot_catch = function(sub_list,
                       add_scale = TRUE,
                       main = NULL) {
                     
-  # sanity checks put first argument in list if needed
+  # put first argument in list if needed
   if( !is.list( sub_list[[1]] ) ) sub_list = sub_list |> list()
   if( is.null(sub_list[[1]][['outlet']]) ) sub_list = sub_list |> list()
   n_sub = length(sub_list)
@@ -81,7 +81,7 @@ plot_catch = function(sub_list,
   idx_main = ifelse(any(is_out), which(is_out), 1)
   
   # set default projection
-  if( is.null(crs_out) ) crs_out = outlet[idx_main,] |> to_utm() |> suppressMessages()
+  if( is.null(crs_out) ) crs_out = outlet[idx_main,] |> get_utm() |> suppressMessages()
   out = outlet |> sf::st_transform(crs_out)
   
   # extract inlet or gage objects, if any (ignore warnings about row-binding empty data frames)
@@ -410,7 +410,7 @@ draw_scale = function(obj, bottom=TRUE, left=FALSE, above=bottom, draw=TRUE,
   
   # take bounding box polygon and project to UTM coordinates if needed
   crs_in = sf::st_crs(obj)
-  crs_out = if( !sf::st_is_longlat(obj) ) crs_in else to_utm(obj) |> suppressMessages()
+  crs_out = if( !sf::st_is_longlat(obj) ) crs_in else get_utm(obj) |> suppressMessages()
   bbox_out = sf::st_geometry(obj) |> sf::st_bbox() |> sf::st_as_sfc() |> sf::st_transform(crs_out)
   
   # set default left/right choice based on distance

@@ -71,7 +71,7 @@ get_split = function(data_dir,
   edge_path = save_catch(data_dir)['edge']
   
   # local UTM projection for computations
-  crs_utm = gage[1,] |> sf::st_geometry() |> to_utm() |> suppressMessages()
+  crs_utm = gage[1,] |> sf::st_geometry() |> get_utm() |> suppressMessages()
   gage_utm = gage |> sf::st_geometry() |> sf::st_transform(crs_utm)
   
   # load original outlet point (input to `get_catch`) and match it against `gage` points
@@ -351,7 +351,7 @@ find_outlet = function(catch, edge, flow) {
   if( length(comid) == 1 ) {
     
     # project to UTM for computations
-    crs_utm = flow[1,] |> sf::st_geometry() |> to_utm() |> suppressMessages()
+    crs_utm = flow[1,] |> sf::st_geometry() |> get_utm() |> suppressMessages()
     
     # include first downstream COMID
     comid_check = comid |> comid_down(edge, first_only=TRUE) |> c(comid)
@@ -428,7 +428,7 @@ find_outlet = function(catch, edge, flow) {
 split_catch = function(gage, edge, catchment) {
 
   # local UTM projection for computations
-  crs_utm = gage[1,] |> sf::st_geometry() |> to_utm() |> suppressMessages()
+  crs_utm = gage[1,] |> sf::st_geometry() |> get_utm() |> suppressMessages()
   
   # progress messages for the loop
   n_gage = nrow(gage)

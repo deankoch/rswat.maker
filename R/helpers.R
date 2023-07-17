@@ -18,7 +18,7 @@
 #' @examples
 #' nominatim_point('nonexistent placename')
 #' nominatim_point('Old Faithful')
-nominatim_point = function(query) {
+nominatim_point = function(query, quiet=FALSE) {
   
   base_url = 'https://nominatim.openstreetmap.org'
   query_extra = '&limit=1&format=json'
@@ -45,7 +45,7 @@ nominatim_point = function(query) {
     # print the first result name and return coordinates as sfc object
     if( is.null(nominatim_result[['display_name']]) ) { NULL } else {
       
-      message('OSM name: ',  nominatim_result[['display_name']] )
+      if(!quiet) message('OSM name: ',  nominatim_result[['display_name']] )
       nominatim_result[c('lon', 'lat')] |> 
         unlist() |> 
         as.numeric() |> 
@@ -62,7 +62,7 @@ nominatim_point = function(query) {
   # no results case returns NULL invisibly
   if( length(query_result) == 0 ) {
     
-    message('no results')
+    if(!quiet) message('no results')
     return( invisible(query_result) )
   }
   
@@ -81,8 +81,8 @@ nominatim_point = function(query) {
 #' @export
 #'
 #' @examples
-#' c(-110, 45) |> sf::st_point() |> to_utm()
-to_utm = function(x) {
+#' c(-110, 45) |> sf::st_point() |> get_utm()
+get_utm = function(x, quiet=FALSE) {
   
   # longitude and latitude from first element in the geometry collection
   xy = x |> sf::st_geometry() |> sf::st_transform(4326) |> head(1) |> sf::st_coordinates()
@@ -91,7 +91,7 @@ to_utm = function(x) {
   
   # UTM zone number from longitude
   utm_num = floor((lon + 180) / 6) + 1
-  message(paste('UTM zone:', utm_num))
+  if(!quiet) message(paste('UTM zone:', utm_num))
 
   # EPSG code from zone and signe of latitude (N/S)
   32700 + utm_num - 100*( sign(lat) + 1 )/2 
@@ -335,7 +335,7 @@ clipr = function(r, b, buffer=0, p=NULL) {
       
       # transform to UTM for the calculation if needed
       crs_b = sf::st_crs(b)
-      utm_b = to_utm(b) |> suppressMessages()
+      utm_b = get_utm(b) |> suppressMessages()
       if( sf::st_is_longlat(b) ) b = b |> sf::st_transform(utm_b)
       b = b |> sf::st_buffer(buffer) |> sf::st_transform(crs_b)
     }

@@ -191,7 +191,7 @@ get_statsgo = function(data_dir, model='statsgo') {
   outlet_path = save_catch(data_dir, overwrite=FALSE)[['outlet']]
   
   # load outlet to find appropriate UTM zone for computations
-  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> get_utm() |> suppressMessages()
   
   # sanity check 
   msg_error = paste('missing DEM bounding box polygon:', bbox_path)

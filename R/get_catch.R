@@ -54,7 +54,7 @@ get_catch = function(outlet, crs_out=4326, fast=FALSE, no_download=FALSE) {
   vpu_poly = nhdR::vpu_shp |> dplyr::filter(UnitType == 'VPU')
   
   # identify the VPU containing the outlet (use projected coordinates to avoid warning)
-  epsg_utm = to_utm(outlet) |> sf::st_crs()
+  epsg_utm = get_utm(outlet) |> sf::st_crs()
   outlet_utm =  outlet |> sf::st_transform(epsg_utm)
   covers_vpu = vpu_poly |> sf::st_transform(epsg_utm) |> sf::st_intersects(outlet_utm, sparse=FALSE)
   if( sum(covers_vpu) == 0 ) stop('outlet_point lies outside of all known VPUs')
@@ -277,7 +277,7 @@ open_catch = function(data_dir, extra=NULL, sub=FALSE) {
 #' 
 #' This returns a list of geometries and other information describing the catchment for the
 #' supplied `outlet` point. It first identifies the element of `catchment` containing
-#' the outlet and exhaustively traces all upstream paths by following the directed paths in
+#' the outlet and exhaustively traces all upstream paths by climbing the directed paths in
 #' `edge` and collecting the corresponding elements of `catchment` and `flow`.
 #' 
 #' The function returns the relevant subsets of `lake`, `edge`, `catchment` and `flow`, along
@@ -315,7 +315,7 @@ get_upstream = function(outlet, edge, catchment, flow=NULL, lake=NULL, fast=FALS
 
   # project to UTM for computations
   crs_in = sf::st_crs(catchment)
-  crs_utm = outlet |> sf::st_geometry() |> to_utm() |> suppressMessages()
+  crs_utm = outlet |> sf::st_geometry() |> get_utm() |> suppressMessages()
   outlet_utm = outlet |> sf::st_transform(crs_utm)
   
   # turn off spherical approximation for intersection with large set of polygons

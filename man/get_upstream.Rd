@@ -25,7 +25,7 @@ list containing appropriate subsets of flow, catchment, lake, edge (see details)
 \description{
 This returns a list of geometries and other information describing the catchment for the
 supplied \code{outlet} point. It first identifies the element of \code{catchment} containing
-the outlet and exhaustively traces all upstream paths by following the directed paths in
+the outlet and exhaustively traces all upstream paths by climbing the directed paths in
 \code{edge} and collecting the corresponding elements of \code{catchment} and \code{flow}.
 }
 \details{

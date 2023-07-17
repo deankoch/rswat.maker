@@ -28,7 +28,7 @@ get_dem = function(data_dir, pad_factor=1/10) {
   outlet_path = save_catch(data_dir, overwrite=FALSE)[['boundary']]
   
   # load outlet to find appropriate UTM zone for computations
-  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> to_utm() |> suppressMessages()
+  crs_utm = outlet_path |> sf::st_read(quiet=TRUE) |> get_utm() |> suppressMessages()
   
   # sanity check 
   msg_error = paste('missing boundary polygon:', boundary_path)
@@ -128,7 +128,7 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=Inf, thr
   outlet = save_catch(data_dir)['outlet'] |> sf::st_read(quiet=TRUE) 
   
   # make a template output raster in outlet UTM zone (coerced via sp object)
-  crs_out = to_utm(outlet) |> suppressMessages() 
+  crs_out = get_utm(outlet) |> suppressMessages() 
   rast_out = dem_bbox |> 
     sf::st_transform(crs_out) |>
     as('Spatial') |> 

@@ -4,7 +4,7 @@
 \alias{nominatim_point}
 \title{Return a point given a place-name query using Nominatim API for OpenStreetMaps (OSM)}
 \usage{
-nominatim_point(query)
+nominatim_point(query, quiet = FALSE)
 }
 \arguments{
 \item{query}{character, query to submit to Nominatim API}

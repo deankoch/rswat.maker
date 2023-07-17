@@ -76,7 +76,7 @@ If \code{sub=TRUE} the function processes the sub-catchments created by \code{ge
 This produces a complete set of QSWAT+ files for each of the sub-directories in "split"
 
 All geo-referenced outputs are written in UTM coordinates, where the zone is
-determined by the main outlet point location (see \code{?to_utm}).
+determined by the main outlet point location (see \code{?get_utm}).
 
 Lakes are burned into the land use raster with the integer code signifying 'watr'. Other
 \code{NA} values in this raster are assigned the (integer) code \code{na_land}, or if it is \code{NULL},
