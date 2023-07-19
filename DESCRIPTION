@@ -2,11 +2,12 @@ Package: rswat.maker
 Title: Fetches data on US watersheds and builds SWAT+ projects using QSWAT+ and SWAT+ Editor
 Version: 0.0.0.1000
 Authors@R: person("Dean", "Koch", , "dkoch@ualberta.ca", role = c("aut", "cre", "cph"))
-Description: This prepares the datasets required for running QSWAT+ on a basin of interest in the USA.
-The package includes tools for fetching an NHDPlus model for the basin, a DEM, land use and soils
-raster, USGS stream gage data, and more. Given an outlet location, users can call package functions
-to step through the entire process of building a (untrained) SWAT+ model, ready for execution in the
-simulator.
+Description: This prepares the datasets required for running QSWAT+ on a basin of
+    interest in the USA. The package includes tools for fetching an NHDPlus model
+    for the basin, a DEM, land use and soilsraster, USGS stream gage data, and more.
+    Given an outlet location, users can call package functions to step through the
+    entire process of building a (untrained) SWAT+ model, ready for execution in
+    the simulator.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
