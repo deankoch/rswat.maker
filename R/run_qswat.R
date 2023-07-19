@@ -108,7 +108,7 @@ run_qswat = function(data_dir,
   
   # location of the batch file that runs Python3
   batch_name = 'run_qswatplus.bat'
-  batch_dir = path.package('rswat.uyr') |> file.path('python')
+  batch_dir = path.package('rswat.maker') |> file.path('python')
   
   # it would be nice to be able to discover this automatically somehow 
   if( is.null(osgeo_dir) ) osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
