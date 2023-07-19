@@ -48,11 +48,11 @@
 #' disabled by default. Note however that the checks will happen whenever a QSWAT+ project
 #' `name` contains the string "test".
 #' 
-#' Before calling this function you will need to install QGIS 3.32.0 and the latest SWAT+
+#' Before calling this function you will need to install the latest QGIS bundle and SWAT+
 #' bundle, including QSWAT+ and SWAT+ Editor. You will also need to set `osgeo_dir` to point
 #' to your QGIS installation directory. By default this is set to 'C:/Program Files/QGIS 3.32.0',
-#' which should be the correct path for many (but not all) Windows users. Unfortunately I don't
-#' know an easy way to discover this path automatically from within R.
+#' which should be the correct path for many (but not all) Windows users at this time.
+#' Unfortunately I don't know an easy way to discover this path automatically from within R.
 #' 
 #' The function calls a Windows batch file that launches Python3 for QGIS3 and runs the
 #' script 'run_qswatplus.py'. This script uses the QSWAT+ plugin to complete the essential
