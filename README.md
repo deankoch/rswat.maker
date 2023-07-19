@@ -92,7 +92,8 @@ GIS tools accessible to a SWAT+ modeler. Like QGIS, R (and its CRAN
 packages) are open-source, free to use, and well-documented. We believe
 there is a great potential to improve SWAT+ by putting it under the
 microscope in R, where it can be confronted it with new methodologies
-and ideas that may deviate from the standard QSWAT+ workflow.
+and ideas that may deviate from the boilerplate SWAT+ model building
+process provided by the SWAT+ developers.
 
 ## Datasets
 
