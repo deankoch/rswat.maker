@@ -80,9 +80,7 @@ execution of QSWAT+ and SWAT+ Editor via shell scripts.
 
 ## Purpose
 
-SWAT+ has a limited but growing presence in the R data analysis world. The purpose of
-this package is to further bridge these two worlds by offering a model-building framework
-that can be completed, start-to-finish, without ever leaving the R environment. This workflow is:
+SWAT+ has a limited but growing presence in the R data analysis world. The purpose of this package is to further bridge these two worlds by offering a model-building framework that can be completed, start-to-finish, without ever leaving the R environment. This workflow is:
 
 1. reproducible
 2. programmable
