@@ -1,0 +1,29 @@
+---
+title: "lamar"
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(rswat.maker)
+```
+
+
+<!-- library(sf) -->
+
+<!-- # local path on my machine (you will probably need to change this!) -->
+<!-- output_dir = 'D:/rswat_data/lamar' -->
+
+<!-- # Lamar river gage site -->
+<!-- outlet = c(-110.0495, 45.00009) |> st_point() |> st_sfc(crs=4326) -->
+
+
+
+
+
+

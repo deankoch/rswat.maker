@@ -11,6 +11,11 @@ main_catch = subs[1] |> open_catch()
 main_catch |> plot_catch()
 for(i in c(3,4)) subs[i] |> open_catch() |> plot_catch(add=T)
 
+open_catch(subs[i])[['outlet']] |> sf::st_coordinates()
+
+
+
+run_maker(data_dir)
 
 
 

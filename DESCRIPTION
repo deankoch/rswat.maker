@@ -21,3 +21,4 @@ Imports:
     FedData,
     nhdR,
     units
+Config/Needs/website: rmarkdown
