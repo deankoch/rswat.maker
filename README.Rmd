@@ -74,11 +74,8 @@ The package helps us manage a freshwater forecasting system for the Upper Yellow
 River (UYR) watershed based around SWAT+ simulations.
 
 
-## Devlopment To-Do List
+## Development to-do list
 
-* make a common helpers file
-* make sure all geojson files use WGS84 coordinates
-* project to appropriate UTM zone before doing s2 operations
-* finish watershed splitter
-* Blacktail Deer example
+* CRAN checks
+* Lamar River vignette
 
