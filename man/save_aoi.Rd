@@ -7,7 +7,7 @@
 save_aoi(data_dir, dest_path, overwrite = FALSE, quiet = FALSE)
 }
 \arguments{
-\item{data_dir}{character path to the rqswat project directory}
+\item{data_dir}{character path to the run_maker project directory}
 
 \item{dest_path}{character, the file path to write}
 }
@@ -15,7 +15,7 @@ save_aoi(data_dir, dest_path, overwrite = FALSE, quiet = FALSE)
 the result of \code{sf::st_write}
 }
 \description{
-This collects all (QSWAT+) sub-basin polygons from an \code{rqswat} project
+This collects all (QSWAT+) sub-basin polygons from an \code{run_maker} project
 and writes them (with metadata) in WGS84 coordinates to \code{dest_path}.
 }
 \details{

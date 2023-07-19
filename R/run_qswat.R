@@ -101,7 +101,7 @@ run_qswat = function(data_dir,
   if( !is.character(data_dir) ) {
     
     is_sf = any( class(data_dir) %in% c('sf', 'sfc') )
-    if(is_sf) msg_dir = msg_dir |> paste0('. Did you means to call rqswat?')
+    if(is_sf) msg_dir = msg_dir |> paste0('. Did you means to call run_maker?')
     stop(msg_dir)
   }
   if( !dir.exists(data_dir) ) stop('project directory not found: ', data_dir)

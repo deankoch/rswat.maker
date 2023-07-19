@@ -17,7 +17,7 @@ load_wx(
 \arguments{
 \item{wx_dir}{character path to the data directory for \code{wxArchive}}
 
-\item{data_dir}{character path to the \code{rqswat} data directory for the (sub)catchment}
+\item{data_dir}{character path to the \code{run_maker} data directory for the (sub)catchment}
 
 \item{var_nm}{character, see choices by calling with \code{var_nm=NULL}}
 

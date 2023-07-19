@@ -9,7 +9,7 @@
 ## constants
 
 # PDF of open access paper at https://doi.org/10.5194/hess-22-2527-2018
-pdf_path = 'D:/rswat.uyr/data-raw/refs/hess-22-2527-2018.pdf'
+pdf_path = 'D:/rswat.maker/data-raw/refs/hess-22-2527-2018.pdf'
 
 # SQLite database from SWAT+ Installation or https://bitbucket.org/swatplus/swatplus.editor/downloads/
 swat_path = 'C:/SWAT/SWATPlus/Databases/swatplus_datasets.sqlite'

@@ -21,7 +21,7 @@
 #' 9. 'editor' runs SWAT+ Editor setup (see `?run_editor`)
 #' 
 #' Users can repeat a step manually by calling the associated helper function(s),
-#' or by calling `rqswat` with `what` set to the name of one or more steps.
+#' or by calling `run_maker` with `what` set to the name of one or more steps.
 #' For example setting `what=c('catch', 'dem', 'nwis', 'land' , 'soil')`) will
 #' fetch all the data needed to prepare a QSWAT+ project, at which point users
 #' could then create the project manually in QGIS3. 
@@ -50,7 +50,7 @@
 #' 
 #' If you are getting 404 errors on the very first step - downloading/opening the NHDPlus
 #' model - but you already have the necessary files cached locally (having called either
-#' `rqswat` or `save_catch` in `overwrite=TRUE` mode), try setting `no_download=TRUE`,
+#' `run_maker` or `save_catch` in `overwrite=TRUE` mode), try setting `no_download=TRUE`,
 #' which attempts to proceed even when the web service is down. This affects only the
 #' 'catch' step (1).
 #'
@@ -64,7 +64,7 @@
 #'
 #' @return a list of file paths written by the function
 #' @export
-rqswat = function(data_dir,
+run_maker = function(data_dir,
                       what = NULL,
                       outlet = NULL,
                       overwrite = FALSE,

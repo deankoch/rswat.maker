@@ -17,19 +17,23 @@ library(rswat)
 data_dir = 'D:/rswat_data/yellowstone'
 wx_dir = 'G:'
 
-subs = rqswat
-open_catch(data_dir, sub=TRUE)
+subs = run_maker(data_dir, what='split')[['sub']]
+
+data_dir |> open_catch() |> plot_catch(stream_col=NULL)
+for(i in c(1,3,4)) subs[i] |> open_catch() |> plot_catch(add=T)
+
+
 
 
 # full update
 # outlet = nominatim_point("Carter's Bridge, MT")
-# outlet |> rqswat(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
+# outlet |> run_maker(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
 # 
-rqswat(data_dir, what='editor')
+run_maker(data_dir, what='editor')
 
 
 
-rqswat(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
+run_maker(data_dir, nwis_from=as.Date('2005-01-01'), overwrite=TRUE, no_download=TRUE)
 
 subs = save_split(data_dir)[['sub']]
 i = 2

@@ -20,7 +20,7 @@
 #' can be copied to ".pcp" files using `rswat_open` and `rswat_write`.
 #'
 #' @param wx_dir character path to the data directory for `wxArchive`
-#' @param data_dir character path to the `rqswat` data directory for the (sub)catchment
+#' @param data_dir character path to the `run_maker` data directory for the (sub)catchment
 #' @param var_nm character, see choices by calling with `var_nm=NULL`
 #' @param sub_dir character, the sub-catchment directory name
 #' @param subbasin_id integer key from QSWAT+ identifying the sub-basin 
@@ -250,7 +250,7 @@ write_wx = function(sub_dir,
 
 #' Save sub-basins file for wxArchive
 #' 
-#' This collects all (QSWAT+) sub-basin polygons from an `rqswat` project
+#' This collects all (QSWAT+) sub-basin polygons from an `run_maker` project
 #' and writes them (with metadata) in WGS84 coordinates to `dest_path`.
 #' 
 #' Normally the file name is 'aoi_export.geojson' and the parent directory is
@@ -260,7 +260,7 @@ write_wx = function(sub_dir,
 #' 
 #' This function should be called at some point before `load_wx` (see `?load_wx`)
 #'
-#' @param data_dir character path to the rqswat project directory
+#' @param data_dir character path to the run_maker project directory
 #' @param dest_path character, the file path to write
 #'
 #' @return the result of `sf::st_write`
