@@ -60,17 +60,19 @@
 #' @param overwrite logical, if `FALSE` the function returns file paths and writes nothing
 #' @param force_overwrite logical, should the function overwrite existing files in `data_dir`?
 #' @param nwis_from Date, earlier dates are ignored in NWIS records (NULL to return all)
+#' @param osgeo_dir character, path to the QGIS installation on your local machine
 #' @param no_download logical, if TRUE `nhdR::nhd_plus_get` calls is skipped (for debugging)
 #'
 #' @return a list of file paths written by the function
 #' @export
 run_maker = function(data_dir,
-                      what = NULL,
-                      outlet = NULL,
-                      overwrite = FALSE,
-                      force_overwrite = FALSE,
-                      nwis_from = NULL,
-                      no_download = FALSE) {
+                     what = NULL,
+                     outlet = NULL,
+                     overwrite = FALSE,
+                     force_overwrite = FALSE,
+                     nwis_from = NULL,
+                     osgeo_dir = NULL,
+                     no_download = FALSE) {
                   
   # untested with any other choices 
   nwis_nm = 'flow_ft'
@@ -258,7 +260,7 @@ run_maker = function(data_dir,
       message(paste(i, '/', length(subs)))
       
       # run QSWAT+ using a PyQGIS3 script
-      all_path[['qswat']] = run_qswat(subs[i], overwrite=TRUE)
+      all_path[['qswat']] = run_qswat(subs[i], overwrite=TRUE, osgeo_dir=osgeo_dir)
     }
     
     qswat_exists = TRUE

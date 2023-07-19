@@ -11,6 +11,7 @@ run_maker(
   overwrite = FALSE,
   force_overwrite = FALSE,
   nwis_from = NULL,
+  osgeo_dir = NULL,
   no_download = FALSE
 )
 }
@@ -26,6 +27,8 @@ run_maker(
 \item{force_overwrite}{logical, should the function overwrite existing files in \code{data_dir}?}
 
 \item{nwis_from}{Date, earlier dates are ignored in NWIS records (NULL to return all)}
+
+\item{osgeo_dir}{character, path to the QGIS installation on your local machine}
 
 \item{no_download}{logical, if TRUE \code{nhdR::nhd_plus_get} calls is skipped (for debugging)}
 }
