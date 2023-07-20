@@ -203,7 +203,6 @@ get_split = function(data_dir,
                           edge = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
 
   })
-  stats::setNames(result_by_catch, outlet[['snail_name']])
   
   # # use shorter GNIS names whenever they are unique
   # nm_short = tolower(sapply(result_by_catch, \(x) most_frequent(x[['flow']], 'GNIS_NAME')))
@@ -211,6 +210,7 @@ get_split = function(data_dir,
   # nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
   
   # omit main outlet if it doesn't coincide with a gage
+  result_by_catch = stats::setNames(result_by_catch, outlet[['snail_name']])
   if(drop_main) result_by_catch = result_by_catch[ outlet[['snail_name']] != rswat_snail ]
   return(result_by_catch)
 }
