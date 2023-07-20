@@ -126,8 +126,8 @@ run_maker = function(data_dir,
   if( is.null(what) ) what = what_options
   
   # special keywords to do first and last parts only
-  if( (length(what)==1) & what == 'data' ) what = what_options |> head(6)
-  if( (length(what)==1) & what == 'swat' ) what = what_options |> tail(3)
+  if( (length(what)==1) ) if(what == 'data') what = what_options |> head(6)
+  if( length(what)==1 ) if(what == 'swat') what = what_options |> tail(3)
   
   # validity check
   what = what[what %in% what_options]
