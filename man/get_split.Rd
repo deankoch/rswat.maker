@@ -4,7 +4,12 @@
 \alias{get_split}
 \title{Split a catchment into sub-catchments with a gage point at each outlet}
 \usage{
-get_split(data_dir, gage = NULL, snap_main = units::set_units(100, m))
+get_split(
+  data_dir,
+  gage = NULL,
+  snap_main = units::set_units(100, m),
+  drop_main = TRUE
+)
 }
 \arguments{
 \item{data_dir}{character path to the directory to use for output files}
@@ -12,6 +17,8 @@ get_split(data_dir, gage = NULL, snap_main = units::set_units(100, m))
 \item{gage}{sf points data frame, with fields 'site_no', 'station_nm', and 'count'}
 
 \item{snap_main}{numeric with units, snapping distance to set "main" outlet}
+
+\item{drop_main}{logical, whether to omit the "main outlet created by rswat" sub-catchment}
 }
 \value{
 a list with one element per sub-catchment
@@ -49,7 +56,8 @@ If the main outlet of the catchment is not found within snapping distance
 point automatically. This ensures the set of output sub-catchment polygons always
 form a partition of the whole catchment. Depending on \code{snap_main} and the
 layout of the NHDPlus model in your study area, this can result in the creation of
-an additional sub-catchment named "main outlet created by rswat".
+an additional sub-catchment named "main outlet created by rswat". Set \code{drop_main}
+to always omit this (user-supplied) outlet, leaving only NWIS gage sites.
 
 The "true" outlet point for a sub-catchment under the NHD model lies at the
 intersection of the boundary of the NHD polygon for the outlet COMID and its

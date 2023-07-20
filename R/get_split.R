@@ -31,7 +31,8 @@
 #' point automatically. This ensures the set of output sub-catchment polygons always
 #' form a partition of the whole catchment. Depending on `snap_main` and the
 #' layout of the NHDPlus model in your study area, this can result in the creation of
-#' an additional sub-catchment named "main outlet created by rswat".
+#' an additional sub-catchment named "main outlet created by rswat". Set `drop_main`
+#' to always omit this (user-supplied) outlet, leaving only NWIS gage sites.
 #' 
 #' The "true" outlet point for a sub-catchment under the NHD model lies at the
 #' intersection of the boundary of the NHD polygon for the outlet COMID and its
@@ -49,12 +50,17 @@
 #' @param data_dir character path to the directory to use for output files
 #' @param gage sf points data frame, with fields 'site_no', 'station_nm', and 'count'
 #' @param snap_main numeric with units, snapping distance to set "main" outlet
+#' @param drop_main logical, whether to omit the "main outlet created by rswat" sub-catchment
 #'
 #' @return a list with one element per sub-catchment
 #' @export
 get_split = function(data_dir, 
                      gage = NULL, 
-                     snap_main = units::set_units(100, m)) {
+                     snap_main = units::set_units(100, m),
+                     drop_main = TRUE) {
+  
+  rswat_name = 'main outlet created by rswat'
+  rswat_snail = gsub('[^A-z]+', '_', rswat_name, perl=TRUE) |> tolower()
   
   # look for default USGS stream gage stations found by `get_nwis`
   if( is.null(gage) ) {
@@ -91,7 +97,7 @@ get_split = function(data_dir,
     new_row = gage[0,] |> sf::st_drop_geometry()
     new_row[1,] = NA
     new_row[['count']] = 0
-    new_row[['station_nm']] = 'main outlet created by rswat'
+    new_row[['station_nm']] = rswat_name
     
     # add it to the `gage` points and mark as the main 
     gage = sf::st_sf(new_row, geometry=sf::st_geometry(outlet_main)) |> rbind(gage)
@@ -126,7 +132,7 @@ get_split = function(data_dir,
   # load lakes
   lake_utm = save_catch(data_dir)['lake'] |> sf::st_read(quiet=TRUE) |> sf::st_transform(crs_utm)
 
-  # split remaining features at sub-catchments
+  # split remaining features at sub-catchments, use file-name-friendly title for names
   result_by_catch = nrow(outlet) |> seq() |> lapply(\(i) {
 
     # avoid slow spatial query by following the COMIDs
@@ -197,14 +203,16 @@ get_split = function(data_dir,
                           edge = edge[ edge[['TOCOMID']] %in% flow_sub[['COMID']], ]))
 
   })
+  stats::setNames(result_by_catch, outlet[['snail_name']])
   
   # # use shorter GNIS names whenever they are unique
   # nm_short = tolower(sapply(result_by_catch, \(x) most_frequent(x[['flow']], 'GNIS_NAME')))
   # nm_short = gsub('[^A-z]+', '_', nm_short)
   # nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
   
-  # use file-name-friendly title for names
-  return(stats::setNames(result_by_catch, outlet[['snail_name']]))
+  # omit main outlet if it doesn't coincide with a gage
+  if(drop_main) result_by_catch = result_by_catch[ outlet[['snail_name']] != rswat_snail ]
+  return(result_by_catch)
 }
 
 
