@@ -23,8 +23,9 @@
 #' 
 #' The new positions are returned as sf data frame 'nudge' in a list along with the
 #' affected upstream sub-basin polygons (sf data frame 'trim'). If no problems are detected,
-#' the function returns empty data frames. If both (1) and (2) occur simultaneously, (2)
-#' is ignored and the function returns only the new main outlet position.
+#' the function returns empty data frames. If `check_main=TRUE` and (1) occurs, then (2) is
+#' ignored and the function returns only the new main outlet position. If `check_main=FALSE`
+#' and (1) occurs, the function ignores it and checks only (2).
 #' 
 #' When `make_plot=TRUE` the function draws the DEM heatmap and overlays:
 #' 
@@ -42,7 +43,7 @@
 #'
 #' @return list with elements 'nudge' and 'trim'
 #' @export
-check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL) {
+check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL, check_main=FALSE) {
 
   # default nudge distance is one-half diagonal pixel width of DEM
   if( is.null(nudge_dist)) nudge_dist = save_qswat(data_dir)[['dem']] |> 
@@ -108,12 +109,20 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL) {
   
   # trace upstream connections to identify unmapped elements
   channel_valid = channel[['LINKNO']] %in% upstream_linkno
-  linkno_check = channel[['LINKNO']][!channel_valid] |> sort() |> list()
   main_invalid = sum(!channel_valid) > 0
   msg_problem = 'delineation error: channel(s) not draining to the main outlet'
+  if( main_invalid ) {
+    
+    # warn in case of errors here if not fixing them
+    if(check_main) {
+      
+      linkno_check = channel[['LINKNO']][!channel_valid] |> sort()
+      outlet_check = outlet[ outlet[['INLET']] == 0, ]
+    }
+  }
   
-  # deal with main outlet issues first
-  if( main_invalid ) { outlet_check = outlet[ outlet[['INLET']] == 0, ] } else { 
+  # deal with main outlet issues first if requested
+  if( !( main_invalid & check_main) ) { 
     
     # check inlets only after main passes check
     if( n_out > 1 ) {
@@ -126,17 +135,17 @@ check_qswat = function(data_dir, make_plot=TRUE, nudge_dist=NULL) {
       upstream_linkno = outlet_linkno |> lapply(\(x) comid_up(x, edge, hw=-1) )
       
       # check for more than one upstream linkage from any inlet
-      linkno_check = Map(\(x, y, z) x[ !(x %in% y) ], x = upstream_linkno, y = outlet_linkno)
-      is_inlet_problem = sapply(linkno_check, length) > 0
+      linkno_inlet_check = Map(\(x, y, z) x[ !(x %in% y) ], x = upstream_linkno, y = outlet_linkno)
+      is_inlet_problem = sapply(linkno_inlet_check, length) > 0
       if( any(is_inlet_problem) ) {
 
-        linkno_check = linkno_check[is_inlet_problem]
+        linkno_check = linkno_inlet_check[is_inlet_problem]
         msg_problem = 'delineation error: channel(s) found upstream of inlet'
         outlet_check = outlet[outlet[['INLET']] == 1, ][is_inlet_problem, ]
       }
     }
   }
-
+  
   # warn of problem outlets and attempt to repair them
   if( nrow(outlet_check) > 0 ) {
     

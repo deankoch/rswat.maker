@@ -4,7 +4,7 @@
 \alias{check_qswat}
 \title{Check for QSWAT+ delineation problems and fix them by nudging outlets(s) downstream}
 \usage{
-check_qswat(data_dir, make_plot = TRUE, nudge_dist = NULL)
+check_qswat(data_dir, make_plot = TRUE, nudge_dist = NULL, check_main = FALSE)
 }
 \arguments{
 \item{data_dir}{character path the the project directory}
@@ -42,8 +42,9 @@ outlet point. The default distance (\code{nudge_dist=NULL}) is set to the averag
 
 The new positions are returned as sf data frame 'nudge' in a list along with the
 affected upstream sub-basin polygons (sf data frame 'trim'). If no problems are detected,
-the function returns empty data frames. If both (1) and (2) occur simultaneously, (2)
-is ignored and the function returns only the new main outlet position.
+the function returns empty data frames. If \code{check_main=TRUE} and (1) occurs, then (2) is
+ignored and the function returns only the new main outlet position. If \code{check_main=FALSE}
+and (1) occurs, the function ignores it and checks only (2).
 
 When \code{make_plot=TRUE} the function draws the DEM heatmap and overlays:
 \itemize{
