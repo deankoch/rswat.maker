@@ -124,7 +124,7 @@ run_maker = function(data_dir,
   if( length(what) == 0 ) stop('argument `what` must be one of: ', what_options_str)
   
   # return from list mode
-  if( !overwrite ) return(all_path[[what]])
+  if( !overwrite ) return( invisible(all_path[what]) )
   
   # get watershed geometries from NHD if necessary (using `nhdR`)
   catch_exists = file.exists(nhd_path) |> all()
@@ -140,7 +140,7 @@ run_maker = function(data_dir,
     catch_exists = TRUE
     message('done')
     
-  } else { message('catchment model exists already') }
+  } else { if('catch' %in% what) message('catchment model exists already') }
 
   
   # get stream gage records from NWIS (using `dataRetrieval`)
@@ -158,7 +158,7 @@ run_maker = function(data_dir,
       nwis_exists = TRUE
       message('done')
   
-    } else { 
+    } else {
       
       # keep existing stations but update service records
       message('')
@@ -180,7 +180,7 @@ run_maker = function(data_dir,
     dem_exists = TRUE
     message('done') 
     
-  } else { message('DEM exists already') }
+  } else { if('dem' %in% what) message('DEM exists already') }
   
   # get land use data from GAP/LANDFIRE
   land_exists = unlist(land_path) |> file.exists() |> all()
@@ -195,7 +195,7 @@ run_maker = function(data_dir,
     land_exists = TRUE
     message('done')
     
-  } else { message('land use data exists already') }
+  } else { if('land' %in% what) message('land use data exists already') }
   
   # get soils from USDA (using 'FedData' and FPAC Box URLs)
   soil_exists =  unlist(soils_path) |> file.exists() |> all()
@@ -210,7 +210,7 @@ run_maker = function(data_dir,
     soil_exists = TRUE
     message('done')
     
-  } else { message('soil data exists already') }
+  } else { if('soil' %in% what) message('soil data exists already') }
   
   # split into sub-catchments and copy relevant data subsets
   if( ('split' %in% what) & ( force_overwrite | !split_exists ) ) {
@@ -224,7 +224,7 @@ run_maker = function(data_dir,
     split_exists = TRUE
     message('done')
     
-  } else { message('split exists already') }
+  } else { if('split' %in% what) message('split exists already') }
 
   # make shape-files for QSWAT+
   input_exists = !is.null(all_path[['input']])
@@ -240,7 +240,7 @@ run_maker = function(data_dir,
     all_path[['input']] = save_qswat(data_dir, sub=TRUE, overwrite=TRUE)
     message('done')
     
-  } else { message('QSWAT+ inputs exist already') }
+  } else { if('input' %in% what) message('QSWAT+ inputs exist already') }
   
   # run QSWAT+
   qswat_exists = !is.null(all_path[['qswat']])
@@ -266,7 +266,7 @@ run_maker = function(data_dir,
     qswat_exists = TRUE
     message('done')
     
-  } else { message('QSWAT+ output exists already') }
+  } else { if('qswat' %in% what) message('QSWAT+ output exists already') }
   
   # run SWAT+ Editor
   editor_exists = !is.null(all_path[['editor']])
@@ -292,8 +292,9 @@ run_maker = function(data_dir,
     }
     message('done')
     
-  } else { message('editor+ output exists already') }
+  } else { if('editor' %in% what) message('SWAT+ Editor output exists already') }
   
+  message('')
   if(length(what) > 1) message('all done')
   return( invisible(all_path) )
 }
