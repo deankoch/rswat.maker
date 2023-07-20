@@ -22,9 +22,9 @@
 #' 
 #' Users can repeat a step manually by calling the associated helper function(s),
 #' or by calling `run_maker` with `what` set to the name of one or more steps.
-#' For example setting `what=c('catch', 'dem', 'nwis', 'land' , 'soil')`) will
-#' fetch all the data needed to prepare a QSWAT+ project, at which point users
-#' could then create the project manually in QGIS3. 
+#' For example setting `what=c('catch', 'dem', 'nwis', 'land' , 'soil')`) (or
+#' `what='data'` for short) will fetch all the data needed to prepare a QSWAT+
+#' project, at which point users could then create the project manually in QGIS3. 
 #' 
 #' When `force_overwrite=FALSE` (the default), the function skips steps where
 #' the output files (in `data_dir`) all exist already. However if `what` is
@@ -120,11 +120,14 @@ run_maker = function(data_dir,
   what_options = names(all_path)
   what_options_str = paste(what_options, collapse=', ')
   if( is.null(what) ) what = what_options
+  if( what == 'data' ) what = what_options |> head(6)
   what = what[what %in% what_options]
   if( length(what) == 0 ) stop('argument `what` must be one of: ', what_options_str)
   
-  # return from list mode
-  if( !overwrite ) return( invisible(all_path[what]) )
+  # unlist the length-1 output 
+  path_result = all_path[what]
+  if( length(path_result) == 1 ) path_result = path_result[[1]]
+  if( !overwrite ) return( invisible(path_result) )
   
   # get watershed geometries from NHD if necessary (using `nhdR`)
   catch_exists = file.exists(nhd_path) |> all()

@@ -204,7 +204,7 @@ get_split = function(data_dir,
   # nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
   
   # use file-name-friendly title for names
-  return(stats::setNames(result_by_catch, nm_short))
+  return(stats::setNames(result_by_catch, outlet[['snail_name']]))
 }
 
 
