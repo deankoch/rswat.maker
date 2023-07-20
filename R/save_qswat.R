@@ -223,7 +223,9 @@ save_qswat = function(data_dir,
   # use outlet gage coordinates (rather than NHD outlet) if they are available
   if( !is.null(catch_list[['gage']]) ) {
   
+    # omit NA site numbers (probably a main outlet added by this package)
     gage = catch_list[['gage']] |> sf::st_transform(crs_out)
+    gage = gage[ !is.na((gage[['site_no']])), ]
     if( site_no %in% na.omit(gage[['site_no']]) ) outlet = gage[gage[['site_no']] == site_no, ]
   }
   
