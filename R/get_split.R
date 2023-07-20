@@ -198,10 +198,10 @@ get_split = function(data_dir,
 
   })
   
-  # use shorter GNIS names whenever they are unique
-  nm_short = tolower(sapply(result_by_catch, \(x) most_frequent(x[['flow']], 'GNIS_NAME')))
-  nm_short = gsub('[^A-z]+', '_', nm_short)
-  nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
+  # # use shorter GNIS names whenever they are unique
+  # nm_short = tolower(sapply(result_by_catch, \(x) most_frequent(x[['flow']], 'GNIS_NAME')))
+  # nm_short = gsub('[^A-z]+', '_', nm_short)
+  # nm_short[ duplicated(nm_short) ] = outlet[['snail_name']][ duplicated(nm_short) ]
   
   # use file-name-friendly title for names
   return(stats::setNames(result_by_catch, nm_short))
