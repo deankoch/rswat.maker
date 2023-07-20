@@ -70,7 +70,7 @@ run_maker = function(data_dir,
                      outlet = NULL,
                      overwrite = FALSE,
                      force_overwrite = FALSE,
-                     nwis_from = NULL,
+                     nwis_from = as.Date('2005-01-01'),
                      osgeo_dir = NULL,
                      no_download = FALSE) {
                   
@@ -98,11 +98,15 @@ run_maker = function(data_dir,
     # open all QSWAT+ input JSON files to get input file paths
     qswat_input_path = data_dir |> save_qswat(sub=TRUE)
     
-    # similar call for output paths, but `run_qswat` does not have `sub` arg so we loop
-    qswat_output_path = stats::setNames(nm=split_path[['sub']]) |> lapply(run_qswat)
-    
-    # and again for SWAT+ Editor
-    editor_output_path = stats::setNames(nm=split_path[['sub']]) |> lapply(run_qswat)
+    qswat_exists = unlist(qswat_input_path) |>  file.exists() |> all()
+    if(qswat_exists) {
+      
+      # similar call for output paths, but `run_qswat` does not have `sub` arg so we loop
+      qswat_output_path = stats::setNames(nm=split_path[['sub']]) |> lapply(run_qswat)
+      
+      # and again for SWAT+ Editor
+      editor_output_path = stats::setNames(nm=split_path[['sub']]) |> lapply(run_qswat)
+    }
   }
 
   # concatenate paths in list
@@ -120,11 +124,16 @@ run_maker = function(data_dir,
   what_options = names(all_path)
   what_options_str = paste(what_options, collapse=', ')
   if( is.null(what) ) what = what_options
-  if( what == 'data' ) what = what_options |> head(6)
+  
+  # special keywords to do first and last parts only
+  if( (length(what)==1) & what == 'data' ) what = what_options |> head(6)
+  if( (length(what)==1) & what == 'swat' ) what = what_options |> tail(3)
+  
+  # validity check
   what = what[what %in% what_options]
   if( length(what) == 0 ) stop('argument `what` must be one of: ', what_options_str)
   
-  # unlist the length-1 output 
+  # unlist the length-1 output in single step results
   path_result = all_path[what]
   if( length(path_result) == 1 ) path_result = path_result[[1]]
   if( !overwrite ) return( invisible(path_result) )

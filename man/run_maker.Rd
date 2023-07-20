@@ -10,7 +10,7 @@ run_maker(
   outlet = NULL,
   overwrite = FALSE,
   force_overwrite = FALSE,
-  nwis_from = NULL,
+  nwis_from = as.Date("2005-01-01"),
   osgeo_dir = NULL,
   no_download = FALSE
 )
@@ -60,9 +60,9 @@ in the correct order:
 
 Users can repeat a step manually by calling the associated helper function(s),
 or by calling \code{run_maker} with \code{what} set to the name of one or more steps.
-For example setting \code{what=c('catch', 'dem', 'nwis', 'land' , 'soil')}) will
-fetch all the data needed to prepare a QSWAT+ project, at which point users
-could then create the project manually in QGIS3.
+For example setting \code{what=c('catch', 'dem', 'nwis', 'land' , 'soil')}) (or
+\code{what='data'} for short) will fetch all the data needed to prepare a QSWAT+
+project, at which point users could then create the project manually in QGIS3.
 
 When \code{force_overwrite=FALSE} (the default), the function skips steps where
 the output files (in \code{data_dir}) all exist already. However if \code{what} is
