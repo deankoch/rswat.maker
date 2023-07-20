@@ -10,7 +10,7 @@ run_maker(
   outlet = NULL,
   overwrite = FALSE,
   force_overwrite = FALSE,
-  nwis_from = as.Date("2005-01-01"),
+  nwis_from = NULL,
   osgeo_dir = NULL,
   no_download = FALSE
 )
