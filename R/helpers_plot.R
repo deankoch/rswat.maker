@@ -36,7 +36,7 @@
 #' Note that `add_scale` and `main` have no effect when adding to an existing plot
 #' with `add=TRUE`.
 #'
-#' @param sub_list list or geometries returned by `get_split`, `get_catch`, or `open_catch`
+#' @param sub_list list of geometries returned by `get_split`, `get_catch`, or `open_catch`
 #' @param crs_out CRS code accepted by `sf::st_crs` or NULL to use local UTM
 #' @param add logical whether to add to an existing plot, or (if `FALSE`) create a new one
 #' @param lwd line width for stem lines and boundaries
@@ -190,6 +190,8 @@ plot_catch = function(sub_list,
 #' @export
 plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE, mask=FALSE, a=1) {
 
+  nm_valid = c('dem', 'land', 'soil')
+  if( !(what %in% nm_valid ) ) stop('valid choices for `what` are: ', paste(nm_valid, collapse=', '))
   
   # open catchment data
   if(catch) {
