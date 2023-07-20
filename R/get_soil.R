@@ -257,7 +257,7 @@ get_statsgo = function(data_dir, model='statsgo') {
       
       # download and unzip a .dbf file containing soil survey area keys
       message('fetching soil survey area keys')
-      dir.create(raw_dir)
+      dir.create(raw_dir, recursive=TRUE)
       path_ssa_zip = FedData::download_ssurgo_inventory(raw_dir)
       path_ssa_all = raw_dir |> file.path(basename(path_ssa_zip)) |> unzip(exdir=raw_dir)
     }
