@@ -37,8 +37,6 @@ load_wx = function(wx_dir,
                    from = NULL,
                    quiet = FALSE) {
   
-  
-  
   # the expected file mapping sub-basins to CSV files
   aoi_file = 'aoi_export.geojson'
   

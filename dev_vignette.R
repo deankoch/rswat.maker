@@ -1,9 +1,32 @@
+
+
 library(devtools)
+#install()
+
 load_all()
-document()
+#document()
+
 
 # open the main project to get an overview map
 data_dir = 'D:/rswat_data/yellowstone'
+
+# local path on my machine (you will probably need to change this!)
+output_dir = 'D:/rswat_data/lamar'
+
+# Lamar river gage site -->
+outlet = c(-110.0495, 45.00009) |> sf::st_point() |> sf::st_sfc(crs=4326)
+
+# update if needed
+
+
+
+  
+  
+
+
+
+
+
 subs = run_maker(data_dir, what='split')[['sub']]
 
 #data_dir |> open_catch() |> plot_catch(stream_col=NULL)
@@ -11,13 +34,8 @@ main_catch = subs[1] |> open_catch()
 main_catch |> plot_catch()
 for(i in c(3,4)) subs[i] |> open_catch() |> plot_catch(add=T)
 
+# coordinates of the outlet for this example
 open_catch(subs[i])[['outlet']] |> sf::st_coordinates()
-
-
-
-run_maker(data_dir)
-
-
 
 
 outlet = "Carter's Bridge, MT"

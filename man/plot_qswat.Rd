@@ -4,14 +4,20 @@
 \alias{plot_qswat}
 \title{Plot QSWAT+ geometries}
 \usage{
-plot_qswat(data_dir, check_result = NULL, what = "dem", quiet = FALSE)
+plot_qswat(
+  data_dir,
+  check_result = NULL,
+  what = NULL,
+  quiet = FALSE,
+  add = FALSE
+)
 }
 \arguments{
 \item{data_dir}{character path to the data directory}
 
 \item{check_result}{list, the result of \code{check_qswat} (to overlay)}
 
-\item{what}{character, either 'dem', 'land', or, 'soil'}
+\item{what}{character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'}
 }
 \value{
 nothing but draws a plot

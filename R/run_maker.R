@@ -12,7 +12,7 @@
 #' 
 #' 1. 'catch' gets the initial catchment model (see `?get_catch`)
 #' 2. 'dem' gets the digital elevation model raster (see `?get_dem`)
-#' 3. 'nwis' gets daily stream gauge records (see `?get_nwis`)
+#' 3. 'nwis' gets daily stream gage records (see `?get_nwis`)
 #' 4. 'land' gets a land use raster (see `?get_land`)
 #' 5. 'soil' gets a soil MUKEY raster (see `?get_soil`)
 #' 6. 'split' partitions the catchment into sub-catchments (see `?get_split`)
@@ -29,7 +29,7 @@
 #' When `force_overwrite=FALSE` (the default), the function skips steps where
 #' the output files (in `data_dir`) all exist already. However if `what` is
 #' `NULL` (the default) or set to 'nwis', the function will download and save
-#' (on disk) the latest daily gauge data for your stations of interest.
+#' (on disk) the latest daily gage data for your stations of interest.
 #' 
 #' Steps (1-5) each download something (unless it is already cached locally) and
 #' write processed outputs to like-named new sub-directories of `data_dir`. Step

@@ -49,7 +49,7 @@ in the correct order:
 \enumerate{
 \item 'catch' gets the initial catchment model (see \code{?get_catch})
 \item 'dem' gets the digital elevation model raster (see \code{?get_dem})
-\item 'nwis' gets daily stream gauge records (see \code{?get_nwis})
+\item 'nwis' gets daily stream gage records (see \code{?get_nwis})
 \item 'land' gets a land use raster (see \code{?get_land})
 \item 'soil' gets a soil MUKEY raster (see \code{?get_soil})
 \item 'split' partitions the catchment into sub-catchments (see \code{?get_split})
@@ -67,7 +67,7 @@ project, at which point users could then create the project manually in QGIS3.
 When \code{force_overwrite=FALSE} (the default), the function skips steps where
 the output files (in \code{data_dir}) all exist already. However if \code{what} is
 \code{NULL} (the default) or set to 'nwis', the function will download and save
-(on disk) the latest daily gauge data for your stations of interest.
+(on disk) the latest daily gage data for your stations of interest.
 
 Steps (1-5) each download something (unless it is already cached locally) and
 write processed outputs to like-named new sub-directories of \code{data_dir}. Step

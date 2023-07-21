@@ -17,7 +17,7 @@ outputs and more.
 
 1.  fetch an initial catchment model from NHDPlus (see `?get_catch`)
 2.  fetch a digital elevation model raster from the NED (see `?get_dem`)
-3.  fetch daily stream gauge records from USGS (see `?get_nwis`)
+3.  fetch daily stream gage records from USGS (see `?get_nwis`)
 4.  fetch a land use raster from NLCD (see `?get_land`)
 5.  fetch a soil MUKEY raster based on SSURGO and STATSGO2 (see
     `?get_soil`)

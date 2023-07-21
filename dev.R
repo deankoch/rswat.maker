@@ -401,7 +401,7 @@ burn=50
 # qswat_path = save_qswat(subs[i])[['config']]
 # 
 # batch_name = 'run_qswatplus.bat'
-# batch_dir = path.package('rswat.maker') |> file.path('python')
+# batch_dir = path.package('rswat.maker') |> file.path('exec')
 # osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
 # 
 # # build the shell command 

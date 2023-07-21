@@ -26,7 +26,7 @@ An R package for building QSWAT+ inputs and creating SWAT+ projects in Windows. 
 
 1. fetch an initial catchment model from NHDPlus (see `?get_catch`)
 2. fetch a digital elevation model raster from the NED (see `?get_dem`)
-3. fetch daily stream gauge records from USGS (see `?get_nwis`)
+3. fetch daily stream gage records from USGS (see `?get_nwis`)
 4. fetch a land use raster from NLCD (see `?get_land`)
 5. fetch a soil MUKEY raster based on SSURGO and STATSGO2 (see `?get_soil`)
 6. partition the catchment into sub-catchments (see `?get_split`)
@@ -143,4 +143,5 @@ in research and improve the SWAT+ model input methodology. See also our related 
 
 * CRAN checks
 * Lamar River vignette
+
 

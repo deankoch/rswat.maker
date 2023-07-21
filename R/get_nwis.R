@@ -25,8 +25,9 @@
 #' with `refresh=FALSE`.
 #' 
 #' Specify a different variable of interest by changing the parameter and
-#' statistic codes `param_code` and  `stat_code` (see also `?data_nwis`, and
-#' `?dataRetrieval::whatNWISdata`). 
+#' statistic codes `param_code` and  `stat_code` (see also `?load_nwis`, and
+#' `?dataRetrieval::whatNWISdata`). The default settings select mean daily stream
+#' flow in ft3/s.
 #' 
 #' When changing `from_initial`, `param_code`, or `stat_code`, you should either
 #' change/delete the output directory (`nwis_nm`), or else set `refresh=TRUE` to
