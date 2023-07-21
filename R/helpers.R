@@ -313,16 +313,16 @@ biggest_poly = function(poly_list) {
 #' # dem |> terra::plot()
 #' # plot(b, add=T)
 #' 
-#' # clipr result
-#' r_result = dem |> clipr(b)
+#' # clip_raster result
+#' r_result = dem |> clip_raster(b)
 #' # r_result |> terra::plot()
 #' # plot(b, add=T)
 #' 
 #' # same result using buffer argument
-#' r_result2 = dem |> clipr(sf::st_centroid(bbox), buffer)
+#' r_result2 = dem |> clip_raster(sf::st_centroid(bbox), buffer)
 #' all.equal(r_result, r_result2)
 #' 
-clipr = function(r, b, buffer=0, p=NULL) {
+clip_raster = function(r, b, buffer=0, p=NULL) {
 
   # infinite buffer means just return/write the raster unchanged
   if( !is.infinite(buffer) ) {

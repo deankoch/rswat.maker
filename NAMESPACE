@@ -2,7 +2,7 @@
 
 export(biggest_poly)
 export(check_qswat)
-export(clipr)
+export(clip_raster)
 export(comid_down)
 export(comid_up)
 export(data_nwis)
