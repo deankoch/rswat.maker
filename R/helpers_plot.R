@@ -4,8 +4,11 @@
 #' features in sequence to a new or existing plot. Set a colour argument to
 #' `NULL` to not draw the associated feature.
 #' 
-#' `sub_list` should be the output of `get_catch` or `get_split` (or one of
-#' its sub-catchment elements). 
+#' `sub_list` should be the output of `open_catch`, `get_catch` or `get_split`
+#' (or one of its sub-catchment elements). Users can also instead pass a character
+#' specifying the data directory path to load. If this is the root directory for
+#' a project with subdirectory "split", users can additionally set `sub=TRUE` to
+#' specify that the sub-catchments in "split" be plotted.
 #' 
 #' For a single (sub)catchment this draws, in order: the (sub)catchment interior
 #' and boundary; minor and main-stem flow lines; lakes; outlets, inlets and gages.
@@ -36,7 +39,7 @@
 #' Note that `add_scale` and `main` have no effect when adding to an existing plot
 #' with `add=TRUE`.
 #'
-#' @param sub_list list of geometries returned by `get_split`, `get_catch`, or `open_catch`
+#' @param sub_list character path or list of geometries from `get_split`, `get_catch`, or `open_catch`
 #' @param crs_out CRS code accepted by `sf::st_crs` or NULL to use local UTM
 #' @param add logical whether to add to an existing plot, or (if `FALSE`) create a new one
 #' @param lwd line width for stem lines and boundaries
@@ -49,6 +52,7 @@
 #' @param inlet_col character fill color for inlet points
 #' @param add_scale logical, whether to add a scale bar
 #' @param main character, a title for the plot
+#' @param sub logical, passed to `open_catch` when `sub_list` is a path 
 #' 
 #' @return returns nothing but either creates a plot or adds to an existing one
 #' @export
@@ -65,8 +69,13 @@ plot_catch = function(sub_list,
                       outlet_col = 'white',
                       inlet_col = 'white',
                       add_scale = TRUE,
-                      main = NULL) {
+                      main = NULL,
+                      sub = FALSE) {
                     
+  
+  # attempt to load if first argument is character (assume it's a path)
+  if( is.character(sub_list) ) sub_list = normalizePath(sub_list) |> open_catch(sub=sub) 
+  
   # put first argument in list if needed
   if( !is.list( sub_list[[1]] ) ) sub_list = sub_list |> list()
   if( is.null(sub_list[[1]][['outlet']]) ) sub_list = sub_list |> list()
@@ -188,7 +197,13 @@ plot_catch = function(sub_list,
 #'
 #' @return nothing, but creates a plot
 #' @export
-plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE, mask=FALSE, a=1) {
+plot_rast = function(data_dir, what='dem',
+                     main = NULL,
+                     catch = TRUE,
+                     add_scale = TRUE,
+                     mask = FALSE,
+                     a = 1,
+                     ...) {
 
   nm_valid = c('dem', 'land', 'soil')
   if( !(what %in% nm_valid ) ) stop('valid choices for `what` are: ', paste(nm_valid, collapse=', '))
@@ -207,7 +222,6 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     }
   }
   
-  
   # set a default title
   if( is.null(main) ) main = basename(data_dir)
   
@@ -222,13 +236,14 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
   if(what=='dem') {
     
     r = save_dem(data_dir)['dem'] |> terra::rast() 
-    if( mask ) r = clipr(r, bou)
+    if( mask ) r = clip_raster(r, bou)
     colour = grDevices::terrain.colors(50)[10:40] |> adjustcolor(a)
     r |>  terra::plot(axes = FALSE,
                       reset = FALSE,
                       main = main,
                       plg = list(title='meters', size=0.8),
-                      col = colour)
+                      col = colour,
+                      ...)
   }
   
   # land use plot using NLCD colors
@@ -236,18 +251,19 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
     
     # get a palette from NLCD and filter to IDs found in this extent
     r = save_land(data_dir)['land'] |> terra::rast() 
-    if( mask ) r = clipr(r, bou)
+    if( mask ) r = clip_raster(r, bou)
     pal = FedData::pal_nlcd()[c('ID', 'Color', 'Class')] |> 
       dplyr::filter(ID %in% na.omit(unique(r[])))
     
     # make r a factor raster then plot
     colour = pal[['Color']] |> adjustcolor(a)
-    levels(r) = pal[c('ID', 'Class')]
+    levels(r) = pal[c('ID', 'Class')] |> as.data.frame()
     r |> terra::plot(axes = FALSE,
                      reset = FALSE,
                      main = main,
                      col = colour,
-                     plg = list(cex=0.8))
+                     plg = list(cex=0.8),
+                     ...)
   }
   
   # soils plot using random rainbow color assignment
@@ -255,7 +271,7 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
 
     # categorical data, but the MUKEY doesn't mean much in itself
     r = save_soil(data_dir)[['soil']]['soil'] |> terra::rast()
-    if( mask ) r = clipr(r, bou)
+    if( mask ) r = clip_raster(r, bou)
     mukey = r[] |> unique() |> na.omit() |> c()
 
     # set the levels and labels in the raster before plotting
@@ -265,7 +281,8 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
                      reset = FALSE,
                      col = colour,
                      main = main,
-                     legend = FALSE)
+                     legend = FALSE,
+                     ...)
   }
 
   # distance scale bar
@@ -299,11 +316,11 @@ plot_rast = function(data_dir, what='dem', main=NULL, catch=TRUE, add_scale=TRUE
 #'
 #' @param data_dir character path to the data directory
 #' @param check_result list, the result of `check_qswat` (to overlay)
-#' @param what character, either 'dem', 'land', or, 'soil'
+#' @param what character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'
 #'
 #' @return nothing but draws a plot
 #' @export
-plot_qswat = function(data_dir, check_result=NULL, what='dem', quiet=FALSE) {
+plot_qswat = function(data_dir, check_result=NULL, what=NULL, quiet=FALSE, add=FALSE) {
   
   # default transparency helpers
   white = \(a=0.3) adjustcolor('white', a)
@@ -316,8 +333,19 @@ plot_qswat = function(data_dir, check_result=NULL, what='dem', quiet=FALSE) {
   if( is.null(qswat[['trim']]) ) qswat[['trim']] = data.frame()
   if( is.null(qswat[['snap']]) ) qswat[['trim']] = data.frame()
 
-  # base layer from NHD with heatmap specified by `what`
-  data_dir |> plot_rast(what)
+  # intialize plot
+  if( !add ) {
+    
+    # base layer with flat color or heatmap specified by `what`
+    if( is.null(what) ) what = 'grey80'
+    if( !(what %in% c('dem', 'land', 'soil')) ) {
+      
+      # initialize the plot device to the right bounding box, background color, add scale bar
+      qswat[['sub']] |> sf::st_bbox() |> sf::st_as_sfc() |> plot(border=NA, bg=what)
+      draw_scale(qswat[['sub']], left=NULL)
+      
+    } else { data_dir |> plot_rast(what) }
+  }
   
   # SWAT+ sub-basins in white, channels in blue, outlets as black circle outlines
   qswat[['sub']] |> sf::st_geometry() |> plot(add=TRUE, border=white(0.5), col=white(0.3))

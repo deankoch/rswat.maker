@@ -18,11 +18,12 @@ plot_catch(
   outlet_col = "white",
   inlet_col = "white",
   add_scale = TRUE,
-  main = NULL
+  main = NULL,
+  sub = FALSE
 )
 }
 \arguments{
-\item{sub_list}{list of geometries returned by \code{get_split}, \code{get_catch}, or \code{open_catch}}
+\item{sub_list}{character path or list of geometries from \code{get_split}, \code{get_catch}, or \code{open_catch}}
 
 \item{crs_out}{CRS code accepted by \code{sf::st_crs} or NULL to use local UTM}
 
@@ -47,6 +48,8 @@ plot_catch(
 \item{add_scale}{logical, whether to add a scale bar}
 
 \item{main}{character, a title for the plot}
+
+\item{sub}{logical, passed to \code{open_catch} when \code{sub_list} is a path}
 }
 \value{
 returns nothing but either creates a plot or adds to an existing one
@@ -57,8 +60,11 @@ features in sequence to a new or existing plot. Set a colour argument to
 \code{NULL} to not draw the associated feature.
 }
 \details{
-\code{sub_list} should be the output of \code{get_catch} or \code{get_split} (or one of
-its sub-catchment elements).
+\code{sub_list} should be the output of \code{open_catch}, \code{get_catch} or \code{get_split}
+(or one of its sub-catchment elements). Users can also instead pass a character
+specifying the data directory path to load. If this is the root directory for
+a project with subdirectory "split", users can additionally set \code{sub=TRUE} to
+specify that the sub-catchments in "split" be plotted.
 
 For a single (sub)catchment this draws, in order: the (sub)catchment interior
 and boundary; minor and main-stem flow lines; lakes; outlets, inlets and gages.

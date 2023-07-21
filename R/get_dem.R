@@ -67,7 +67,8 @@ get_dem = function(data_dir, pad_factor=1/10) {
 #' 
 #' Masking is controlled by `buffer`. Set it to zero to mask and crop to the catchment
 #' boundary. Increase it to extend this boundary outwards, or set it to `Inf` not mask
-#' or crop (the default). 
+#' or crop (the default). We recommend not masking as it can produce unpredictable behaviour
+#' from QSWAT+ delineation (with TauDEM).
 #' 
 #' See the QSWAT+ manual for a discussion of masking pros/cons.
 #' 
@@ -136,13 +137,13 @@ save_dem = function(data_dir, dem=NULL, overwrite=FALSE, res=90, buffer=Inf, thr
     terra::rast(resolution=res)
   
   # mask and crop DEM to padded boundary to reduce CPU time for warp
-  dem_mask = dem |> clipr(boundary, buffer=buffer)
+  dem_mask = dem |> clip_raster(boundary, buffer=buffer)
   
   # warp the DEM to the template then crop/mask again, in UTM this time
   message('projecting to UTM (GDAL warp)')
   dem_out = dem_mask |> 
     terra::project(rast_out, method='near', threads=threads) |> 
-    clipr(boundary, buffer=buffer)
+    clip_raster(boundary, buffer=buffer)
   
   # save new DEM data
   dem_out |> terra::writeRaster(dest_path[['dem']])
