@@ -305,9 +305,9 @@ save_split = function(data_dir, sub_list=NULL, overwrite=FALSE, pad_factor=1/10,
       bou_pad = bou_utm |> sf::st_buffer(pad_size) |> sf::st_bbox() |> sf::st_as_sfc()
 
       # mask the rasters and write output to disk
-      dem |> clipr(bou_pad, p = save_dem(dest_dir[i])['dem'])
-      land |> clipr(bou_pad, p = save_land(dest_dir[i])['land']) 
-      soils |> clipr(bou_pad, p = save_soil(dest_dir[i])[['soil']]['soil']) 
+      dem |> clip_raster(bou_pad, p = save_dem(dest_dir[i])['dem'])
+      land |> clip_raster(bou_pad, p = save_land(dest_dir[i])['land']) 
+      soils |> clip_raster(bou_pad, p = save_soil(dest_dir[i])[['soil']]['soil']) 
     } 
     
     # find mapping from outlet COMID to directory name

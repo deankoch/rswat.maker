@@ -147,13 +147,13 @@ save_soil = function(data_dir, soil=NULL, overwrite=FALSE, buffer=Inf, threads=T
   dem = save_dem(data_dir)['dem'] |> terra::rast()
   
   # optional mask/crop DEM to reduce CPU time for warp
-  soil_mask = soil |> clipr(boundary, buffer=buffer)
+  soil_mask = soil |> clip_raster(boundary, buffer=buffer)
   
   # warp the DEM to the template then crop/mask again, in UTM this time
   message('projecting to UTM (GDAL warp)')
   soil_out = soil_mask |> 
     terra::project(dem, method='near', threads=threads) |> 
-    clipr(boundary, buffer=buffer)
+    clip_raster(boundary, buffer=buffer)
   
   # write to disk
   soil_out |> terra::writeRaster(dest_path['soil'])

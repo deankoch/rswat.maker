@@ -88,13 +88,13 @@ save_land = function(data_dir, land=NULL, overwrite=FALSE, buffer=Inf, threads=T
   dem = save_dem(data_dir)['dem'] |> terra::rast()
 
   # optional mask/crop DEM to reduce CPU time for warp
-  land_mask = land |> clipr(boundary, buffer=buffer)
+  land_mask = land |> clip_raster(boundary, buffer=buffer)
   
   # warp the DEM to the template then crop/mask again, in UTM this time
   message('projecting to UTM (GDAL warp)')
   land_out = land_mask |> 
     terra::project(dem, method='near', threads=threads) |> 
-    clipr(boundary, buffer=buffer)
+    clip_raster(boundary, buffer=buffer)
   
   # write to disk
   land_out |> terra::writeRaster(dest_path[['land']])
