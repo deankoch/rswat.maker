@@ -464,7 +464,7 @@ split_catch = function(gage, edge, catchment) {
   message('resolving stream order for ', nrow(gage), ' COMIDs')
   sub_poly = do.call(c, lapply(gage_result, \(x) x[['boundary']]))
   
-  # for each gage point, find nearest downstream neighbour
+  # for each gage point, find nearest downstream neighbour (or empty if none)
   downstream_list = seq(n_gage) |> sapply(\(i) {
     
     # find all downstream COMIDs (in order) and return the first nontrivial match
@@ -475,7 +475,7 @@ split_catch = function(gage, edge, catchment) {
       head(1)
   })
   
-  # copy downstream key
+  # copy downstream key (empty means either main outlet or duplicate)
   gage[['downstream']] = downstream_list |> sapply(\(x) ifelse(is.null(x), NA, x))
 
   # flag headwaters sub-catchments
@@ -493,8 +493,9 @@ split_catch = function(gage, edge, catchment) {
     dplyr::arrange( dplyr::desc(count) ) |>
     dplyr::select( dplyr::all_of(poly_nm) )
   
-  # omit (any) duplicate sub-catchments and re-order
+  # omit (any) duplicate sub-catchments, identify main outlet, then re-order
   sub_sf = sub_sf[!duplicated(sub_sf[['comid']]), ]
+  sub_sf[['main_outlet']] = is.na(sub_sf[['downstream']])
   sub_sf = sub_sf[order(sub_sf[['main_outlet']], !sub_sf[['headwater']]), ]
   
   # message about dropped stations
