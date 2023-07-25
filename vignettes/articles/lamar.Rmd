@@ -1,5 +1,12 @@
 ---
-title: "lamar"
+title: "rswat.maker and the Lamar River"
+author: Dean Koch
+date: July 24, 2023
+output: 
+  bookdown::html_document2:
+    number_sections: FALSE
+    global_numbering: TRUE
+    toc: TRUE
 ---
 
 ```{r, include = FALSE}
@@ -9,20 +16,483 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
-library(rswat.maker)
+# Introduction
+
+This article explains how to use `rswat.maker` to create a series of SWAT+ projects, using the [Lamar River](https://www.nps.gov/articles/000/lamar-river.htm) in Yellowstone National Park as an example. After introducing the big picture here, we will walk users through each step in detail.
+
+The `rswat.maker` package is for constructing SWAT+ models using an automated workflow. In a nutshell, it queries federal hydrology databases for data on your catchment then partitions the catchment into nested series of *subcatchments*. Here is what that looks like for the Lamar, with the (sub)catchment(s) in grey and derived boundaries in white
+
+```{r setup, include=FALSE}
+#library(rswat.maker)
+library(devtools)
+load_all()
+library(sf)
+
+# example project directory root
+lamar_dir = 'D:/rswat_data/lamar_contemporary'
+yellowstone_dir = 'D:/rswat_data/yellowstone'
 ```
 
 
-<!-- library(sf) -->
+```{r overview-catch-plot, cache=TRUE, echo=FALSE, fig.align='center', fig.show='hold', out.width='33%', fig.dim=c(4, 6), fig.cap='Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right).'}
+# load the dem and plot
+plot.new()
+plot_catch(lamar_dir, main='NHDPlus')
 
-<!-- # local path on my machine (you will probably need to change this!) -->
-<!-- output_dir = 'D:/rswat_data/lamar' -->
+# load sub-catchment results then plot
+plot.new()
+plot_catch(lamar_dir, sub=TRUE, main='Subcatchments')
 
-<!-- # Lamar river gage site -->
-<!-- outlet = c(-110.0495, 45.00009) |> st_point() |> st_sfc(crs=4326) -->
+# plot basin and overlay sub-basins found with SWAT 
+plot.new()
+plot_catch(lamar_dir, stream_col=NULL, fill_col='grey50', main='QSWAT+')
+sub_dir = save_split(lamar_dir)[['sub']] |> lapply(\(x) plot_qswat(x, quiet=TRUE, add=TRUE))
+```
+
+The final output is a set of three SWAT+ models and a parent QSWAT+ project for each one (plotted in Figure \@ref(fig:overview-catch-plot), right), all linked together at the circled gage sites. By default, the package looks for gages with service records on the National Water Information System (NWIS), and it will maintain a copy of current and historical NWIS flow data on your local machine. 
+
+## Getting started
+
+Every `rswat.maker` project starts with a main outlet location. In principle this can be at any position along any major channel in the continental USA, but we recommend setting it at/near the site of a stream gage listed on NWIS.
+
+For example, just above the outlet of the Lamar, at its confluence with the Upper Yellowstone River, there is an active USGS stream gage reporting daily flow values. This is indicated by the large white circle in Figure \@ref(fig:overview-catch-plot) (left). We set its (WGS84) coordinates in R like so: 
+
+```{r starting coordinates}
+outlet = c(-110.0018722, 45.00283056) |> sf::st_point() |> sf::st_sfc(crs=4326)
+```
+
+The easiest way to browse for site coordinates is using the USGS [National Water Dashboard](https://dashboard.waterdata.usgs.gov) web app with the "Hydrology > Watersheds" layer visible. Look for gages with daily discharge records in suitably small watersheds. When you have found your site, go to its metadata section and copy the coordinates.
+
+## The whole workflow
+
+With the outlet correctly positioned, we are now ready to generate SWAT+ projects. For a completely automated workflow, pass the outlet along with a storage path to the function `run_maker`. 
+
+```{r starting run_maker, eval=FALSE}
+run_maker(lamar_dir, outlet=outlet, overwrite=TRUE)
+```
+
+This path becomes the root of a directory tree where the function writes all of its output in sequence. The whole process is illustrated in the flow chart below, where the steps are grouped into four phases for simplicity:
+
+```{r flowchart, echo=FALSE, fig.align='center', out.width='70%', fig.cap='A flow chart for `rswat.maker` splits the whole process into four phases'}
+knitr::include_graphics('D:/rswat.maker/vignettes/articles/lamar_flowchart/flow_chart_rswat.png')
+```
+
+Users can also run a single step by setting `what` to its name (see `?run_maker` for the list of step names). Those not interested in SWAT+ can also set the keyword `what='data'`, which runs only Phase "A" in Figure \@ref(fig:flowchart).
+
+This is a lot to take in all at once. However, `run_maker` is really just a wrapper for a series of helper function calls that run the individual steps. So instead of showing the console output from the call above all at once, we will go through it step-by-step, and show how the individual helper functions work. 
+
+# Data
+
+The first five steps in `rswat.maker` are for fetching the data required to set up QSWAT+.
+
+## 1. NHDPlus catchment model (`get_catch`)
+
+To narrow its search for hydrology data `run_maker` first needs a spatial extent for the catchment. But all we have at the beginning is a point - the outlet. The catchment boundary *could* be derived from a DEM (and QSWAT+ will do that later, using TauDEM) but this is tricky without knowing the approximate extent ahead of time.
+
+Instead, we get our initial model from the National Hydrography Dataset Plus (NHDPlus), which offers a nation-wide collection of catchment data at moderate resolution. The helper function `get_catch` uses the [`nhdR`](https://cran.r-project.org/package=nhdR) package to query this database, and returns a subset of the NHDPlus data relevant to your catchment, along with a catchment boundary.
+
+```{r nhdplus getter, eval=FALSE}
+catch_list = get_catch(outlet)
+#> UTM zone: 12
+#> VPU name: Upper Missouri (10U)
+#> loading NHD stream network edges
+#> loading NHD catchment polygons
+#> loading NHD stream network geometries
+#> loading NHD lake polygons
+#> 
+#> locating outlet
+#> outlet COMID: 2962790
+#> following upstream tributaries
+#> merging 19 sub-catchment polygons
+#> processing 19 stream reach(es)
+#> processing 0 lake(s)
+#> transforming to output projection
+```
+
+The output `catch_list` is a list of watershed features. Save it with `save_catch`, reload it with `open_catch`, and visualize it with `plot_catch`. For example the left panel of Figure \@ref(fig:overview-catch-plot), which shows the catchment, streams, and lakes, was generated by this simple function call
+
+```{r nhdplus plotter, eval=FALSE}
+plot_catch(lamar_dir, main='NHDPlus')
+```
+
+To get a list of file paths written in this step, call `save_catch` with default argument `overwrite=FALSE`
+
+```{r nhdplus save_catch}
+save_catch(lamar_dir)
+```
+
+All of the `get_.` functions in the `rswat_maker` package have a corresponding `save_.` function that works this way. Similarly, calling `run_maker` with `overwrite=FALSE` returns a (long) list of all the destination paths for a project.
+
+## 2. NWIS gage data (`get_nwis`)
+
+`get_nwis` uses the [`dataRetrieval`](https://cran.r-project.org/package=dataRetrieval) package to collect daily service records from stream gage sites in your catchment. By default this looks for the most common stream flow record type, parameter code `00060` (discharge in ft3/s).
+
+For the Lamar example we set `from_initial` to filter to records extending into or beyond 2005. This is so that our stream flow record aligns with a pre-existing weather database from a related R package, [`wxArchive`](https://github.com/deankoch/wxArchive). Users can fetch all the available time periods by leaving `from_initial` at its default (`NULL`).
+
+```{r nwis getter, eval=FALSE}
+nwis_points = get_nwis(lamar_dir, from_initial=as.Date('2005-01-01'))
+#> requesting service records from NWIS
+#>   |=========================================================| 100%
+#> aggregating service records
+#> found 7 station sites
+#> 5 station(s) in catchment reporting flow_ft
+#> filtering to 3 of 5 sites with records on/after 2005-01-01
+```
+
+The result is a data frame of point geometries with metadata about each site. The locations of the three stations found here are drawn as small grey circles in Figure \@ref(fig:overview-catch-plot) (middle).
+
+After saving the point data with `save_nwis`, run `update_nwis` to download up-to-date service records and write them to disk.
+
+```{r nwis updater, eval=FALSE}
+update_nwis(data_dir, overwrite=TRUE)
+#> updating site 06187915 (1 of 3)
+#> processing 1 record(s) at Soda Butte Cr at Park Bndry at Silver Gate (06187915)
+#> NWIS reports 9055 observation(s) of dv-00060
+#> 6771 day(s) downloaded
+#> 
+#> updating site 06187950 (2 of 3)
+#> processing 1 record(s) at Soda Butte Cr nr Lamar Ranger Station YNP (06187950)
+#> NWIS reports 7265 observation(s) of dv-00060
+#> 1360 day(s) downloaded
+#> 
+#> updating site 06188000 (3 of 3)
+#> processing 1 record(s) at Lamar River nr Tower Ranger Station YNP (06188000)
+#> NWIS reports 29991 observation(s) of dv-00060
+#> 6694 day(s) downloaded
+#> 
+#> up to date
+#> done
+```
+
+Subsequent calls to `update_nwis` will only request and append days not found there already. 
+
+For example, our main outlet, "Lamar River nr Tower Ranger Station YNP", has site code `"06188000"`. Pass this to `load_nwis` and plot the result to get a hydrograph for the outlet running up to present day. Notice the extreme discharge rates during the spring of 2022, when a major flood event hit Yellowstone National Park. 
+
+```{r nwis-plot, cache=TRUE, fig.align='center', fig.dim=c(9, 4), fig.cap='Hydrograph of stream flow from the Lamar River basin, measured near Tower Ranger Station'}
+flow = load_nwis("06188000", data_dir=lamar_dir, output='values')
+plot(value~date, data=flow, type='l', xlab='date', ylab='ft3/s', main='Lamar River discharge')
+```
+
+The helper function call in this step, and the ones that follow, has first argument `data_dir` rather than `outlet` - the opposite of `get_catch` in the first step. This is because `get_nwis` relies on derived information that was saved to disk earlier on (the catchment boundary). In later steps, we will need both the NHDPlus information and the NWIS station locations. Order matters in most of this workflow.
+
+## 3. DEM (`get_dem`)
+
+Next, `run_maker` prepares an elevation model. Again the area of interest is determined from the NHDPlus boundary, except with some added padding around the edges to allow for possible imprecision (cropping to an imprecise boundary can cause issues with TauDEM later on). `get_dem` then uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch and merge the relevant tiles from the USGS National Elevation Dataset (NED).
+
+```{r dem getter, eval=FALSE}
+dem = get_dem(lamar_dir)
+#> Area of interest includes 4 NED tiles.
+#> (Down)Loading NED tile for 45N and 110W.
+#> (Down)Loading NED tile for 46N and 110W.
+#> (Down)Loading NED tile for 45N and 111W.
+#> (Down)Loading NED tile for 46N and 111W.
+#> Mosaicking NED tiles.
+```
+
+Write the result to disk with `save_dem`. This saves both a copy of the original mosaicked source raster, and another copy cropped to the area of interest after warping (via bilinear averaging with GDAL) to the Universal Transverse Mercator (UTM) coordinate system at 90 metre resolution. 
+
+View this UTM version of the DEM with `plot_rast`. Setting `mask=TRUE` will clip to the catchment boundary from NHDPlus in the plot for clarity of presentation, but will not affect the file on disk (masking is not recommended with QSWAT+).
+
+```{r dem-plot, cache=TRUE, fig.show='hold', out.width='50%', fig.dim=c(6, 6), fig.align='center', fig.cap='The National Elevation Dataset over the Lamar River basin with and without masking'}
+plot_rast(lamar_dir, what='dem')
+plot_rast(lamar_dir, what='dem', mask=TRUE, main='mask=TRUE')
+```
+
+Both `plot_rast` and `plot_catch` set default titles based on metadata from the project, as in Figure \@ref(fig:dem-plot) (left). The number in parenthesis is the "COMID" key for the main outlet, which relates it to other objects in the NHDPlus model.
 
 
+## 4. NLCD land use (`get_land`)
+
+`get_land` uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch a raster of land use classifications from the [National Land Cover Database](https://www.mrlc.gov) (NLCD). These categories either indicate the dominant plant community or else give a reason why there isn't one (barren rock, water body, developed land, *etc*)  
+
+```{r land getter, eval=FALSE}
+land = get_land(lamar_dir)
+#> running FedData::get_nlcd
+#> copying raster data to RAM
+#> projecting to UTM (GDAL warp)
+```
+
+In this step and the next, `rswat.maker` transforms the data to lie on the same UTM grid as the DEM. This ensures that the outputs from all three raster steps (3-5) share a common coordinate system and layout. As before, there is a helper function, `save_land` that writes the source raster and the derived (UTM) version. Call `plot_rast` to display the UTM version
+
+```{r land plot, cache=TRUE, fig.align='center', fig.cap='The National Land Cover Database over the Lamar River basin'}
+plot_rast(lamar_dir, what='land', mask=TRUE)
+```
+
+
+## 5. STATSGO2/SSURGO soil (`get_soil`)
+
+The process for soil data is similar to the land use step except that we use two source databases: the older and less detailed STATSGO2, and SSURGO, its modernized successor. Read more about them both at the USDA's [website](https://websoilsurvey.sc.egov.usda.gov).
+
+At the time of writing, the coverage of SSURGO is not as complete as STATSGO2. So we fill holes in the former with data from the latter. `get_soil` does this automatically after downloading copies of both. The call goes like this
+
+```{r soil getter, eval=FALSE}
+soil = get_soil(lamar_dir)
+#> bounding box overlapped with 2 state(s) (MT, WY)
+#> fetching data for Montana
+#> fetching data for Wyoming
+#> rasterizing MUKEYs for statsgo
+#> fetching soil survey area keys
+#> loading soilsa_a_nrcs.dbf and filtering to area of interest
+#> loading SSURGO data from 5 soil survey area(s)...
+#> (Down)Loading SSURGO data for survey area MT623
+#> (Down)Loading SSURGO data for survey area MT640
+#> (Down)Loading SSURGO data for survey area MT642
+#> (Down)Loading SSURGO data for survey area WY656
+#> (Down)Loading SSURGO data for survey area WY665
+#> processing MUKEYs in 5 soil survey area(s)
+#> rasterizing MUKEYs for ssurgo
+#> opening STATSGO2 and SSURGO layers
+#> merging
+#> projecting to UTM (GDAL warp)
+```
+
+We edited out some lines from the console output above (output progress bars and URLs) to keep it short, but the story is the same. `get_soil` downloads the STATSGO2 polygons by by state from static URLs, then uses the `FedData` to fetch the relevant pieces of SSURGO's much larger and more complex polygon database. Finally, the function rasterizes the SSURGO polygons to the DEM grid, and replaces any `NA` values (or MUKEYs that are absent from the SWAT+ database) with the STATSGO2 value at that location.
+
+Once again we have a helper function, `save_soil`, to write the source data, along with their rasterized (UTM) versions, and the final merged product. Call `plot_rast` to display the latter. 
+
+```{r soil-plot, cache=TRUE, fig.align='center', fig.cap='STATSGO2/SSURGO soil map unit keys (MUKEYS) over the Lamar River basin'}
+plot_rast(lamar_dir, what='soil', main='STATSGO2/SSURGO soil MUKEY', mask=TRUE)
+```
+
+The colors here serve only to distinguish adjacent polygons, so there is no legend. The soil attributes themselves can found in a separate tabular database (indexed by MUKEY), that is distributed by the SWAT+ development team. This is already included in the SWAT+ installer bundle, so we there is no need to download it separately.
+
+This is the end of the data retrieval phase of the workflow. All the pieces needed for QSWAT+ have been collected. Now on to processing.
+
+# Processing
+
+QSWAT+ constructs a SWAT+ model by splitting the basin into subbasins, all linked together by a stream network. At the shared outlet of these streams is a real-life gage with discharge data. Since all of the subbasins contribute to discharge at the outlet, this one hydrograph signal can be used to fit all subbasin parameters at once. For example with the Lamar River, we could use the data plotted in \@ref(fig:nwis-plot).
+
+However, this approach leads to problems with model-fitting when the basin is complex. `get_split` helps avoid these problems by preemptively splitting a basin with multiple gages into subcatchments, so that the resulting SWAT+ models are individually less complex.
+
+## 6. Subcatchments (`get_split`)
+
+It is up to the modeller to decide how many subbasins to set in SWAT+, or how detailed to make the jigsaw puzzle that forms the whole basin. The more we subdivide, the more we achieve realism in capturing heterogeneity in the landscape. But this comes at a cost. Too many subbasins and the model becomes insensitive to their individual contributions. Too many parameters, and we risk overfitting, non-identifiability, and long compute times.
+
+One way to balance this complexity trade-off is by splitting the problem into smaller, more manageable pieces. The goal with `get_split` is to use all the hydrographs at our disposal, while also minimizing the number of unknown parameters fitted to any one of them. 
+
+
+### Splitting at gages
+
+`get_split` partitions an NHDPlus catchment into *subcatchments*, one per NWIS gage site. This site is always positioned at/near the outlet of the subcatchment. In cases where one subcatchment drains into another one, the outlet of the first becomes an inlet of the second. This is done automatically, similar to the "delineation" step in QSWAT+
+
+We have three gage sites in the Lamar basin - one at the main outlet and two more on Soda Butte Creek. So, in this example, `get_split` produces a list of three subcatchment datasets
+
+```{r splitter, eval=FALSE}
+split_result = get_split(lamar_dir)
+#> loading gage points in D:/rswat_data/lamar_contemporary/nwis/flow_ft/station.geojson
+#> computing catchment areas for 4 input gage locations
+#>   |=========================================================| 100%      
+#> resolving stream order for 4 COMIDs
+#> removed 1 duplicate station site(s) from outlet list
+#> clipping catchment polygons to form 3 sub-catchments
+#> collecting sub-catchment features
+#> copying sub-catchment 1/3 : soda butte cr at park bndry at silver gate
+#> copying sub-catchment 2/3 : lamar river nr tower ranger station ynp
+#> copying sub-catchment 3/3 : soda butte cr nr lamar ranger station ynp
+
+```
+Call `save_split` with `overwrite=TRUE` to write the data to disk. This makes a new subdirectory for each subcatchment, each having (largely) the same file structure as the root directory. Visualize a subcatchment by passing one of these subdirectory paths to `plot_catch` or `plot_rast` in place of `lamar_dir`
+
+```{r splitter-subcatchments-plot, cache=TRUE, fig.align='center', fig.show='hold', out.width='33%', fig.dim=c(5, 7), fig.cap='Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)'}
+# subcatchment paths
+sub_dir = save_split(lamar_dir)[['sub']] 
+print(sub_dir)
+
+# reordered for presentation
+for(d in sub_dir[c(1,3,2)]) plot_catch(d)
+```
+
+To get a basin-level view of how the pieces fit together, pass the basin-level directory (in our case `lamar_dir`)  to `plot_catch` along with argument `sub=TRUE`. For example, we generated Figure \@ref(fig:overview-catch-plot) (middle) using this simple call 
+
+```{r splitter plot, eval=FALSE}
+plot_catch(lamar_dir, sub=TRUE, main='Subcatchments')
+```
+
+With default arguments `plot_catch` draws grey circles for the actual gage sites and white circles for their snapped positions in NHDPlus.
+
+This is about as precise as we can get with NHDPlus. For example the white and grey points in the Soda Butte Creek headwater (Figure \@ref(fig:splitter-subcatchments-plot), right) lie on the same COMID polygon, so under that model we cannot distinguish their catchments. While it may be obvious that the grey point drains a smaller area, it is not so obvious how to (accurately) revise the catchment boundary.
+
+
+### Snapping and overlap
+
+In the next step, QSWAT+ will delineate new boundaries (*subbasins*) where the gage sites more closely coincide with the outlets. However that involves a DEM covering, at minimum, the entire catchment. To help avoid accidentally masking part of the catchment, `get_split` snaps outwards to the nearest NHDPlus model boundaries and uses a buffer around the result when cropping rasters and geometries. 
+
+Subcatchments with inlets usually have some overlap with their upstream neighbour as a result of snapping. `plot_catch` draws this overlap with a different tone of fill colour to make it more obvious (as in Figure \@ref(fig:splitter-subcatchments-plot), middle).
+
+Both `get_catch` and `open_catch` return two versions of the boundaries: one with and one without the overlap (an outer and inner boundary). The inner boundary forms the partition of the NHDPlus model, whereas the outer boundary defines the extent for QSWAT+ inputs.
+
+At this stage we have all the information we need to run QSWAT+. What remains is to translate the data into a format that QSWAT+ can understand. This is the job of `save_qswat`.
+
+
+## 7. QSWAT+ inputs (`save_qswat`)
+
+In the following call we set `sub=TRUE` to loop over subcatchments and make QSWAT+ inputs for each of them. Leave `sub=FALSE` at its default to make a whole-basin project instead or to run the step for a single subcatchment.
+
+```{r qswat saver, eval=FALSE}
+qswat_result = save_qswat(lamar_dir, sub=TRUE, overwrite=TRUE)
+#> making QSWAT+ inputs...
+#> writing inputs for 3 sub-catchments
+#> done
+```
+
+Call `save_qswat` again, this time dropping the `overwrite=TRUE` argument, to get the paths written
+
+```{r qswat saver paths}
+qswat_paths = save_qswat(lamar_dir, sub=TRUE)
+qswat_paths |> head(1) |> print()
+```
+
+These files require no further transformation for QSWAT+. They are already in the recommended projection (UTM), and `save_qswat` has formatted their contents using the expected encoding (for `NA` values, plant codes, MUKEYs, *etc*).
+
+## 8. QSWAT+ setup (`run_qswat`)
+
+At this stage we could leave the R environment and open QGIS to run QSWAT+ the normal way - with a cursor and a little patience. We recommend that users do so at least once, and that they familiarize themselves with QSWAT+ and its documentation before using the automation in `run_qswat`. If things go awry in `rswat.maker`, the interactive GUI in QGIS can often reveal the problem (*eg* a snapping issue) at a glance. 
+
+The QSWAT+ plugin is mature, well-documented, and it has a large and active user-base. However, there are serious drawbacks to using graphical interfaces (GUIs) for model-building: reproducibility becomes a challenge, and batch jobs become labour-intensive. `run_qswat` solves both problems.
+
+### Automation with `run_qswat`
+
+QSWAT+ is written in Python and runs in the PyQGIS3 environment, but users normally interact with it through the QGIS GUI. `run_qswat` provides an alternative way of using QSWAT+ that functions more like a command line interface (CLI). This is similar in spirit to the "SWAT+ AW" program, except based in R.
+
+`run_qswat` manually assigns setup parameters (some user-supplied, and some based on the input data) before calling the processing modules in the right order. It produces the same output as QSWAT+, including a working QGIS project file (.qgs) that can be opened for viewing after setup is complete.
+
+Note that `run_qswat` wraps a batch file that looks for QGIS in `osgeo_dir`. This means the function is only available to Windows users with a QGIS installation, and if this is not in the usual location (see below), `osgeo_dir` must set manually. The example below shows how to run setup on the subcatchment in Figure \@ref(fig:splitter-subcatchments-plot) (middle).
+
+```{r qswat run, eval=FALSE}
+# default path to QGIS
+osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
+
+# copy subcatchment paths and run setup on one of them
+sub_dir = save_split(lamar_dir)[['sub']] 
+sub_dir_soda = sub_dir[3]
+qswat_result = run_qswat(sub_dir_soda, overwrite=TRUE, osgeo_dir=osgeo_dir)
+#> running QSWAT+ to create project: soda_butte_cr_nr_lamar_ranger_station_ynp
+#> running delineation checks
+#> loading QSWAT+ model geometries from /qswat/soda_butte_cr_nr_lamar_ranger_station_ynp/Watershed/Shapes
+#> outlet 0 moved 52 m in total
+#> inlet 1 moved 14 m in total
+#> QSWAT+ completed and passed checks
+```
+
+### Organizing the results
+
+The console output above is deceptively short. Behind the scenes, `run_qswat` has:
+
+* recorded a list of inputs
+* launched an instance of QGIS (without the GUI) and loaded the plugin
+* executed all QSWAT+ steps (delineation, HRUs, *etc*) and saved the results
+* opened the resulting geometries and run sanity checks
+* written a log file
+
+This process is easy to reproduce. As long as the inputs remain unchanged, you will get identical output from every call to `run_qswat`. Get the input and output file paths by calling `run_qswat` with (the default) `overwrite=FALSE`
+
+```{r qswat run io}
+# paths to outputs from QSWAT+ and rswat.maker
+qswat_paths = run_qswat(sub_dir_soda)
+qswat_paths |> names() |> print()
+```
+
+"input" is a JSON record of all inputs and parameters supplied to QSWAT+,
+
+```{r qswat run input}
+# list all inputs
+qswat_paths[['input']] |> readLines() |> jsonlite::fromJSON() |> names() |> print()
+```
+
+"log" contains (we hope) a string of messages from QSWAT+ about completed steps, as it does here,
+
+```{r qswat run log}
+# read the last few lines of logfile
+qswat_paths[['log']] |> readLines() |> tail() |> cat()
+```
+
+"output" is another JSON record listing important project-related paths,
+
+```{r qswat run output}
+qswat_paths[['output']] |> readLines() |> jsonlite::fromJSON() |> names() |> print()
+```
+
+and "qswat" points to the root directory of the whole QSWAT+ project.
+
+View the geometries from the "output" list (ESRI shapefiles) by loading them `load_qswat`, or by plotting them directly with `plot_qswat`. For example, here are the NHDPlus and QSWAT+ models side by side for comparison
+
+```{r qswat-plot, cache=TRUE, fig.show='hold', out.width='50%', fig.dim=c(6, 6), fig.align='center', fig.cap='Two models of the Soda Butte Creek subcatchment: from NHDPlus (left) and QSWAT+ (right)'}
+sub_dir_soda |> plot_catch()
+sub_dir_soda |> plot_qswat(main='QSWAT+ Model')
+```
+
+The channel geometry from QSWAT+ is far more detailed than NHDPlus in this example, but this can be adjusted via the threshold arguments in `run_qswat`. In general users can expect the QSWAT+ delineation output to slightly differ from (and improve on) the output from NHDPlus.
+
+Outlets and inlets are identified in the QSWAT+ plot with large unfilled circles. Notice that the NHDPlus outlet is gone, and we have only the one point for the inlet, correctly positioned at its gage site.
+
+## 9. SWAT+ Editor (`run_editor`)
+
+QSWAT+ produces an SQLite database, a set of geometries, and a QGIS project, but no SWAT+ configuration (config) files. These are the plain text inputs that ultimately define a SWAT+ model, by configuring and initializing the simulator. 
+
+To turn a QSWAT+ project into a set of config files, we need to run SWAT+ Editor to read the QSWAT+ database. Fortunately SWAT+ Editor has a CLI for batch jobs, so this part is easy. Simply call `run_editor` after completing `run_qswat`
+
+```{r editor run, eval=FALSE}
+editor_result = run_editor(sub_dir_soda, overwrite=TRUE)
+#> running SWAT+ Editor to populate /qswat/soda_butte_cr_nr_lamar_ranger_station_ynp/Scenarios/Default/TxtInOut
+```
+
+As with QSWAT+ setup, this step produces a log file and a new root directory for outputs
+
+```{r editor check}
+editor_paths = run_editor(sub_dir_soda)
+editor_paths[['log']] |> readLines() |> tail() |> cat()
+editor_paths[['txt']] |> list.files() |> head()
+```
+
+and we are finished! Easy as pissing up a rope, right? Just wait until you see the "TxtInOut" directory... 
+
+# Appendix
+
+
+## When things go wrong
+
+
+
+
+## New directions
+
+### Divide and conquer
+
+The idea here is that SWAT+ users could configure their subcatchment models to accept inlet data from the NWIS service record, instead of modelling the whole drainage upstream. While this ignores (potentially significant) effects of groundwater movement between subcatchments, it greatly simplifies the individual model-fitting problems.
+
+The approach also scales up easily to handle problem with larger catchments and more complex arrangements of gages. For example here is the output of `get_split` for another project covering the whole Upper Yellowstone River (upstream of Carter's Bridge, Montana), with no restrictions on gage era
+
+```{r splitter-bigger-plot, echo=FALSE, cache=TRUE, fig.align='center', fig.dim=c(6, 11), fig.cap='NWIS gages and subcatchments in the Upper Yellowstone River basin with the Lamar River basin in blue'}
+scale_sf = plot_catch(yellowstone_dir, sub=TRUE)
+lamar_poly = open_catch(lamar_dir)[['boundary']] |> sf::st_transform(sf::st_crs(scale_sf))
+lamar_poly |> plot(border='blue', add=TRUE)
+```
+
+Users can control the detail level in QSWAT+ differently for each individual subbasin. For example in Figure \@ref(fig:overview-catch-plot) (right) we fixed the number of subbasins *per unit catchment area*, resulting in more detail along the well-gaged Soda Butte Creek versus the rest of the Lamar basin.
+
+
+## APPENDIX I
+
+
+<!-- # ![Figure \@ref(fig:overview-catch-plot). something something](flowchart_path)(URL) -->
+
+```{r, cache=TRUE}
+knitr::opts_current$get(c(
+  "cache",
+  "cache.path",
+  "cache.rebuild",
+  "dependson",
+  "autodep"
+))
+```
+
+
+
+There is another active gage site at the outlet of one of the Lamar's headwater tributaries, Soda Butte Creek. In the the past, this creek has also been gaged at two other locations.
+
+To model the Lamar basin, `rswat.maker` downloads the datasets that are needed to run QSWAT+ setup, and splits them into pieces, one for each gage. Here is how this looks:
+
+By default, all plots include a scale bar, a catchment boundary line, and the position of any gaged outlets (circled).
 
 
 
