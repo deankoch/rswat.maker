@@ -59,8 +59,9 @@ info with \code{refresh=TRUE}, but not when running an ordinary daily values upd
 with \code{refresh=FALSE}.
 
 Specify a different variable of interest by changing the parameter and
-statistic codes \code{param_code} and  \code{stat_code} (see also \code{?data_nwis}, and
-\code{?dataRetrieval::whatNWISdata}).
+statistic codes \code{param_code} and  \code{stat_code} (see also \code{?load_nwis}, and
+\code{?dataRetrieval::whatNWISdata}). The default settings select mean daily stream
+flow in ft3/s.
 
 When changing \code{from_initial}, \code{param_code}, or \code{stat_code}, you should either
 change/delete the output directory (\code{nwis_nm}), or else set \code{refresh=TRUE} to

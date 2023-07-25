@@ -166,8 +166,12 @@ run_maker = function(data_dir,
       message('fetching stream gages...')
       
       # small batch of downloads, should complete in < 5 min  
-      all_path[['nwis']] = get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+      nwis_points = get_nwis(data_dir, nwis_nm, from_initial=nwis_from)
+      all_path[['nwis']] = save_nwis(data_dir, nwis_points, overwrite=TRUE)
       nwis_exists = TRUE
+      message('')
+      message('updating stream gages...') 
+      update_nwis(data_dir, nwis_nm, overwrite=TRUE)
       message('done')
   
     } else {
@@ -175,7 +179,7 @@ run_maker = function(data_dir,
       # keep existing stations but update service records
       message('')
       message('updating stream gages...') 
-      update_nwis(data_dir, nwis_nm)
+      update_nwis(data_dir, nwis_nm, overwrite=TRUE)
     }
   }
   

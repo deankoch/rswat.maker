@@ -10,7 +10,8 @@ update_nwis(
   from = NULL,
   param_code = "00060",
   stat_code = "00003",
-  n_sec = 0.5
+  n_sec = 0.5,
+  overwrite = FALSE
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ update_nwis(
 \item{stat_code}{character, the statistic code to update}
 
 \item{n_sec}{numeric >= 0, the number of seconds to wait between requests}
+
+\item{overwrite}{logical permission check. The function writes nothing until this is set to TRUE}
 }
 \value{
 returns nothing but possibly writes to CSV files in "raw" subdirectory
@@ -41,7 +44,9 @@ is NULL, the function sets \code{from} to the day after the latest date in the f
 
 The function will overwrite existing files without warning, but existing values in
 the file on dates prior to \code{from} are not modified. New dates are added to the file
-and existing dates with new values are overwritten.
+and existing dates with new values are overwritten. By default \code{overwrite=FALSE},
+to prevent accidental writes. This checks that the station points exist, but downloads
+and writes nothing
 
 Specify the variable and statistic of interest with \code{param_code} and \code{stat_code}
 (see \code{?list_nwis}). \code{n_sec} should be left alone unless you know what you are doing

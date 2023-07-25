@@ -11,7 +11,8 @@ plot_rast(
   catch = TRUE,
   add_scale = TRUE,
   mask = FALSE,
-  a = 1
+  a = 1,
+  ...
 )
 }
 \arguments{

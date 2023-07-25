@@ -48,7 +48,8 @@ extreme values (vs bilinear averaging).
 
 Masking is controlled by \code{buffer}. Set it to zero to mask and crop to the catchment
 boundary. Increase it to extend this boundary outwards, or set it to \code{Inf} not mask
-or crop (the default).
+or crop (the default). We recommend not masking as it can produce unpredictable behaviour
+from QSWAT+ delineation (with TauDEM).
 
 See the QSWAT+ manual for a discussion of masking pros/cons.
 

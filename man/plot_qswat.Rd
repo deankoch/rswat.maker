@@ -8,6 +8,7 @@ plot_qswat(
   data_dir,
   check_result = NULL,
   what = NULL,
+  main = NULL,
   quiet = FALSE,
   add = FALSE
 )

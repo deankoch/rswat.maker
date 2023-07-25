@@ -320,7 +320,10 @@ plot_rast = function(data_dir, what='dem',
 #'
 #' @return nothing but draws a plot
 #' @export
-plot_qswat = function(data_dir, check_result=NULL, what=NULL, quiet=FALSE, add=FALSE) {
+plot_qswat = function(data_dir, check_result=NULL, what=NULL, main=NULL, quiet=FALSE, add=FALSE) {
+  
+  # same as plot_catch
+  stream_col = 'grey50'
   
   # default transparency helpers
   white = \(a=0.3) adjustcolor('white', a)
@@ -333,7 +336,7 @@ plot_qswat = function(data_dir, check_result=NULL, what=NULL, quiet=FALSE, add=F
   if( is.null(qswat[['trim']]) ) qswat[['trim']] = data.frame()
   if( is.null(qswat[['snap']]) ) qswat[['trim']] = data.frame()
 
-  # intialize plot
+  # initialize plot
   if( !add ) {
     
     # base layer with flat color or heatmap specified by `what`
@@ -341,15 +344,15 @@ plot_qswat = function(data_dir, check_result=NULL, what=NULL, quiet=FALSE, add=F
     if( !(what %in% c('dem', 'land', 'soil')) ) {
       
       # initialize the plot device to the right bounding box, background color, add scale bar
-      qswat[['sub']] |> sf::st_bbox() |> sf::st_as_sfc() |> plot(border=NA, bg=what)
+      qswat[['sub']] |> sf::st_bbox() |> sf::st_as_sfc() |> plot(border=NA, bg=what, main=main)
       draw_scale(qswat[['sub']], left=NULL)
       
     } else { data_dir |> plot_rast(what) }
   }
   
-  # SWAT+ sub-basins in white, channels in blue, outlets as black circle outlines
+  # SWAT+ sub-basins in white, channels in grey, outlets as black circle outlines
   qswat[['sub']] |> sf::st_geometry() |> plot(add=TRUE, border=white(0.5), col=white(0.3))
-  qswat[['channel']] |> sf::st_geometry() |> plot(add=TRUE, col='blue')
+  qswat[['channel']] |> sf::st_geometry() |> plot(add=TRUE, col=stream_col)
   qswat[['outlet']] |> sf::st_geometry() |> plot(add=TRUE, cex=2)
   
   # draw lines showing snapping translation

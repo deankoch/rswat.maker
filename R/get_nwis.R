@@ -242,7 +242,9 @@ split_nwis = function(data_dir, nwis_nm, param_code='00060', stat_code='00003') 
 #' 
 #' The function will overwrite existing files without warning, but existing values in
 #' the file on dates prior to `from` are not modified. New dates are added to the file
-#' and existing dates with new values are overwritten.
+#' and existing dates with new values are overwritten. By default `overwrite=FALSE`,
+#' to prevent accidental writes. This checks that the station points exist, but downloads
+#' and writes nothing
 #' 
 #' Specify the variable and statistic of interest with `param_code` and `stat_code`
 #' (see `?list_nwis`). `n_sec` should be left alone unless you know what you are doing
@@ -254,18 +256,22 @@ split_nwis = function(data_dir, nwis_nm, param_code='00060', stat_code='00003') 
 #' @param param_code character, the parameter code to update
 #' @param stat_code character, the statistic code to update
 #' @param n_sec numeric >= 0, the number of seconds to wait between requests
+#' @param overwrite logical permission check. The function writes nothing until this is set to TRUE
 #'
 #' @return returns nothing but possibly writes to CSV files in "raw" subdirectory
 #' @export
 update_nwis = function(data_dir, nwis_nm='flow_ft', from=NULL,
-                       param_code='00060', stat_code='00003', n_sec=0.5) {
-
+                       param_code='00060', stat_code='00003', n_sec=0.5,
+                       overwrite=FALSE) {
+  
   # get site codes from station site points data frame
   pts = save_nwis(data_dir, nwis_nm)['station'] |> sf::st_read(quiet=TRUE)
   site_fetch = pts[['site_no']]
   
   # get station records data frame 
   nwis = save_nwis(data_dir, nwis_nm)['record'] |> read.csv(colClasses='character')
+  
+  if(!overwrite) return( invisible() )
   
   # download and write to disk in a loop over sites
   t_req = proc.time()
