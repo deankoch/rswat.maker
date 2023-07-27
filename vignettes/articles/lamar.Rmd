@@ -4,6 +4,7 @@ author: Dean Koch
 date: July 24, 2023
 output: 
   bookdown::html_document2:
+    self_contained: FALSE
     number_sections: FALSE
     global_numbering: TRUE
     toc: TRUE
