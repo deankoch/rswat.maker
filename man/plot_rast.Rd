@@ -29,9 +29,11 @@ plot_rast(
 \item{mask}{logical, whether to mask to the catchment boundary}
 
 \item{a}{numeric in \link{0,1}. the transparency (alpha)}
+
+\item{...}{additional arguments passed to \code{terra::plot}}
 }
 \value{
-nothing, but creates a plot
+invisibly returns a boundary polygon for the plot
 }
 \description{
 Set \code{what} to one of 'dem', 'land', or 'soil' after running the corresponding

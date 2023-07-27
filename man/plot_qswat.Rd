@@ -7,7 +7,11 @@
 plot_qswat(
   data_dir,
   check_result = NULL,
-  what = NULL,
+  bg = "white",
+  border_col = grDevices::adjustcolor("white", alpha.f = 0.8),
+  fill_col = grDevices::adjustcolor("black", alpha.f = 0.4),
+  stream_col = "grey50",
+  check_col = grDevices::adjustcolor("red", 0.5),
   main = NULL,
   quiet = FALSE,
   add = FALSE
@@ -18,11 +22,27 @@ plot_qswat(
 
 \item{check_result}{list, the result of \code{check_qswat} (to overlay)}
 
-\item{what}{character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'}
+\item{bg}{character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'}
+
+\item{border_col}{character line color for catchment boundaries}
+
+\item{fill_col}{character fill color for catchment interiors}
+
+\item{stream_col}{character color for tributary flow lines}
+
+\item{check_col}{character color to overlay on geometries causing issues in \code{check_result}}
+
+\item{main}{character title string}
+
+\item{quiet}{logical suppresses console message about loading shapefiles}
+
+\item{add}{logical whether to initialize a new plot or overlay on an existing one}
 }
 \value{
 nothing but draws a plot
 }
 \description{
-Plot QSWAT+ geometries
+Helper function to plot QSWAT+ stream network, subbasin, and outlet shapefiles. This
+functions like \code{plot_catch} but with argument \code{bg} specifying a base layer raster
+or color.
 }

@@ -54,15 +54,15 @@
 #' @param main character, a title for the plot
 #' @param sub logical, passed to `open_catch` when `sub_list` is a path 
 #' 
-#' @return returns nothing but either creates a plot or adds to an existing one
+#' @return invisibly returns a boundary polygon for the catchment
 #' @export
 plot_catch = function(sub_list, 
                       crs_out = NULL,
                       add = FALSE,
                       lwd = 1,
-                      border_col = adjustcolor('white', alpha.f=0.8),
-                      fill_col = adjustcolor('black', alpha.f=0.2),
-                      stem_col = adjustcolor('black', alpha.f=0.5),
+                      border_col = grDevices::adjustcolor('white', alpha.f=0.8),
+                      fill_col = grDevices::adjustcolor('black', alpha.f=0.2),
+                      stem_col = grDevices::adjustcolor('black', alpha.f=0.5),
                       stream_col = 'grey50',
                       lake_col = 'grey20',
                       gage_col = 'grey50',
@@ -173,7 +173,7 @@ plot_catch = function(sub_list,
   # add a scale bar
   scale_sf = NULL
   if(!add & add_scale) scale_sf = plot_list[['boundary']] |> draw_scale(left=NULL)
-  return(invisible(scale_sf))
+  return(invisible(plot_list[['boundary']]))
 }
   
 
@@ -193,11 +193,13 @@ plot_catch = function(sub_list,
 #' @param catch logical, whether to plot the catchment boundary in black
 #' @param add_scale logical, whether to add a scale bar by calling `draw_scale`
 #' @param mask logical, whether to mask to the catchment boundary
-#' @param a numeric in [0,1]. the transparency (alpha) 
+#' @param a numeric in [0,1]. the transparency (alpha)
+#' @param ... additional arguments passed to `terra::plot`
 #'
-#' @return nothing, but creates a plot
+#' @return invisibly returns a boundary polygon for the plot
 #' @export
-plot_rast = function(data_dir, what='dem',
+plot_rast = function(data_dir, 
+                     what = 'dem',
                      main = NULL,
                      catch = TRUE,
                      add_scale = TRUE,
@@ -237,7 +239,7 @@ plot_rast = function(data_dir, what='dem',
     
     r = save_dem(data_dir)['dem'] |> terra::rast() 
     if( mask ) r = clip_raster(r, bou)
-    colour = grDevices::terrain.colors(50)[10:40] |> adjustcolor(a)
+    colour = grDevices::terrain.colors(50)[10:40] |> grDevices::adjustcolor(a)
     r |>  terra::plot(axes = FALSE,
                       reset = FALSE,
                       main = main,
@@ -256,7 +258,7 @@ plot_rast = function(data_dir, what='dem',
       dplyr::filter(ID %in% na.omit(unique(r[])))
     
     # make r a factor raster then plot
-    colour = pal[['Color']] |> adjustcolor(a)
+    colour = pal[['Color']] |> grDevices::adjustcolor(a)
     levels(r) = pal[c('ID', 'Class')] |> as.data.frame()
     r |> terra::plot(axes = FALSE,
                      reset = FALSE,
@@ -309,25 +311,43 @@ plot_rast = function(data_dir, what='dem',
                        stream_col=NULL,
                        stem_col=NULL,
                        border_col='black') 
+  
+  # return a polygon
+  bbox_poly = sf::st_bbox(r) |> sf::st_as_sfc()
+  return(bbox_poly)
 }
 
 
 #' Plot QSWAT+ geometries 
+#' 
+#' Helper function to plot QSWAT+ stream network, subbasin, and outlet shapefiles. This
+#' functions like `plot_catch` but with argument `bg` specifying a base layer raster
+#' or color. 
 #'
 #' @param data_dir character path to the data directory
 #' @param check_result list, the result of `check_qswat` (to overlay)
-#' @param what character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'
+#' @param bg character, either a color name (like "black"), or one of 'dem', 'land', or, 'soil'
+#' @param fill_col character fill color for catchment interiors
+#' @param border_col character line color for catchment boundaries
+#' @param fill_col character fill color for catchment interiors
+#' @param stream_col character color for tributary flow lines
+#' @param check_col character color to overlay on geometries causing issues in `check_result`
+#' @param main character title string
+#' @param quiet logical suppresses console message about loading shapefiles
+#' @param add logical whether to initialize a new plot or overlay on an existing one
 #'
 #' @return nothing but draws a plot
 #' @export
-plot_qswat = function(data_dir, check_result=NULL, what=NULL, main=NULL, quiet=FALSE, add=FALSE) {
-  
-  # same as plot_catch
-  stream_col = 'grey50'
-  
-  # default transparency helpers
-  white = \(a=0.3) adjustcolor('white', a)
-  red = \(a=0.5) adjustcolor('red', a)
+plot_qswat = function(data_dir, 
+                      check_result = NULL, 
+                      bg = 'white', 
+                      border_col = grDevices::adjustcolor('white', alpha.f=0.8),
+                      fill_col = grDevices::adjustcolor('black', alpha.f=0.4),
+                      stream_col = 'grey50',
+                      check_col = grDevices::adjustcolor('red', 0.5),
+                      main = NULL, 
+                      quiet = FALSE, 
+                      add = FALSE) {
   
   # load inputs from QSWAT+ directory
   qswat = load_qswat(data_dir, quiet=quiet)
@@ -339,19 +359,18 @@ plot_qswat = function(data_dir, check_result=NULL, what=NULL, main=NULL, quiet=F
   # initialize plot
   if( !add ) {
     
-    # base layer with flat color or heatmap specified by `what`
-    if( is.null(what) ) what = 'grey80'
-    if( !(what %in% c('dem', 'land', 'soil')) ) {
+    # base layer with flat color or heatmap specified by `bg`
+    if( !(bg %in% c('dem', 'land', 'soil')) ) {
       
       # initialize the plot device to the right bounding box, background color, add scale bar
-      qswat[['sub']] |> sf::st_bbox() |> sf::st_as_sfc() |> plot(border=NA, bg=what, main=main)
+      qswat[['sub']] |> sf::st_bbox() |> sf::st_as_sfc() |> plot(border=NA, bg=bg, main=main)
       draw_scale(qswat[['sub']], left=NULL)
       
-    } else { data_dir |> plot_rast(what) }
+    } else { data_dir |> plot_rast(bg) }
   }
   
   # SWAT+ sub-basins in white, channels in grey, outlets as black circle outlines
-  qswat[['sub']] |> sf::st_geometry() |> plot(add=TRUE, border=white(0.5), col=white(0.3))
+  qswat[['sub']] |> sf::st_geometry() |> plot(add=TRUE, border=border_col, col=fill_col)
   qswat[['channel']] |> sf::st_geometry() |> plot(add=TRUE, col=stream_col)
   qswat[['outlet']] |> sf::st_geometry() |> plot(add=TRUE, cex=2)
   
@@ -365,7 +384,7 @@ plot_qswat = function(data_dir, check_result=NULL, what=NULL, main=NULL, quiet=F
     trim = check_result[['trim']]
     
     # problem sub-basins in red 
-    if( nrow(trim) > 0 ) sf::st_geometry(trim) |> plot(add=TRUE, border=red(), col=red())
+    if( nrow(trim) > 0 ) sf::st_geometry(trim) |> plot(add=TRUE, border=check_col, col=check_col)
     
     # any suggested new inlet locations in black with white outline
     if( nrow(nudge) > 0 ) draw_outlet(nudge, col_in='black', col_out='white')

@@ -9,9 +9,9 @@ plot_catch(
   crs_out = NULL,
   add = FALSE,
   lwd = 1,
-  border_col = adjustcolor("white", alpha.f = 0.8),
-  fill_col = adjustcolor("black", alpha.f = 0.2),
-  stem_col = adjustcolor("black", alpha.f = 0.5),
+  border_col = grDevices::adjustcolor("white", alpha.f = 0.8),
+  fill_col = grDevices::adjustcolor("black", alpha.f = 0.2),
+  stem_col = grDevices::adjustcolor("black", alpha.f = 0.5),
   stream_col = "grey50",
   lake_col = "grey20",
   gage_col = "grey50",
@@ -52,7 +52,7 @@ plot_catch(
 \item{sub}{logical, passed to \code{open_catch} when \code{sub_list} is a path}
 }
 \value{
-returns nothing but either creates a plot or adds to an existing one
+invisibly returns a boundary polygon for the catchment
 }
 \description{
 This plots one or more (sub)catchments listed in \code{sub_list}, drawing their
