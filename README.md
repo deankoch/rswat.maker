@@ -3,14 +3,13 @@
 
 # rswat.maker
 
-An R package for building QSWAT+ inputs and creating SWAT+ projects in
-Windows.
+An R package for building QSWAT+ inputs and constructing SWAT+ projects.
 
 <img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" width="33%" style="display: block; margin: auto;" />
 
-`rswat.maker` manages model creation. See also the related project
-[`rswat`](https://github.com/deankoch/rswat), which handles model
-execution and more.
+`rswat.maker` makes SWAT+ models. See our other project
+[`rswat`](https://github.com/deankoch/rswat) for an R-based editing and
+simulation manager.
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -26,8 +25,8 @@ execution and more.
 5.  fetch a soil MUKEY raster from SSURGO/STATSGO2
 6.  partition the catchment into sub-catchments
 7.  prepare QSWAT+ input files
-8.  run QSWAT+ setup
-9.  run SWAT+ Editor setup
+8.  run QSWAT+ setup (Windows only)
+9.  run SWAT+ Editor setup (Windows only)
 
 This can all be done automatically in batch mode (see `?run_maker`)
 starting from an outlet location.
