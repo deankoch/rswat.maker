@@ -3,9 +3,7 @@ title: "rswat.maker and the Lamar River"
 author: Dean Koch
 date: July 24, 2023
 output: 
-  bookdown::html_document2:
-    number_sections: FALSE
-    global_numbering: TRUE
+  github_document:
     toc: TRUE
 bibliography: lamar.bib
 ---
@@ -19,9 +17,9 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-This article explains how to use `rswat.maker` to create a series of SWAT+ projects, using the [Lamar River](https://www.nps.gov/articles/000/lamar-river.htm) in Yellowstone National Park as an example. After introducing the big picture here, we walk users through each step in detail.
+This article explains how to use `rswat.maker` to create a series of SWAT+ projects, using the [Lamar River](https://www.nps.gov/articles/000/lamar-river.htm) in Yellowstone National Park as an example. After introducing the big picture here, we walk users through each step in detail in the [Data](data) and [Processing](process) sections.
 
-[SWAT+](https://swat.tamu.edu/software/plus/) is a process-based watershed simulator [@swatplusbieger2017introduction] familiar to many in the hydrology and water management communities for its scope, ease of access, and long history of active development. A graphical user interface (GUI) called [QSWAT+](https://swat.tamu.edu/software/qswat/) is provided for model constrcution. However, like most (distributed) hydrodynamic models SWAT+ is very data-hungry, and its reliance on complex workflows in GUIs create problems for reproducibility and collaboration [@awchawanda2020user; @hydromeilander2023].
+[SWAT+](https://swat.tamu.edu/software/plus/) is a process-based watershed simulator [@swatplusbieger2017introduction] familiar to many in the hydrology and water management communities for its scope, ease of access, and long history of active development. A graphical user interface (GUI) called [QSWAT+](https://swat.tamu.edu/software/qswat/) is provided for model construction. However, like most (distributed) hydrodynamic models, SWAT+ is very data-hungry. This, combined with its reliance on complex workflows in GUIs create problems for reproducibility and collaboration [@awchawanda2020user; @hydromeilander2023].
 
 `rswat.maker` is an R package for constructing SWAT+ models using GUI-free, automated, programmable steps. It queries federal hydrology databases for data on your catchment before dividing it into *subcatchments*, which are then turned into SWAT+ projects. Here is what that looks like for the Lamar, with the subcatchments in grey and derived boundaries in white
 
@@ -86,7 +84,7 @@ Run a single step by setting `what` to its name (see `?run_maker` for the list o
 
 This is a lot to take in all at once. However, `run_maker` is just a wrapper for a series of helper function calls that run the individual steps. So instead of showing all of the console output at once, we will go through it step-by-step, and show how the individual helper functions work. 
 
-# Data
+# Data {#data}
 
 The first five steps in `rswat.maker` are for fetching the data required to set up QSWAT+.
 
@@ -263,7 +261,7 @@ The colors here serve only to distinguish adjacent polygons, so there is no lege
 
 This is the end of the data retrieval phase of the workflow. All the pieces needed for QSWAT+ have been collected. Now on to processing.
 
-# Processing
+# Processing {#process}
 
 QSWAT+ constructs a SWAT+ model by splitting the basin into subbasins, all linked together by a stream network. At the shared outlet of these streams is a real-life gage with discharge data. Since all of the subbasins contribute to discharge at the outlet, this one hydrograph signal can be used to fit all subbasin parameters at once. For example with the Lamar River, we could use the data plotted in \@ref(fig:nwis-plot).
 
