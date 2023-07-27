@@ -9,8 +9,8 @@ Windows.
 <img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" width="33%" style="display: block; margin: auto;" />
 
 `rswat.maker` manages model creation. See also the related project
-[`rswat`](https://github.com/deankoch/rswat), which handles outputs and
-more.
+[`rswat`](https://github.com/deankoch/rswat), which handles model
+execution and more.
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -19,16 +19,15 @@ more.
 
 `rswat.maker` runs a nine-step process:
 
-1.  fetch an initial catchment model from NHDPlus (see `?get_catch`)
-2.  fetch daily stream gage records from USGS (see `?get_nwis`)
-3.  fetch a digital elevation model raster from the NED (see `?get_dem`)
-4.  fetch a land use raster from NLCD (see `?get_land`)
-5.  fetch a soil MUKEY raster based on SSURGO and STATSGO2 (see
-    `?get_soil`)
-6.  partition the catchment into sub-catchments (see `?get_split`)
-7.  prepare QSWAT+ input files (see `?save_qswat`)
-8.  run QSWAT+ setup (see `?run_qswat`)
-9.  run SWAT+ Editor setup (see `?run_editor`)
+1.  fetch a catchment model from NHDPlus
+2.  fetch daily discharge records from NWIS (USGS)
+3.  fetch a DEM raster from the NED
+4.  fetch a land use raster from NLCD
+5.  fetch a soil MUKEY raster from SSURGO/STATSGO2
+6.  partition the catchment into sub-catchments
+7.  prepare QSWAT+ input files
+8.  run QSWAT+ setup
+9.  run SWAT+ Editor setup
 
 This can all be done automatically in batch mode (see `?run_maker`)
 starting from an outlet location.
@@ -43,24 +42,24 @@ for a detailed walk-through of all nine steps
 
 ## Installation
 
-Users meaning to create a SWAT+ model must run the official [SWAT+
-installer](https://swat.tamu.edu/software/plus/) for Windows (last
-tested with v2.3.1, released 2023-07-13), as `rswat.maker` depends on
-that software to complete the last three steps.
-
 You can install the development version of `rswat.maker` in R like so:
 
 ``` r
 devtools::install_github('deankoch/rswat.maker')
 ```
 
-This will automatically install the dependencies`nhdR`, `FedData`, and
-`dataRetrieval`, as needed.
+This will automatically install the dependencies `nhdR`, `FedData`, and
+`dataRetrieval`, if you don’t already have them.
 
 `rswat.maker` is primarily a data-retrieval package. Users who aren’t
 interested SWAT+ can complete most of the workflow (steps 1-6) without
 installing it. This data-only workflow should function on platforms
 other than Windows, but that has not yet been tested.
+
+Users wanting a SWAT+ model must run the official [SWAT+
+installer](https://swat.tamu.edu/software/plus/) for Windows (last
+tested with v2.3.1, released 2023-07-13), as `rswat.maker` depends on
+that software to complete steps 7-9.
 
 ## Background
 
@@ -99,13 +98,12 @@ is:
 2.  programmable
 3.  extensible
 
-Best of all, it makes a huge number of R-based statistical analysis and
+Easy integration with R makes a large number of statistical analysis and
 GIS tools accessible to a SWAT+ modeler. Like QGIS, R (and its CRAN
 packages) are open-source, free to use, and well-documented. We believe
 there is a great potential to improve SWAT+ by putting it under the
 microscope in R, where it can be confronted it with new methodologies
-and ideas that may deviate from the boilerplate SWAT+ model building
-process provided by the SWAT+ developers.
+and ideas.
 
 ## Datasets
 
