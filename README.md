@@ -39,7 +39,7 @@ Check out a our [Lamar River
 article](https://github.com/deankoch/rswat.maker/blob/master/vignettes/articles/lamar.md)
 for a detailed walk-through of all nine steps
 
-<img src="vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" width="100%" style="display: block; margin: auto;" />
+<img src="vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" width="75%" style="display: block; margin: auto;" />
 
 ## Installation
 
