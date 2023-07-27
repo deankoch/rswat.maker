@@ -58,7 +58,7 @@ derived boundaries in white
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" />
+<img src="lamar_files/figure-gfm/overview-catch-plot-1.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" /><img src="lamar_files/figure-gfm/overview-catch-plot-2.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" /><img src="lamar_files/figure-gfm/overview-catch-plot-3.png" alt="Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right)." width="33%" />
 <p class="caption">
 Three models of the Lamar River: from NHDPlus (left), rswat.maker
 (middle), and QSWAT+ (right).
@@ -282,7 +282,7 @@ plot(value~date, data=flow, type='l', xlab='date', ylab='ft3/s', main='Lamar Riv
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/nwis-plot-1.png" alt="Hydrograph of stream flow from the Lamar River basin, measured near Tower Ranger Station"  />
+<img src="lamar_files/figure-gfm/nwis-plot-1.png" alt="Hydrograph of stream flow from the Lamar River basin, measured near Tower Ranger Station"  />
 <p class="caption">
 Hydrograph of stream flow from the Lamar River basin, measured near
 Tower Ranger Station
@@ -343,7 +343,7 @@ plot_rast(lamar_dir, what='dem', mask=TRUE, main='mask=TRUE')
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/dem-plot-1.png" alt="The National Elevation Dataset over the Lamar River basin with and without masking" width="50%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/dem-plot-2.png" alt="The National Elevation Dataset over the Lamar River basin with and without masking" width="50%" />
+<img src="lamar_files/figure-gfm/dem-plot-1.png" alt="The National Elevation Dataset over the Lamar River basin with and without masking" width="50%" /><img src="lamar_files/figure-gfm/dem-plot-2.png" alt="The National Elevation Dataset over the Lamar River basin with and without masking" width="50%" />
 <p class="caption">
 The National Elevation Dataset over the Lamar River basin with and
 without masking
@@ -390,7 +390,7 @@ plot_rast(lamar_dir, what='land', mask=TRUE)
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/land-plot-1.png" alt="The National Land Cover Database over the Lamar River basin"  />
+<img src="lamar_files/figure-gfm/land-plot-1.png" alt="The National Land Cover Database over the Lamar River basin"  />
 <p class="caption">
 The National Land Cover Database over the Lamar River basin
 </p>
@@ -457,7 +457,7 @@ plot_rast(lamar_dir, what='soil', main='STATSGO2/SSURGO soil MUKEY', mask=TRUE)
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/soil-plot-1.png" alt="STATSGO2/SSURGO soil map unit keys (MUKEYS) over the Lamar River basin"  />
+<img src="lamar_files/figure-gfm/soil-plot-1.png" alt="STATSGO2/SSURGO soil map unit keys (MUKEYS) over the Lamar River basin"  />
 <p class="caption">
 STATSGO2/SSURGO soil map unit keys (MUKEYS) over the Lamar River basin
 </p>
@@ -555,7 +555,7 @@ for(d in sub_dir[c(1,3,2)]) plot_catch(d)
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/splitter-subcatchments-plot-1.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/splitter-subcatchments-plot-2.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/splitter-subcatchments-plot-3.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" />
+<img src="lamar_files/figure-gfm/splitter-subcatchments-plot-1.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" /><img src="lamar_files/figure-gfm/splitter-subcatchments-plot-2.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" /><img src="lamar_files/figure-gfm/splitter-subcatchments-plot-3.png" alt="Subcatchments of the Lamar River, linked at NHPlus outlets (white circles)" width="33%" />
 <p class="caption">
 Subcatchments of the Lamar River, linked at NHPlus outlets (white
 circles)
@@ -767,7 +767,7 @@ sub_dir_soda |> plot_qswat(main='QSWAT+ Model')
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/qswat-plot-1.png" alt="Two models of Soda Butte Creek subcatchment geometries: from NHDPlus (left) and QSWAT+ (right)" width="50%" /><img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/qswat-plot-2.png" alt="Two models of Soda Butte Creek subcatchment geometries: from NHDPlus (left) and QSWAT+ (right)" width="50%" />
+<img src="lamar_files/figure-gfm/qswat-plot-1.png" alt="Two models of Soda Butte Creek subcatchment geometries: from NHDPlus (left) and QSWAT+ (right)" width="50%" /><img src="lamar_files/figure-gfm/qswat-plot-2.png" alt="Two models of Soda Butte Creek subcatchment geometries: from NHDPlus (left) and QSWAT+ (right)" width="50%" />
 <p class="caption">
 Two models of Soda Butte Creek subcatchment geometries: from NHDPlus
 (left) and QSWAT+ (right)
@@ -881,7 +881,7 @@ sub_dir[2] |> plot_qswat(fill_col=grDevices::adjustcolor('blue', 0.3), quiet=TRU
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" alt="QSWAT+ models for three Lamar River subcatchments with NWIS gages at the circled sites"  />
+<img src="lamar_files/figure-gfm/splitter-bigger-plot-1.png" alt="QSWAT+ models for three Lamar River subcatchments with NWIS gages at the circled sites"  />
 <p class="caption">
 QSWAT+ models for three Lamar River subcatchments with NWIS gages at the
 circled sites
@@ -949,7 +949,7 @@ lamar_poly |> plot(border=grDevices::adjustcolor('red', 0.8), lwd=2, add=TRUE)
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/splitter-yellowstone-plot-1.png" alt="Subcatchments in the Upper Yellowstone River basin, with Lamar River basin highlighted in red"  />
+<img src="lamar_files/figure-gfm/splitter-yellowstone-plot-1.png" alt="Subcatchments in the Upper Yellowstone River basin, with Lamar River basin highlighted in red"  />
 <p class="caption">
 Subcatchments in the Upper Yellowstone River basin, with Lamar River
 basin highlighted in red
@@ -1021,7 +1021,7 @@ for(i in seq_along(col_stage)) {
 
 <div class="figure" style="text-align: center">
 
-<img src="D:/rswat.maker/vignettes/articles/lamar_files/figure-gfm/parallel-plot-1.png" alt="Subcatchments colored according to their order in a SWAT+ parallelization scheme"  />
+<img src="lamar_files/figure-gfm/parallel-plot-1.png" alt="Subcatchments colored according to their order in a SWAT+ parallelization scheme"  />
 <p class="caption">
 Subcatchments colored according to their order in a SWAT+
 parallelization scheme
