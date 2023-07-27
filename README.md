@@ -53,9 +53,8 @@ This will automatically install the dependencies `nhdR`, `FedData`, and
 `rswat.maker` is primarily a data-retrieval package. Users who aren’t
 interested SWAT+ can complete most of the workflow (steps 1-6) without
 installing it. This data-only workflow should function on platforms
-other than Windows, but that has not yet been tested.
-
-Users wanting a SWAT+ model must run the official [SWAT+
+other than Windows, but that has not yet been tested. Userse who want to
+build SWAT+ models must run the official [SWAT+
 installer](https://swat.tamu.edu/software/plus/) for Windows (last
 tested with v2.3.1, released 2023-07-13), as `rswat.maker` depends on
 that software to complete steps 7-9.
