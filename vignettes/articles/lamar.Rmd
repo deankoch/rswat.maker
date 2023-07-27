@@ -7,6 +7,7 @@ output:
     number_sections: FALSE
     global_numbering: TRUE
     toc: TRUE
+bibliography: lamar.bib
 ---
 
 ```{r, include = FALSE}
@@ -18,9 +19,11 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-This article explains how to use `rswat.maker` to create a series of SWAT+ projects, using the [Lamar River](https://www.nps.gov/articles/000/lamar-river.htm) in Yellowstone National Park as an example. After introducing the big picture here, we will walk users through each step in detail.
+This article explains how to use `rswat.maker` to create a series of SWAT+ projects, using the [Lamar River](https://www.nps.gov/articles/000/lamar-river.htm) in Yellowstone National Park as an example. After introducing the big picture here, we walk users through each step in detail.
 
-The `rswat.maker` package is for constructing SWAT+ models using an automated workflow. In a nutshell, it queries federal hydrology databases for data on your catchment then partitions the catchment into nested series of *subcatchments*. Here is what that looks like for the Lamar, with the (sub)catchment(s) in grey and derived boundaries in white
+[SWAT+](https://swat.tamu.edu/software/plus/) is a process-based watershed simulator [@swatplusbieger2017introduction] familiar to many in the hydrology and water management communities for its scope, ease of access, and long history of active development. A graphical user interface (GUI) called [QSWAT+](https://swat.tamu.edu/software/qswat/) is provided for model constrcution. However, like most (distributed) hydrodynamic models SWAT+ is very data-hungry, and its reliance on complex workflows in GUIs create problems for reproducibility and collaboration [@awchawanda2020user; @hydromeilander2023].
+
+`rswat.maker` is an R package for constructing SWAT+ models using GUI-free, automated, programmable steps. It queries federal hydrology databases for data on your catchment before dividing it into *subcatchments*, which are then turned into SWAT+ projects. Here is what that looks like for the Lamar, with the subcatchments in grey and derived boundaries in white
 
 ```{r setup, include=FALSE}
 #library(rswat.maker)
@@ -34,22 +37,24 @@ yellowstone_dir = 'D:/rswat_data/yellowstone'
 ```
 
 
-```{r overview-catch-plot, cache=TRUE, echo=FALSE, fig.align='center', fig.show='hold', out.width='33%', fig.dim=c(4, 6), fig.cap='Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right).'}
+```{r overview-catch-plot, cache=TRUE, echo=FALSE, warning=FALSE, fig.align='center', fig.show='hold', out.width='33%', fig.dim=c(4, 6), fig.cap='Three models of the Lamar River: from NHDPlus (left), rswat.maker (middle), and QSWAT+ (right).'}
 # load the dem and plot
 plot.new()
 plot_catch(lamar_dir, main='NHDPlus')
 
 # load sub-catchment results then plot
 plot.new()
-plot_catch(lamar_dir, sub=TRUE, main='Subcatchments')
+plot_catch(lamar_dir, sub=TRUE, stream_col=NULL, main='Subcatchments')
 
 # plot basin and overlay sub-basins found with SWAT 
 plot.new()
-plot_catch(lamar_dir, stream_col=NULL, fill_col='grey50', main='QSWAT+')
-sub_dir = save_split(lamar_dir)[['sub']] |> lapply(\(x) plot_qswat(x, quiet=TRUE, add=TRUE))
+plot_catch(lamar_dir, fill_col='white', stream_col=NULL, main='QSWAT+')
+sub_dir = save_split(lamar_dir)[['sub']] |> lapply(\(x) plot_qswat(x, quiet=TRUE, stream_col=NULL, add=TRUE))
 ```
 
-The final output is a set of three SWAT+ models and a parent QSWAT+ project for each one (plotted in Figure \@ref(fig:overview-catch-plot), right), all linked together at the circled gage sites. By default, the package looks for gages with service records on the National Water Information System (NWIS), and it will maintain a copy of current and historical NWIS flow data on your local machine. 
+The final output is a set of three SWAT+ models and a parent QSWAT+ project for each one (plotted in Figure \@ref(fig:overview-catch-plot), right), all linked together at the circled gage sites. By default the package looks for gages with service records on the [National Water Information System](https://waterservices.usgs.gov) (NWIS) of the USGS, and it will maintain a copy of current and historical NWIS flow data on your local machine. 
+
+All of the intermediate steps in an `rswat.maker` project are individually documented and reproducible, and all source data are cached prior to transformation. This is similar in spirit to the (currently inactive) *SWAT+ AW* project by @awchawanda2020user, whose functionality is emulated by the last three steps of `rswat.maker` (in subsections [7](inputs), [8](qswat), and [9](editor))
 
 ## Getting started
 
@@ -65,7 +70,7 @@ The easiest way to browse for site coordinates is using the USGS [National Water
 
 ## The whole workflow
 
-With the outlet correctly positioned, we are now ready to generate SWAT+ projects. For a completely automated workflow, pass the outlet along with a storage path to the function `run_maker`. 
+With the outlet positioned we are now ready to generate SWAT+ projects. For a completely automated workflow, pass the outlet along with a storage path to the function `run_maker`. 
 
 ```{r starting run_maker, eval=FALSE}
 run_maker(lamar_dir, outlet=outlet, overwrite=TRUE)
@@ -73,13 +78,13 @@ run_maker(lamar_dir, outlet=outlet, overwrite=TRUE)
 
 This path becomes the root of a directory tree where the function writes all of its output in sequence. The whole process is illustrated in the flow chart below, where the steps are grouped into four phases for simplicity:
 
-```{r flowchart, echo=FALSE, fig.align='center', out.width='70%', fig.cap='A flow chart for `rswat.maker` splits the whole process into four phases'}
+```{r flowchart, echo=FALSE, fig.align='center', out.width='75%', fig.cap='A flow chart for `rswat.maker` splits the whole process into four phases'}
 knitr::include_graphics('D:/rswat.maker/vignettes/articles/lamar_flowchart/flow_chart_rswat.png')
 ```
 
-Users can also run a single step by setting `what` to its name (see `?run_maker` for the list of step names). Those not interested in SWAT+ can also set the keyword `what='data'`, which runs only Phase "A" in Figure \@ref(fig:flowchart).
+Run a single step by setting `what` to its name (see `?run_maker` for the list of step names). Those not interested in SWAT+ can also set the keyword `what='data'`, which runs only Phase "A" in Figure \@ref(fig:flowchart).
 
-This is a lot to take in all at once. However, `run_maker` is really just a wrapper for a series of helper function calls that run the individual steps. So instead of showing the console output from the call above all at once, we will go through it step-by-step, and show how the individual helper functions work. 
+This is a lot to take in all at once. However, `run_maker` is just a wrapper for a series of helper function calls that run the individual steps. So instead of showing all of the console output at once, we will go through it step-by-step, and show how the individual helper functions work. 
 
 # Data
 
@@ -87,9 +92,9 @@ The first five steps in `rswat.maker` are for fetching the data required to set 
 
 ## 1. NHDPlus catchment model (`get_catch`)
 
-To narrow its search for hydrology data `run_maker` first needs a spatial extent for the catchment. But all we have at the beginning is a point - the outlet. The catchment boundary *could* be derived from a DEM (and QSWAT+ will do that later, using TauDEM) but this is tricky without knowing the approximate extent ahead of time.
+To narrow its search for hydrology data `run_maker` first needs a spatial extent for the catchment. But all we have at the beginning is a point - the outlet. The catchment boundary *could* be derived from a DEM (and QSWAT+ will do so later) but this is tricky without knowing the approximate extent ahead of time.
 
-Instead, we get our initial model from the National Hydrography Dataset Plus (NHDPlus), which offers a nation-wide collection of catchment data at moderate resolution. The helper function `get_catch` uses the [`nhdR`](https://cran.r-project.org/package=nhdR) package to query this database, and returns a subset of the NHDPlus data relevant to your catchment, along with a catchment boundary.
+Instead, we get our initial model from the [National Hydrography Dataset Plus](https://doi.org/10.3133/fs20203033) (NHDPlus), which offers a nation-wide collection of catchment data at moderate resolution [@nhdplusviger2016]. The helper function `get_catch` uses the [`nhdR`](https://cran.r-project.org/package=nhdR) package to query this database, and returns a subset of the NHDPlus data relevant to your catchment, along with a catchment boundary.
 
 ```{r nhdplus getter, eval=FALSE}
 catch_list = get_catch(outlet)
@@ -125,9 +130,9 @@ All of the `get_.` functions in the `rswat_maker` package have a corresponding `
 
 ## 2. NWIS gage data (`get_nwis`)
 
-`get_nwis` uses the [`dataRetrieval`](https://cran.r-project.org/package=dataRetrieval) package to collect daily service records from stream gage sites in your catchment. By default this looks for the most common stream flow record type, parameter code `00060` (discharge in ft3/s).
+`get_nwis` uses the [`dataRetrieval`](https://cran.r-project.org/package=dataRetrieval) package [@dataretrievalhirsch2015user] to collect daily service records from NWIS stream gage sites in your catchment. By default this looks for the most common stream flow record type, parameter code `00060` (discharge in ft3/s).
 
-For the Lamar example we set `from_initial` to filter to records extending into or beyond 2005. This is so that our stream flow record aligns with a pre-existing weather database from a related R package, [`wxArchive`](https://github.com/deankoch/wxArchive). Users can fetch all the available time periods by leaving `from_initial` at its default (`NULL`).
+For the Lamar example we set `from_initial` to filter to records extending into or beyond 2005. This is so that our stream flow record aligns with a pre-existing weather database from a related R package, [`wxArchive`](https://github.com/deankoch/wxArchive). Users fetch all the available time periods by leaving `from_initial` at its default (`NULL`).
 
 ```{r nwis getter, eval=FALSE}
 nwis_points = get_nwis(lamar_dir, from_initial=as.Date('2005-01-01'))
@@ -173,11 +178,11 @@ flow = load_nwis("06188000", data_dir=lamar_dir, output='values')
 plot(value~date, data=flow, type='l', xlab='date', ylab='ft3/s', main='Lamar River discharge')
 ```
 
-The helper function call in this step, and the ones that follow, has first argument `data_dir` rather than `outlet` - the opposite of `get_catch` in the first step. This is because `get_nwis` relies on derived information that was saved to disk earlier on (the catchment boundary). In later steps, we will need both the NHDPlus information and the NWIS station locations. Order matters in most of this workflow.
+The helper function call in this step, and the ones that follow, has first argument `data_dir` rather than `outlet` - the opposite of `get_catch` in the first step. This is because `get_nwis` relies on derived information that was saved to disk earlier on (the catchment boundary). In later steps, we will need both the NHDPlus information and the NWIS station locations. Order matters for most steps in this workflow.
 
 ## 3. DEM (`get_dem`)
 
-Next, `run_maker` prepares an elevation model. Again the area of interest is determined from the NHDPlus boundary, except with some added padding around the edges to allow for possible imprecision (cropping to an imprecise boundary can cause issues with TauDEM later on). `get_dem` then uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch and merge the relevant tiles from the USGS National Elevation Dataset (NED).
+Next, `run_maker` prepares an elevation model. Again the area of interest is determined from the NHDPlus boundary, except with some added padding around the edges to allow for possible imprecision (cropping to an imprecise boundary can cause issues in QSWAT+). `get_dem` then uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch and merge the relevant tiles from the [USGS National Elevation Dataset](https://nationalmap.gov) (NED) [@nedgesch2009national].
 
 ```{r dem getter, eval=FALSE}
 dem = get_dem(lamar_dir)
@@ -189,21 +194,21 @@ dem = get_dem(lamar_dir)
 #> Mosaicking NED tiles.
 ```
 
-Write the result to disk with `save_dem`. This saves both a copy of the original mosaicked source raster, and another copy cropped to the area of interest after warping (via bilinear averaging with GDAL) to the Universal Transverse Mercator (UTM) coordinate system at 90 metre resolution. 
-
-View this UTM version of the DEM with `plot_rast`. Setting `mask=TRUE` will clip to the catchment boundary from NHDPlus in the plot for clarity of presentation, but will not affect the file on disk (masking is not recommended with QSWAT+).
+Write the result to disk with `save_dem`. This saves both a copy of the original mosaicked source raster, and another copy cropped to the area of interest after warping (via bilinear averaging with GDAL) to the Universal Transverse Mercator (UTM) coordinate system at 90 metre resolution. View this UTM version of the DEM with `plot_rast`. 
 
 ```{r dem-plot, cache=TRUE, fig.show='hold', out.width='50%', fig.dim=c(6, 6), fig.align='center', fig.cap='The National Elevation Dataset over the Lamar River basin with and without masking'}
 plot_rast(lamar_dir, what='dem')
 plot_rast(lamar_dir, what='dem', mask=TRUE, main='mask=TRUE')
 ```
 
+Setting `mask=TRUE` will clip to the catchment boundary from NHDPlus in the plot for clarity of presentation, but will not affect the file on disk (masking is not recommended with QSWAT+).
+
 Both `plot_rast` and `plot_catch` set default titles based on metadata from the project, as in Figure \@ref(fig:dem-plot) (left). The number in parenthesis is the "COMID" key for the main outlet, which relates it to other objects in the NHDPlus model.
 
 
 ## 4. NLCD land use (`get_land`)
 
-`get_land` uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch a raster of land use classifications from the [National Land Cover Database](https://www.mrlc.gov) (NLCD). These categories either indicate the dominant plant community or else give a reason why there isn't one (barren rock, water body, developed land, *etc*)  
+`get_land` uses the [`FedData`](https://cran.r-project.org/package=FedData) package to fetch a raster of land use classifications from the 2019 [National Land Cover Database](https://www.mrlc.gov) (NLCD) of the USGS [@nlcdhomer2012national]. These categories either indicate the dominant plant community or else give a reason why there isn't one (barren rock, water body, developed land, *etc*)  
 
 ```{r land getter, eval=FALSE}
 land = get_land(lamar_dir)
@@ -214,7 +219,7 @@ land = get_land(lamar_dir)
 
 In this step and the next, `rswat.maker` transforms the data to lie on the same UTM grid as the DEM. This ensures that the outputs from all three raster steps (3-5) share a common coordinate system and layout. As before, there is a helper function, `save_land` that writes the source raster and the derived (UTM) version. Call `plot_rast` to display the UTM version
 
-```{r land plot, cache=TRUE, fig.align='center', fig.cap='The National Land Cover Database over the Lamar River basin'}
+```{r land-plot, cache=TRUE, fig.align='center', fig.cap='The National Land Cover Database over the Lamar River basin'}
 plot_rast(lamar_dir, what='land', mask=TRUE)
 ```
 
@@ -223,7 +228,7 @@ plot_rast(lamar_dir, what='land', mask=TRUE)
 
 The process for soil data is similar to the land use step except that we use two source databases: the older and less detailed STATSGO2, and SSURGO, its modernized successor. Read more about them both at the USDA's [website](https://websoilsurvey.sc.egov.usda.gov).
 
-At the time of writing, the coverage of SSURGO is not as complete as STATSGO2. So we fill holes in the former with data from the latter. `get_soil` does this automatically after downloading copies of both. The call goes like this
+At the time of writing the coverage of SSURGO is patchy compared to STATSGO2, but when SSURGO is available it is expected to produce better a hydrological model [@soilswang2006effects]. So we fill holes in the former with data from the latter. `get_soil` does this automatically after downloading copies of both. The call goes like this
 
 ```{r soil getter, eval=FALSE}
 soil = get_soil(lamar_dir)
@@ -266,7 +271,7 @@ However, this approach leads to problems with model-fitting when the basin is co
 
 ## 6. Subcatchments (`get_split`)
 
-It is up to the modeller to decide how many subbasins to set in SWAT+, or how detailed to make the jigsaw puzzle that forms the whole basin. The more we subdivide, the more we achieve realism in capturing heterogeneity in the landscape. But this comes at a cost. Too many subbasins and the model becomes insensitive to their individual contributions. Too many parameters, and we risk overfitting, non-identifiability, and long compute times.
+It is up to the modeller to decide how many subbasins to set in SWAT+; *ie* how detailed to make the jigsaw puzzle that forms the whole basin. The more we subdivide, the more we achieve realism. But this comes at a cost. Too many subbasins and the model becomes insensitive to their individual contributions. Too many parameters, and we risk overfitting, non-identifiability, and long compute times.
 
 One way to balance this complexity trade-off is by splitting the problem into smaller, more manageable pieces. The goal with `get_split` is to use all the hydrographs at our disposal, while also minimizing the number of unknown parameters fitted to any one of them. 
 
@@ -305,7 +310,7 @@ for(d in sub_dir[c(1,3,2)]) plot_catch(d)
 To get a basin-level view of how the pieces fit together, pass the basin-level directory (in our case `lamar_dir`)  to `plot_catch` along with argument `sub=TRUE`. For example, we generated Figure \@ref(fig:overview-catch-plot) (middle) using this simple call 
 
 ```{r splitter plot, eval=FALSE}
-plot_catch(lamar_dir, sub=TRUE, main='Subcatchments')
+plot_catch(lamar_dir, sub=TRUE, stream_col=NULL, main='Subcatchments')
 ```
 
 With default arguments `plot_catch` draws grey circles for the actual gage sites and white circles for their snapped positions in NHDPlus.
@@ -324,7 +329,7 @@ Both `get_catch` and `open_catch` return two versions of the boundaries: one wit
 At this stage we have all the information we need to run QSWAT+. What remains is to translate the data into a format that QSWAT+ can understand. This is the job of `save_qswat`.
 
 
-## 7. QSWAT+ inputs (`save_qswat`)
+## 7. QSWAT+ inputs (`save_qswat`) {#inputs}
 
 In the following call we set `sub=TRUE` to loop over subcatchments and make QSWAT+ inputs for each of them. Leave `sub=FALSE` at its default to make a whole-basin project instead or to run the step for a single subcatchment.
 
@@ -344,17 +349,17 @@ qswat_paths |> head(1) |> print()
 
 These files require no further transformation for QSWAT+. They are already in the recommended projection (UTM), and `save_qswat` has formatted their contents using the expected encoding (for `NA` values, plant codes, MUKEYs, *etc*).
 
-## 8. QSWAT+ setup (`run_qswat`)
+## 8. QSWAT+ setup (`run_qswat`) {#qswat}
 
 At this stage we could leave the R environment and open QGIS to run QSWAT+ the normal way - with a cursor and a little patience. We recommend that users do so at least once, and that they familiarize themselves with QSWAT+ and its documentation before using the automation in `run_qswat`. If things go awry in `rswat.maker`, the interactive GUI in QGIS can often reveal the problem (*eg* a snapping issue) at a glance. 
 
-The QSWAT+ plugin is mature, well-documented, and it has a large and active user-base. However, there are serious drawbacks to using graphical interfaces (GUIs) for model-building: reproducibility becomes a challenge, and batch jobs become labour-intensive. `run_qswat` solves both problems.
+The QSWAT+ plugin is mature, well-documented, and it has a large and active user-base. However, there are serious drawbacks to using graphical interfaces (GUIs) for model-building: reproducibility becomes a challenge, and batch jobs become labour-intensive. `run_qswat` solves both problems at once.
 
 ### Automation with `run_qswat`
 
-QSWAT+ is written in Python and runs in the PyQGIS3 environment, but users normally interact with it through the QGIS GUI. `run_qswat` provides an alternative way of using QSWAT+ that functions more like a command line interface (CLI). This is similar in spirit to the "SWAT+ AW" program, except based in R.
+QSWAT+ is written in Python and runs in the PyQGIS3 environment [@QGIS_software], but users normally interact with it through the QGIS GUI. `run_qswat` provides an alternative way of using QSWAT+ that functions more like a command line interface (CLI). This is similar to the SWAT+ AW program [@awchawanda2020user], except based in R.
 
-`run_qswat` manually assigns setup parameters (some user-supplied, and some based on the input data) before calling the processing modules in the right order. It produces the same output as QSWAT+, including a working QGIS project file (.qgs) that can be opened for viewing after setup is complete.
+`run_qswat` manually assigns setup parameters (some defaults, some user-supplied, and some based on the input data) before calling the processing modules in the right order. It produces the same output as QSWAT+, including a working QGIS project file (.qgs) that can be opened for viewing after setup is complete.
 
 Note that `run_qswat` wraps a batch file that looks for QGIS in `osgeo_dir`. This means the function is only available to Windows users with a QGIS installation, and if this is not in the usual location (see below), `osgeo_dir` must set manually. The example below shows how to run setup on the subcatchment in Figure \@ref(fig:splitter-subcatchments-plot) (middle).
 
@@ -362,9 +367,11 @@ Note that `run_qswat` wraps a batch file that looks for QGIS in `osgeo_dir`. Thi
 # default path to QGIS
 osgeo_dir = 'C:/Program Files/QGIS 3.32.0'
 
-# copy subcatchment paths and run setup on one of them
+# copy subcatchment paths and pick one
 sub_dir = save_split(lamar_dir)[['sub']] 
 sub_dir_soda = sub_dir[3]
+
+# run setup 
 qswat_result = run_qswat(sub_dir_soda, overwrite=TRUE, osgeo_dir=osgeo_dir)
 #> running QSWAT+ to create project: soda_butte_cr_nr_lamar_ranger_station_ynp
 #> running delineation checks
@@ -374,20 +381,25 @@ qswat_result = run_qswat(sub_dir_soda, overwrite=TRUE, osgeo_dir=osgeo_dir)
 #> QSWAT+ completed and passed checks
 ```
 
-### Organizing the results
+```{r hidden_assignment, echo=FALSE}
+# in chunk above, this assignment (which is used again below) is shown but not evaluated
+sub_dir_soda = sub_dir[3]
+```
+
+### QSWAT+ results
 
 The console output above is deceptively short. Behind the scenes, `run_qswat` has:
 
 * recorded a list of inputs
 * launched an instance of QGIS (without the GUI) and loaded the plugin
 * executed all QSWAT+ steps (delineation, HRUs, *etc*) and saved the results
-* opened the resulting geometries and run sanity checks
+* opened the resulting geometries and run sanity checks (see `?check_qswat`)
 * written a log file
 
 This process is easy to reproduce. As long as the inputs remain unchanged, you will get identical output from every call to `run_qswat`. Get the input and output file paths by calling `run_qswat` with (the default) `overwrite=FALSE`
 
 ```{r qswat run io}
-# paths to outputs from QSWAT+ and rswat.maker
+# get paths to outputs from QSWAT+ and rswat.maker
 qswat_paths = run_qswat(sub_dir_soda)
 qswat_paths |> names() |> print()
 ```
@@ -416,7 +428,7 @@ and "qswat" points to the root directory of the whole QSWAT+ project.
 
 View the geometries from the "output" list (ESRI shapefiles) by loading them `load_qswat`, or by plotting them directly with `plot_qswat`. For example, here are the NHDPlus and QSWAT+ models side by side for comparison
 
-```{r qswat-plot, cache=TRUE, fig.show='hold', out.width='50%', fig.dim=c(6, 6), fig.align='center', fig.cap='Two models of the Soda Butte Creek subcatchment: from NHDPlus (left) and QSWAT+ (right)'}
+```{r qswat-plot, cache=TRUE, fig.show='hold', out.width='50%', fig.dim=c(6, 8), fig.align='center', fig.cap='Two models of Soda Butte Creek subcatchment geometries: from NHDPlus (left) and QSWAT+ (right)'}
 sub_dir_soda |> plot_catch()
 sub_dir_soda |> plot_qswat(main='QSWAT+ Model')
 ```
@@ -425,75 +437,149 @@ The channel geometry from QSWAT+ is far more detailed than NHDPlus in this examp
 
 Outlets and inlets are identified in the QSWAT+ plot with large unfilled circles. Notice that the NHDPlus outlet is gone, and we have only the one point for the inlet, correctly positioned at its gage site.
 
-## 9. SWAT+ Editor (`run_editor`)
+Note also that `run_qswat` currently only supports the "Dominant HRU" method of delineating HRUs in QSWAT+. This assigns a set of parameters to each subbasin that is meant to be representative of all the landscape within it. The larger the subbasin, the more this becomes an abstraction that summarizing the overall behaviour of several qualitatively different landscape features.
 
-QSWAT+ produces an SQLite database, a set of geometries, and a QGIS project, but no SWAT+ configuration (config) files. These are the plain text inputs that ultimately define a SWAT+ model, by configuring and initializing the simulator. 
 
-To turn a QSWAT+ project into a set of config files, we need to run SWAT+ Editor to read the QSWAT+ database. Fortunately SWAT+ Editor has a CLI for batch jobs, so this part is easy. Simply call `run_editor` after completing `run_qswat`
+## 9. SWAT+ Editor (`run_editor`) {#editor}
+
+QSWAT+ has produced an SQLite database, a set of geometries, and a QGIS project, but no SWAT+ configuration (config) files. The config files are what actually configure and initialize the SWAT+ simulator (whereas the QSWAT+ files provide context). The SWAT+ development team provides a standalone Python3-based GUI, [SWAT+ Editor](https://bitbucket.org/swatplus/swatplus.editor), for creating config files.
+
+Users normally open SWAT+ Editor and point it to their project database (.sqlite) file, or else open the QSWAT+ project (.qgs) file in QGIS and use its interface. `run_editor` runs config file creation automatically, by making use of the SWAT+ Editor CLI for batch jobs (via `shell`).
+
+Simply call `run_editor` after completing `run_qswat`
 
 ```{r editor run, eval=FALSE}
 editor_result = run_editor(sub_dir_soda, overwrite=TRUE)
 #> running SWAT+ Editor to populate /qswat/soda_butte_cr_nr_lamar_ranger_station_ynp/Scenarios/Default/TxtInOut
 ```
 
-As with QSWAT+ setup, this step produces a log file and a new root directory for outputs
+This converts the SQLite database from the previous step (QSWAT+) into a set of several dozen config files in the "TxtInOut" subdirectory. It also optionally imports weather data from `weather_dir`, or else sets default weather station locations at the centroids of the subbasins (see `?run_editor` and `?make_weather`).
+
+As with QSWAT+ setup, this step produces a log file
 
 ```{r editor check}
+# find output file paths and print contents
 editor_paths = run_editor(sub_dir_soda)
 editor_paths[['log']] |> readLines() |> tail() |> cat()
 editor_paths[['txt']] |> list.files() |> head()
 ```
 
-and we are finished! Easy as pissing up a rope, right? Just wait until you see the "TxtInOut" directory... 
-
-# Appendix
+The files in "TxtInOut" should now be ready for the SWAT+ simulator. See our other R package, [`rswat`](https://github.com/deankoch/rswat), which allows users to explore these files and run simulations (and much more!) from within the R environment.
 
 
-## When things go wrong
+# Applications
+
+The idea with `get_split` is to configure your subcatchments (in SWAT+) to accept inlet data instead of modelling the whole drainage upstream. This has several advantages, which we talk about below. 
+
+The main downside with splitting is that there is no ground water exchanged between subcatchments. Unlike surface water discharge, which can be linked to other models via inlets, there is currently no way of linking aquifers from separate SWAT+ models. 
+
+This may not matter, depending on the basin, the layout of gages, and the modelling goals. But if it does, one possible workaround would be to use an external ground water simulator that ignores subbasin boundaries, like *gwflow* [@bailey2020new], or rather an extension of it that supports multiple concurrent SWAT+ surface water models.
 
 
+## Subbasin layout
 
+Subcatchments give users a more fine-grained control over the basin-wide layout of subbasins. For example in Figure \@ref(fig:overview-catch-plot) (right) the number of subbasins per unit subcatchment area is fixed, resulting in more detail along the well-gaged Soda Butte Creek versus the rest of the Lamar basin. Here is that plot again with subcatchments coloured differently.
 
-## New directions
+```{r splitter-bigger-plot, cache=TRUE, fig.align='center', fig.dim=c(6,8), fig.cap='QSWAT+ models for three Lamar River subcatchments with NWIS gages at the circled sites'}
+# initialize mostly empty plot
+plot_catch(lamar_dir,
+           sub = TRUE,
+           fill_col = 'white',
+           stream_col = NULL,
+           outlet_col = NULL,
+           inlet_col = NULL,
+           main = 'QSWAT+ projects for Lamar River basin')
 
-### Divide and conquer
-
-The idea here is that SWAT+ users could configure their subcatchment models to accept inlet data from the NWIS service record, instead of modelling the whole drainage upstream. While this ignores (potentially significant) effects of groundwater movement between subcatchments, it greatly simplifies the individual model-fitting problems.
-
-The approach also scales up easily to handle problem with larger catchments and more complex arrangements of gages. For example here is the output of `get_split` for another project covering the whole Upper Yellowstone River (upstream of Carter's Bridge, Montana), with no restrictions on gage era
-
-```{r splitter-bigger-plot, echo=FALSE, cache=TRUE, fig.align='center', fig.dim=c(6, 11), fig.cap='NWIS gages and subcatchments in the Upper Yellowstone River basin with the Lamar River basin in blue'}
-scale_sf = plot_catch(yellowstone_dir, sub=TRUE)
-lamar_poly = open_catch(lamar_dir)[['boundary']] |> sf::st_transform(sf::st_crs(scale_sf))
-lamar_poly |> plot(border='blue', add=TRUE)
+# overlay QSWAT+ geometries
+sub_dir = save_split(lamar_dir)[['sub']]
+sub_dir[1] |> plot_qswat(fill_col=grDevices::adjustcolor('red', 0.3), quiet=TRUE, add=TRUE)
+sub_dir[3] |> plot_qswat(fill_col=grDevices::adjustcolor('green', 0.3), quiet=TRUE, add=TRUE)
+sub_dir[2] |> plot_qswat(fill_col=grDevices::adjustcolor('blue', 0.3), quiet=TRUE, add=TRUE)
 ```
 
-Users can control the detail level in QSWAT+ differently for each individual subbasin. For example in Figure \@ref(fig:overview-catch-plot) (right) we fixed the number of subbasins *per unit catchment area*, resulting in more detail along the well-gaged Soda Butte Creek versus the rest of the Lamar basin.
+Using the same ratio of subbasins per hydrograph on the main outlet catchment (in red), we wind up with less detail because the drainage is much larger. The main outlet hydrograph is the most difficult to fit (because of its large drainage), so a simpler model is better suited there. Upstream of it we leverage additional gage records to model a smaller area in detail.
+
+The result is a more intentional and balanced model with respect to the observed data, and this makes model-fitting likelier to succeed.
 
 
-## APPENDIX I
+## Divide and conquer
 
+Splitting allows SWAT+ users to tackle larger basins and more complex arrangements of gages. For example we can easily create a project covering the whole Upper Yellowstone River basin, which drains the Lamar. The output of `get_split` for that project, with no restrictions on gage era, looks like this
 
-<!-- # ![Figure \@ref(fig:overview-catch-plot). something something](flowchart_path)(URL) -->
+```{r yellowstone names}
+# print the subcatchment names
+yellowstone_split = save_split(yellowstone_dir)
+yellowstone_split[['sub']] |> basename() |> print()
+```
 
-```{r, cache=TRUE}
-knitr::opts_current$get(c(
-  "cache",
-  "cache.path",
-  "cache.rebuild",
-  "dependson",
-  "autodep"
-))
+The code below plots the DEM for the Yellowstone project and overlays the 18 subcatchment boundaries  (in black) and gages (grey circles). This includes four in the Lamar basin (outlined in red), where `get_nwis` has picked up an additional (pre-2005) gage site at a more upstream position in Soda Butte Creek. 
+
+```{r splitter-yellowstone-plot, cache=TRUE, fig.align='center', fig.dim=c(6, 9), fig.cap='Subcatchments in the Upper Yellowstone River basin, with Lamar River basin highlighted in red'}
+# DEM base layer with subcatchments overlay 
+bbox_poly = yellowstone_dir |> plot_rast('dem', mask=TRUE)
+boundary_poly = plot_catch(yellowstone_dir,
+                           sub = TRUE, 
+                           stream_col = 'lightblue',
+                           stem_col = 'lightblue',
+                           lake_col = 'lightblue',
+                           outlet_col= NULL,
+                           inlet_col= NULL,
+                           border_col = 'black',
+                           fill_col = NULL, 
+                           add = TRUE)
+
+# highlight Lamar basin
+lamar_poly = open_catch(lamar_dir)[['boundary']] |> sf::st_transform(sf::st_crs(bbox_poly))
+lamar_poly |> plot(border=grDevices::adjustcolor('red', 0.8), lwd=2, add=TRUE)
 ```
 
 
+## Parallelization
 
-There is another active gage site at the outlet of one of the Lamar's headwater tributaries, Soda Butte Creek. In the the past, this creek has also been gaged at two other locations.
+This configuration of inlets and outlets in Figure \@ref(fig:splitter-yellowstone-plot) naturally leads to a subcatchment-level parallelization scheme: Headwater subcatchments can be simulated simultaneously as they are hydrologically decoupled. Descending downstream, and conveying simulated discharge values to inlets, we reach a second tier of subcatchment(s) where there is again no interdependence, so these too can be simulated simultaneously.
 
-To model the Lamar basin, `rswat.maker` downloads the datasets that are needed to run QSWAT+ setup, and splits them into pieces, one for each gage. Here is how this looks:
+Iterating in this way until the main outlet, we divide a whole-basin simulation into a series of staged simulations at different subcatchment tiers, each running in parallel. This scheme was proposed and demonstrated in @parallelcibin2015computationally as part of their more general *Multi-Level Spatial Optimization* framework. `get_split` produces a set of catchment models compatible with that framework.
 
-By default, all plots include a scale bar, a catchment boundary line, and the position of any gaged outlets (circled).
+The scheme is illustrated for the Yellowstone project by the next code chunk, which colors the 18 subcatchments from Figure \@ref(fig:splitter-yellowstone-plot) according to the stage at which they would be simulated. To effect a parallelized simulation, users could replace the `plot_catch` call below with a call to the SWAT+ simulator followed by an update to any dependent inlet files (*eg* using `rswat`).
 
+```{r parallel-plot, cache=TRUE, fig.align='center', fig.dim=c(6, 9), fig.cap='Subcatchments colored according to their order in a SWAT+ parallelization scheme'}
 
+# master gage locations data frame
+gage = yellowstone_split[['gage']] |> sf::st_read(quiet=TRUE)
 
+# initialize the plot
+col_stage = grDevices::hcl.colors(7, pal='Sunset', rev=TRUE) |> adjustcolor(0.5)
+boundary_poly = plot_catch(yellowstone_dir, 
+                           fill_col = NULL, 
+                           outlet_col = NULL,
+                           inlet_col = NULL,
+                           stem_col = NULL,
+                           stream_col = NULL)
 
+# iterate over subcatchment tiers
+for(i in seq_along(col_stage)) {
+
+  # directories to process (initially headwaters)
+  head_name = gage |> dplyr::filter(headwater) |> dplyr::pull(dir_name)
+  head_dir = file.path(yellowstone_dir, 'split', head_name) |> unique()
+  
+  # color the subcatchment(s)
+  for(d in head_dir) plot_catch(d, add=TRUE,
+                                outlet_col = NULL,
+                                inlet_col = NULL,
+                                stream_col = 'lightblue',
+                                stem_col = 'lightblue',
+                                lake_col = 'lightblue',
+                                fill_col = col_stage[i])
+  
+  # flag the next tier as "headwater"
+  i = i + 1
+  gage = gage |> 
+    dplyr::filter(!headwater) |> 
+    dplyr::mutate(headwater = !(comid %in% downstream) )
+}
+```
+
+In the Yellowstone example simulations would proceed in seven stages, corresponding to seven tiers in the routing network for the subcatchments. This is illustrated in Figure \@ref(fig:parallel-plot) as a series of darkening colours, from yellow to purple. In the first three stages (and particularly in the first), the simulator's work is efficiently split into several parallelizable chunks.
+
+# References
