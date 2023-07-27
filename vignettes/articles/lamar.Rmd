@@ -217,7 +217,7 @@ land = get_land(lamar_dir)
 
 In this step and the next, `rswat.maker` transforms the data to lie on the same UTM grid as the DEM. This ensures that the outputs from all three raster steps (3-5) share a common coordinate system and layout. As before, there is a helper function, `save_land` that writes the source raster and the derived (UTM) version. Call `plot_rast` to display the UTM version
 
-```{r land-plot, cache=TRUE, fig.align='center', fig.dim=c(6, 8), fig.cap='Figure 6. The National Land Cover Database over the Lamar River basin'}
+```{r land-plot, cache=TRUE, fig.align='center', fig.dim=c(8, 8), fig.cap='Figure 6. The National Land Cover Database over the Lamar River basin'}
 plot_rast(lamar_dir, what='land', mask=TRUE)
 ```
 
