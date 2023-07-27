@@ -8,8 +8,7 @@
 #' Output is written to the "qswat" directory of `data_dir`. A list of input paths and
 #' parameters can be found in "qswatplus_input.json". This file parametrizes a Python script
 #' that runs the QSWAT+ workflow: A project tree for QSWAT+ is written to sub-directory
-#' `name`, then SWAT+ Editor is called to populate the "TxtInOut" directory with SWAT+
-#' configuration files.
+#' `name`
 #' 
 #' When setup is finished, a set of important output paths are stored in the file
 #' "qswatplus_output.json". The function returns its contents in a list:
