@@ -15,6 +15,9 @@
 # landuse           path to the land use raster (GeoTIFF, integer)
 # landuse_lookup    path to CSV with SWAT+ codes for the land use values
 # lake_threshold    integer minimum percent cell coverage to qualify as lake
+# snap_threshold    integer maximum distance (metres) for snapping outlets
+# stream_threshold  integer threshold for stream creation, as number of (DEM) cells
+# channel_threshold integer threshold for channel creation, as number of (DEM) cells
 # ---------------------------------------------------------------------------
 
 import sys
