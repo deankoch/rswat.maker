@@ -50,14 +50,13 @@ devtools::install_github('deankoch/rswat.maker')
 This will automatically install the dependencies `nhdR`, `FedData`, and
 `dataRetrieval`, if you don’t already have them.
 
-`rswat.maker` is primarily a data-retrieval package. Users who aren’t
-interested SWAT+ can complete most of the workflow (steps 1-6) without
-installing it. This data-only workflow should function on platforms
-other than Windows, but that has not yet been tested. Userse who want to
-build SWAT+ models must run the official [SWAT+
-installer](https://swat.tamu.edu/software/plus/) for Windows (last
-tested with v2.3.1, released 2023-07-13), as `rswat.maker` depends on
-that software to complete steps 7-9.
+`rswat.maker` is primarily a data-retrieval package. Most of the
+workflow (steps 1-6) can be completed without installing SWAT+. This
+data-only workflow should function on platforms other than Windows, but
+that has not yet been tested. Users who want to build SWAT+ models must
+run the official [SWAT+ installer](https://swat.tamu.edu/software/plus/)
+for Windows (last tested with v2.3.1, released 2023-07-13), as
+`rswat.maker` depends on that software to complete steps 7-9.
 
 ## Background
 
