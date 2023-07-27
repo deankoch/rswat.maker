@@ -6,7 +6,7 @@
 An R package for building QSWAT+ inputs and creating SWAT+ projects in
 Windows.
 
-<img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/dem-plot-2.png" width="15%" />
+<img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" width="33%" style="display: block; margin: auto;" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" width="33%" style="display: block; margin: auto;" />
 
 `rswat.maker` manages model creation. See also the related project
 [`rswat`](https://github.com/deankoch/rswat), which handles outputs and
@@ -39,7 +39,7 @@ Check out a our [Lamar River
 article](https://github.com/deankoch/rswat.maker/blob/master/vignettes/articles/lamar.md)
 for a detailed walk-through of all nine steps
 
-<img src="vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" width="50%" />
+<img src="vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" width="100%" style="display: block; margin: auto;" />
 
 ## Installation
 
