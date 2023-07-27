@@ -1,3 +1,4 @@
 *.R
+*.html
 *lamar_cache/
 *refs/
