@@ -4,9 +4,13 @@
 # rswat.maker
 
 An R package for building QSWAT+ inputs and creating SWAT+ projects in
-Windows. `rswat.maker` manages model creation. See also the related
-project [`rswat`](https://github.com/deankoch/rswat), which handles
-outputs and more.
+Windows.
+
+<img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-1.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-2.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/overview-catch-plot-3.png" width="15%" /><img src="vignettes/articles/lamar_files/figure-gfm/dem-plot-2.png" width="15%" />
+
+`rswat.maker` manages model creation. See also the related project
+[`rswat`](https://github.com/deankoch/rswat), which handles outputs and
+more.
 
 <!-- badges: start -->
 <!-- badges: end -->
@@ -16,8 +20,8 @@ outputs and more.
 `rswat.maker` runs a nine-step process:
 
 1.  fetch an initial catchment model from NHDPlus (see `?get_catch`)
-2.  fetch a digital elevation model raster from the NED (see `?get_dem`)
-3.  fetch daily stream gage records from USGS (see `?get_nwis`)
+2.  fetch daily stream gage records from USGS (see `?get_nwis`)
+3.  fetch a digital elevation model raster from the NED (see `?get_dem`)
 4.  fetch a land use raster from NLCD (see `?get_land`)
 5.  fetch a soil MUKEY raster based on SSURGO and STATSGO2 (see
     `?get_soil`)
@@ -29,9 +33,17 @@ outputs and more.
 This can all be done automatically in batch mode (see `?run_maker`)
 starting from an outlet location.
 
+## Example
+
+Check out a our [Lamar River
+article](https://github.com/deankoch/rswat.maker/blob/master/vignettes/articles/lamar.md)
+for a detailed walk-through of all nine steps
+
+<img src="vignettes/articles/lamar_files/figure-gfm/splitter-bigger-plot-1.png" width="50%" />
+
 ## Installation
 
-Users intending to create a SWAT+ model must run the official [SWAT+
+Users meaning to create a SWAT+ model must run the official [SWAT+
 installer](https://swat.tamu.edu/software/plus/) for Windows (last
 tested with v2.3.1, released 2023-07-13), as `rswat.maker` depends on
 that software to complete the last three steps.
