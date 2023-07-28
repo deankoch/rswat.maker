@@ -115,8 +115,8 @@ run_editor = function(data_dir, weather_dir=NULL, overwrite=FALSE) {
 #' date range `from` - `to` in daily steps is written to  the "weather" sub-directory of
 #' the project root.
 #' 
-#' If either `from` or `to` is missing, the function sets a 7 day period to start/end at
-#' the supplied date. If both are missing, `to` is assigned `Sys.Date()`.
+#' If either `from` or `to` is missing, the function sets a one year period to start/end
+#' at the supplied date. If both are missing, `to` is assigned `Sys.Date()`.
 #' 
 #' `pts` is used internally to avoid opening the sub-basin shape file many times in a loop.
 #' We use it to pass the sub-basin centroids, but any set of points can be supplied
@@ -137,6 +137,9 @@ run_editor = function(data_dir, weather_dir=NULL, overwrite=FALSE) {
 #' # Error if called without having called `run_swat` first
 #' # make_weather('')
 make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NULL, pts=NULL) {
+  
+  # default time period length (days)
+  n_default = 365L
   
   # number of digits to write after decimal place
   n_digit = 3L
@@ -164,8 +167,8 @@ make_weather = function(data_dir, overwrite=FALSE, var_nm=NULL, to=NULL, from=NU
   
   # set default dates
   if( length(c(to, from)) == 0 ) to = Sys.Date()
-  if( length(from) == 0 ) from = to - 7L
-  if( length(to) == 0 ) to = from + 7L
+  if( length(from) == 0 ) from = to - n_default
+  if( length(to) == 0 ) to = from + n_default
   
   # validity check
   if( !all( sapply(list(to, from), \(x) is(x, 'Date')) ) ) stop('to/from must be Date class objects')
