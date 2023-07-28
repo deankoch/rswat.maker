@@ -171,7 +171,7 @@ run_maker = function(data_dir,
       nwis_exists = TRUE
       message('')
       message('updating stream gages...') 
-      update_nwis(data_dir, nwis_nm, overwrite=TRUE)
+      update_nwis(data_dir, nwis_nm, from=nwis_from, overwrite=TRUE)
       message('done')
   
     } else {
@@ -179,7 +179,7 @@ run_maker = function(data_dir,
       # keep existing stations but update service records
       message('')
       message('updating stream gages...') 
-      update_nwis(data_dir, nwis_nm, overwrite=TRUE)
+      update_nwis(data_dir, nwis_nm, from=nwis_from, overwrite=TRUE)
     }
   }
   
