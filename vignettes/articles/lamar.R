@@ -1,15 +1,26 @@
 # Helper script for the lamar.Rmd article
+# Dean Koch, July 2023
+#
+# This creates two rswat.maker projects, skipping workflow steps for any
+# existing results. If both projects already exist, the run_maker calls
+# should just report that everything is up to date
+#
+# At the end of the script we render the article. This article's source Rmd
+# file has output snippets copied by hand from the log file at `maker_path`,
+# so whole the process is a bit circular.
+#
+# The point is to makes editing the markdown easier, and avoid downloading
+# anything more than once. These steps involve (sometimes unreliable) web
+# requests and caching with knitr does not seem to work 100% of the time.
 
 library(rswat.maker)
-
-# At the end of the script we build the article
 
 # markdown directory
 markdown_file = 'D:/rswat.maker/vignettes/articles/lamar.Rmd'
 
 # local path to outputs folders
 data_dir_uyrw = 'D:/rswat_data/yellowstone'
-data_dir_smaller = 'D:/rswat_data/lamar_contemporary'
+data_dir_smaller = 'D:/rswat_data/lamar'
 maker_path = data_dir_smaller |> file.path('run_maker_log.txt')
 
 # This runs the Lamar river QSWAT+ setup example initially to establish files

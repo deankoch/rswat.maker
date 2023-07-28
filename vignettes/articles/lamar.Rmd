@@ -24,13 +24,10 @@ This article explains how to use `rswat.maker` to create a series of SWAT+ proje
 `rswat.maker` is an R package for constructing SWAT+ models using GUI-free, automated, programmable steps. It queries federal hydrology databases for data on your catchment before dividing it into *subcatchments*, which are then turned into SWAT+ projects. Here is what that looks like for the Lamar, with the subcatchments in grey and derived boundaries in white
 
 ```{r setup, include=FALSE}
-#library(rswat.maker)
-library(devtools)
-load_all()
-library(sf)
+library(rswat.maker)
 
-# example project directory root
-lamar_dir = 'D:/rswat_data/lamar_contemporary'
+# example project directory roots
+lamar_dir = 'D:/rswat_data/lamar'
 yellowstone_dir = 'D:/rswat_data/yellowstone'
 ```
 
@@ -282,7 +279,7 @@ We have three gage sites in the Lamar basin - one at the main outlet and two mor
 
 ```{r splitter, eval=FALSE}
 split_result = get_split(lamar_dir)
-#> loading gage points in D:/rswat_data/lamar_contemporary/nwis/flow_ft/station.geojson
+#> loading gage points in D:/rswat_data/lamar/nwis/flow_ft/station.geojson
 #> computing catchment areas for 4 input gage locations
 #>   |=========================================================| 100%      
 #> resolving stream order for 4 COMIDs

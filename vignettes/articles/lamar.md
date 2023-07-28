@@ -192,18 +192,12 @@ default argument `overwrite=FALSE`
 
 ``` r
 save_catch(lamar_dir)
-#>                                                     edge 
-#>          "D:/rswat_data/lamar_contemporary/nhd/edge.csv" 
-#>                                                   outlet 
-#>    "D:/rswat_data/lamar_contemporary/nhd/outlet.geojson" 
-#>                                                catchment 
-#> "D:/rswat_data/lamar_contemporary/nhd/catchment.geojson" 
-#>                                                     flow 
-#>      "D:/rswat_data/lamar_contemporary/nhd/flow.geojson" 
-#>                                                     lake 
-#>      "D:/rswat_data/lamar_contemporary/nhd/lake.geojson" 
-#>                                                 boundary 
-#>  "D:/rswat_data/lamar_contemporary/nhd/boundary.geojson"
+#>                                        edge                                      outlet 
+#>          "D:/rswat_data/lamar/nhd/edge.csv"    "D:/rswat_data/lamar/nhd/outlet.geojson" 
+#>                                   catchment                                        flow 
+#> "D:/rswat_data/lamar/nhd/catchment.geojson"      "D:/rswat_data/lamar/nhd/flow.geojson" 
+#>                                        lake                                    boundary 
+#>      "D:/rswat_data/lamar/nhd/lake.geojson"  "D:/rswat_data/lamar/nhd/boundary.geojson"
 ```
 
 All of the `get_.` functions in the `rswat_maker` package have a
@@ -522,7 +516,7 @@ a list of three subcatchment datasets
 
 ``` r
 split_result = get_split(lamar_dir)
-#> loading gage points in D:/rswat_data/lamar_contemporary/nwis/flow_ft/station.geojson
+#> loading gage points in D:/rswat_data/lamar/nwis/flow_ft/station.geojson
 #> computing catchment areas for 4 input gage locations
 #>   |=========================================================| 100%      
 #> resolving stream order for 4 COMIDs
@@ -544,9 +538,9 @@ by passing one of these subdirectory paths to `plot_catch` or
 # subcatchment paths
 sub_dir = save_split(lamar_dir)[['sub']] 
 print(sub_dir)
-#> [1] "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp"   
-#> [2] "D:/rswat_data/lamar_contemporary/split/soda_butte_cr_at_park_bndry_at_silver_gate"
-#> [3] "D:/rswat_data/lamar_contemporary/split/soda_butte_cr_nr_lamar_ranger_station_ynp"
+#> [1] "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp"   
+#> [2] "D:/rswat_data/lamar/split/soda_butte_cr_at_park_bndry_at_silver_gate"
+#> [3] "D:/rswat_data/lamar/split/soda_butte_cr_nr_lamar_ranger_station_ynp"
 
 # reordered for presentation
 for(d in sub_dir[c(1,3,2)]) plot_catch(d)
@@ -625,16 +619,16 @@ argument, to get the paths written
 qswat_paths = save_qswat(lamar_dir, sub=TRUE)
 qswat_paths |> head(1) |> print()
 #> $lamar_river_nr_tower_ranger_station_ynp
-#>                                                                                             outlet 
-#>  "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp/qswat/outlet.shp" 
-#>                                                                                                dem 
-#>     "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp/qswat/dem.tif" 
-#>                                                                                               soil 
-#>    "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp/qswat/soil.tif" 
-#>                                                                                               land 
-#> "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp/qswat/landuse.tif" 
-#>                                                                                        land_lookup 
-#> "D:/rswat_data/lamar_contemporary/split/lamar_river_nr_tower_ranger_station_ynp/qswat/landuse.csv"
+#>                                                                                outlet 
+#>  "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp/qswat/outlet.shp" 
+#>                                                                                   dem 
+#>     "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp/qswat/dem.tif" 
+#>                                                                                  soil 
+#>    "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp/qswat/soil.tif" 
+#>                                                                                  land 
+#> "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp/qswat/landuse.tif" 
+#>                                                                           land_lookup 
+#> "D:/rswat_data/lamar/split/lamar_river_nr_tower_ranger_station_ynp/qswat/landuse.csv"
 ```
 
 These files require no further transformation for QSWAT+. They are
@@ -738,7 +732,7 @@ completed steps, as it does here,
 ``` r
 # read the last few lines of logfile
 qswat_paths[['log']] |> readLines() |> tail() |> cat()
-#> Writing aquifers and deep aquifers tables ... HRUs done: 359 HRUs formed with 229 channels in 13 subbasins.  writing D:/rswat_data/lamar_contemporary/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/qswat_output.json  >> finished running QSWAT+
+#> Writing aquifers and deep aquifers tables ... HRUs done: 359 HRUs formed with 229 channels in 13 subbasins.  writing D:/rswat_data/lamar/split/soda_butte_cr_nr_lamar_ranger_station_ynp/qswat/qswat_output.json  >> finished running QSWAT+
 ```
 
 “output” is another JSON record listing important project-related paths,
