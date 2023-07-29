@@ -41,8 +41,8 @@ in \code{data_dir} (or at \code{pts}, if supplied), and a corresponding data fil
 date range \code{from} - \code{to} in daily steps is written to  the "weather" sub-directory of
 the project root.
 
-If either \code{from} or \code{to} is missing, the function sets a 7 day period to start/end at
-the supplied date. If both are missing, \code{to} is assigned \code{Sys.Date()}.
+If either \code{from} or \code{to} is missing, the function sets a one year period to start/end
+at the supplied date. If both are missing, \code{to} is assigned \code{Sys.Date()}.
 
 \code{pts} is used internally to avoid opening the sub-basin shape file many times in a loop.
 We use it to pass the sub-basin centroids, but any set of points can be supplied

@@ -26,6 +26,7 @@
 #' @param subbasin_id integer key from QSWAT+ identifying the sub-basin 
 #' @param from integer or `NULL`, the year to start from (this and all later years copied)
 #' @param quiet logical, suppresses console messages
+#' @param check_fields logical, for internal use
 #'
 #' @return list with 'values' (the data), 'date' (mapping to rows), 'poly' (mapping to columns)
 #' @export
@@ -35,6 +36,7 @@ load_wx = function(wx_dir,
                    sub_dir = NULL, 
                    subbasin_id = NULL,
                    from = NULL,
+                   check_fields = TRUE,
                    quiet = FALSE) {
   
   # the expected file mapping sub-basins to CSV files
@@ -52,8 +54,11 @@ load_wx = function(wx_dir,
     
     # check that export polygons have expected fields, and requested project is listed
     msg_proj = 'did not have the expected fields'
-    if( !all( c('project', 'split') %in% names(export_poly) ) ) stop(msg_proj)
-    if( !( basename(data_dir) %in% export_poly[['project']] ) ) stop(msg_proj)
+    if( check_fields ) {
+      
+      if( !all( c('project', 'split') %in% names(export_poly) ) ) stop(msg_proj)
+      if( !( basename(data_dir) %in% export_poly[['project']] ) ) stop(msg_proj)
+    }
     
     # get list of available variable names
     output_nm = wxArchive:::.nm_export
@@ -77,7 +82,7 @@ load_wx = function(wx_dir,
     is_sub = rep(TRUE, nrow(export_poly))
     if( !is.null(sub_dir) ) is_sub = export_poly[['split']] %in% basename(sub_dir)
     if( !is.null(sub_dir) ) is_sub = export_poly[['split']] %in% basename(sub_dir)
-    is_proj = export_poly[['project']] %in% basename(data_dir)
+    is_proj = if(check_fields) export_poly[['project']] %in% basename(data_dir) else is_sub
     
     # get index in the CSV data file for each "Subbasin" key
     csv_col = which(is_proj & is_sub)
@@ -102,9 +107,11 @@ load_wx = function(wx_dir,
 
 #' Write weather data from `load_wx` to SWAT+ weather station data files
 #'
-#' Unfinished 
+#' This writes the SWAT+ weather input files for a single variable 
 #' 
-#' @param sub_dir character path to the (sub)catchment directory
+#' A work in progress. 
+#' 
+#' @param sub_dir character path to the subcatchment directory
 #' @param wx_list list returned from `load_wx` for `sub_dir`
 #' @param overwrite logical, if FALSE the function returns the file paths but writes nothing
 #' @param bounds named list of numeric (length-2) vectors to replace default bounds 
@@ -114,12 +121,12 @@ load_wx = function(wx_dir,
 #' @return vector of file paths modified
 #' @export
 write_wx = function(sub_dir, 
-                    wx_list, 
+                    wx_list = NULL, 
                     overwrite = FALSE,
                     bounds = NULL,
                     add = TRUE,
                     quiet = FALSE) {
-
+  
   # natural limits for variables, used to truncate implausible inputs
   bounds_default = list(tmp=c(-70, 70), # degC
                         hmd=c(0, 100), # %
@@ -244,6 +251,9 @@ write_wx = function(sub_dir,
   
   stop('the rswat package could not be loaded. Have you installed it?')
 }
+
+
+
 
 
 #' Save sub-basins file for wxArchive

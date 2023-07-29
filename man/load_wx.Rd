@@ -11,6 +11,7 @@ load_wx(
   sub_dir = NULL,
   subbasin_id = NULL,
   from = NULL,
+  check_fields = TRUE,
   quiet = FALSE
 )
 }
@@ -26,6 +27,8 @@ load_wx(
 \item{subbasin_id}{integer key from QSWAT+ identifying the sub-basin}
 
 \item{from}{integer or \code{NULL}, the year to start from (this and all later years copied)}
+
+\item{check_fields}{logical, for internal use}
 
 \item{quiet}{logical, suppresses console messages}
 }

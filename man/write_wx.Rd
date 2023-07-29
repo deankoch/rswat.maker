@@ -6,7 +6,7 @@
 \usage{
 write_wx(
   sub_dir,
-  wx_list,
+  wx_list = NULL,
   overwrite = FALSE,
   bounds = NULL,
   add = TRUE,
@@ -14,7 +14,7 @@ write_wx(
 )
 }
 \arguments{
-\item{sub_dir}{character path to the (sub)catchment directory}
+\item{sub_dir}{character path to the subcatchment directory}
 
 \item{wx_list}{list returned from \code{load_wx} for \code{sub_dir}}
 
@@ -30,5 +30,8 @@ write_wx(
 vector of file paths modified
 }
 \description{
-Unfinished
+This writes the SWAT+ weather input files for a single variable
+}
+\details{
+A work in progress.
 }
