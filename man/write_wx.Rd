@@ -5,7 +5,7 @@
 \title{Write weather data from \code{load_wx} to SWAT+ weather station data files}
 \usage{
 write_wx(
-  sub_dir,
+  txt_dir,
   wx_list = NULL,
   overwrite = FALSE,
   bounds = NULL,
@@ -14,9 +14,7 @@ write_wx(
 )
 }
 \arguments{
-\item{sub_dir}{character path to the subcatchment directory}
-
-\item{wx_list}{list returned from \code{load_wx} for \code{sub_dir}}
+\item{wx_list}{list returned from \code{load_wx}}
 
 \item{overwrite}{logical, if FALSE the function returns the file paths but writes nothing}
 
@@ -25,6 +23,8 @@ write_wx(
 \item{add}{logical, if \code{TRUE} the function keeps existing rows for dates not found in \code{wx_list}}
 
 \item{quiet}{logical, suppresses console messages}
+
+\item{sub_dir}{character path to the sub-catchment directory}
 }
 \value{
 vector of file paths modified

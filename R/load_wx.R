@@ -26,19 +26,20 @@
 #' @param subbasin_id integer key from QSWAT+ identifying the sub-basin 
 #' @param from integer or `NULL`, the year to start from (this and all later years copied)
 #' @param quiet logical, suppresses console messages
-#' @param check_fields logical, for internal use
 #'
 #' @return list with 'values' (the data), 'date' (mapping to rows), 'poly' (mapping to columns)
 #' @export
 load_wx = function(wx_dir, 
-                   data_dir, 
+                   data_dir,
                    var_nm = NULL,
                    sub_dir = NULL, 
                    subbasin_id = NULL,
                    from = NULL,
-                   check_fields = TRUE,
                    quiet = FALSE) {
   
+  # hack to allow direct requests instead of looking up names in data_dir
+  proj_nm = ifelse(length(data_dir) == 2, data_dir[1], basename(data_dir))
+
   # the expected file mapping sub-basins to CSV files
   aoi_file = 'aoi_export.geojson'
   
@@ -54,12 +55,9 @@ load_wx = function(wx_dir,
     
     # check that export polygons have expected fields, and requested project is listed
     msg_proj = 'did not have the expected fields'
-    if( check_fields ) {
-      
-      if( !all( c('project', 'split') %in% names(export_poly) ) ) stop(msg_proj)
-      if( !( basename(data_dir) %in% export_poly[['project']] ) ) stop(msg_proj)
-    }
-    
+    if( !all( c('project', 'split') %in% names(export_poly) ) ) stop(msg_proj)
+    if( !( proj_nm %in% export_poly[['project']] ) ) stop(msg_proj)
+
     # get list of available variable names
     output_nm = wxArchive:::.nm_export
     var_nm_options = wxArchive:::.var_daily
@@ -78,11 +76,18 @@ load_wx = function(wx_dir,
     if( !is.null(from) ) output_csv = output_csv[output_year > from]
     if( length(output_csv) == 0 ) stop('invalid `from`. Set to NULL or select a year in ', msg_year)
 
+    # hack to allow direct requests instead of looking up names in data_dir
+    sub_nm = ifelse(length(data_dir) == 2, data_dir[1], basename(sub_dir))
+    
     # initialize index of relevant polygons (default all)
+    is_proj = export_poly[['project']] %in% proj_nm
     is_sub = rep(TRUE, nrow(export_poly))
-    if( !is.null(sub_dir) ) is_sub = export_poly[['split']] %in% basename(sub_dir)
-    if( !is.null(sub_dir) ) is_sub = export_poly[['split']] %in% basename(sub_dir)
-    is_proj = if(check_fields) export_poly[['project']] %in% basename(data_dir) else is_sub
+    if( !is.null(sub_dir) ) {
+    
+      # hack to allow direct requests instead of looking up names in data_dir
+      sub_nm = ifelse(length(data_dir) == 2, data_dir[2], basename(sub_dir))
+      is_sub = export_poly[['split']] %in% basename(sub_nm)
+    }
     
     # get index in the CSV data file for each "Subbasin" key
     csv_col = which(is_proj & is_sub)
@@ -97,7 +102,7 @@ load_wx = function(wx_dir,
     
     # split output into index, dates, matrix data
     return( list(name = var_nm,
-                 poly = import_poly,
+                 poly = sf::st_as_sf(import_poly),
                  date = csv_result[['date']], 
                  values = unname(as.matrix(csv_result[, -1]))) )
   }
@@ -111,8 +116,8 @@ load_wx = function(wx_dir,
 #' 
 #' A work in progress. 
 #' 
-#' @param sub_dir character path to the subcatchment directory
-#' @param wx_list list returned from `load_wx` for `sub_dir`
+#' @param sub_dir character path to the sub-catchment directory
+#' @param wx_list list returned from `load_wx`
 #' @param overwrite logical, if FALSE the function returns the file paths but writes nothing
 #' @param bounds named list of numeric (length-2) vectors to replace default bounds 
 #' @param add logical, if `TRUE` the function keeps existing rows for dates not found in `wx_list`
@@ -120,7 +125,7 @@ load_wx = function(wx_dir,
 #'
 #' @return vector of file paths modified
 #' @export
-write_wx = function(sub_dir, 
+write_wx = function(txt_dir, 
                     wx_list = NULL, 
                     overwrite = FALSE,
                     bounds = NULL,
@@ -143,13 +148,12 @@ write_wx = function(sub_dir,
   if( is_loaded ) {
     
     # find the SWAT+ directory and check it exists
-    txt_dir = run_editor(sub_dir)['txt']
     msg_txt = 'TxtInOut not found. Have you called `run_editor` yet?'
     if( is.null(txt_dir) ) stop(msg_txt)
-    if( !file.exists(txt_dir) ) stop(msg_txt)
+    if( !dir.exists(txt_dir) ) stop(msg_txt)
 
     # load the project with rswat
-    if( !quiet ) message('loading ', basename(sub_dir), ' project in rswat')
+    if( !quiet ) message('loading ', txt_dir)
     rswat::rswat(txt_dir, include='basic', quiet=TRUE)
     
     # we follow this file to find weather data files in a SWAT+ project
@@ -162,37 +166,42 @@ write_wx = function(sub_dir,
     
     # load the climate file (a list of file names)
     if(climate_prefix=='unknown') stop('unknown weather variable name "', wx_list[['name']], '"')
-    weather_file = rswat::rswat_open( paste0(climate_prefix, '.cli'))[['filename']]
+ 
+    # export station locations from aquifers file (exclude deep aquifer)
+    aqu = rswat_open('aquifer.con')
+    sta = rswat_open('weather-sta.cli')
+    sta_df = head(aqu, -1)[c('wst', 'lat', 'lon')]
+    sta_df[['file']] = sta[[climate_prefix]][ match(sta[['name']], sta_df[['wst']]) ]
+    sta_point = sta_df |> sf::st_as_sf(coords=c('lon', 'lat'), crs=4326)
+
+    # get centroids of wxArchive polygons and map polygons to station points (subbasins)
+    wx_point = wx_list[['poly']] |> sf::st_geometry() |> sf::st_centroid()
+    sub_idx = sf::st_distance(sf::st_geometry(sta_point), wx_point) |> apply(1, which.min)
     
-    # deal with file names being different from variable name for some reason
-    climate_alt = climate_prefix
-    if(climate_prefix=='hmd') climate_alt = 'rh'
-    if(climate_prefix=='wnd') climate_alt = 'wind'
-
-    # map to sub-basin IDs with regex on file names
-    weather_id = paste0('\\.*', '(', climate_prefix, '|', climate_alt, ')') |> 
-      gsub('', basename(weather_file), perl=TRUE) |> 
-      as.integer()
-
-    # requested sub-basins and mapping from rows of poly to `weather_file`
-    sub_in = wx_list[['poly']][['Subbasin']]
-    sub_idx = sub_in  |> match(weather_id)
-    dest_path = txt_dir |> file.path(weather_file[sub_idx])
-    if( !overwrite ) return(dest_path)
+    # the files to modify
+    dest_path = file.path(txt_dir, sta_point[['file']])
+    if( !overwrite ) return( dest_path )
     
     # overwrite all files in a loop
-    if( !quiet )  message('overwriting ', length(sub_idx), ' ', climate_prefix, ' files')
+    if( !quiet ) {
+      
+      message('overwriting ', length(sub_idx), ' ', climate_prefix, ' files')
+      pb = txtProgressBar(max=length(sub_idx), style=3)
+    }
+
     for(i in seq_along(sub_idx)) {
       
+      if( !quiet ) setTxtProgressBar(pb, i)
+      
       # open the existing weather file and copy the station data frame 
-      weather_list = rswat::rswat_open( weather_file[ sub_idx[i] ] )
+      weather_list = rswat::rswat_open( sta_point[['file']][i] )
       station_df = weather_list[[1L]]
       
       # build replacement for existing data frame
       date_new = as.Date(wx_list[['date']])
       data_df = date_new |> 
         rswat::rswat_date_conversion() |>
-        cbind(wx_list[['values']][, i]) |>
+        cbind(wx_list[['values']][, sub_idx[i]]) |>
         stats::setNames(c('year', 'jday', climate_prefix))
 
       # enforce bounds
@@ -211,11 +220,11 @@ write_wx = function(sub_dir,
         # double the existing column and fix names
         data_df = data_df |> 
           cbind(data_df[[climate_prefix]]) |> 
-          stats::setNames(c('year', 'jday', 'tmp_min', 'tmp_max'))
+          stats::setNames(c('year', 'jday', 'tmp_max', 'tmp_min'))
         
         # identify the column that wasn't supplied and initialize to NA
-        col_replace = ifelse(endsWith(wx_list[['name']], 'max'), 'tmp_max', 'tmp_min')
         col_keep = ifelse(endsWith(wx_list[['name']], 'max'), 'tmp_min', 'tmp_max')
+        col_replace = ifelse(endsWith(wx_list[['name']], 'max'), 'tmp_max', 'tmp_min')
         data_df[[col_keep]] = as.numeric(NA)
         
         # add back existing data
@@ -246,7 +255,8 @@ write_wx = function(sub_dir,
       list(station_df, data_df) |> rswat::rswat_write(overwrite=TRUE, refresh=FALSE, quiet=TRUE)
     }
     
-    return(dest_path)
+    if( !quiet ) close(pb)
+    return( dest_path )
   }
   
   stop('the rswat package could not be loaded. Have you installed it?')
