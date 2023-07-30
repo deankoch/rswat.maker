@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_nwis.R
 \name{load_nwis}
 \alias{load_nwis}
-\title{Load NWIS data from a file on disk, or return the date range within, or the file path}
+\title{Load NWIS data from a file on disk (or return the date range within, or the file path)}
 \usage{
 load_nwis(
   site,
@@ -30,13 +30,13 @@ load_nwis(
 either the file path (character), date range (length-2 POSIXct vector), or data frame
 }
 \description{
-This function organizes the storage of bulk data downloads from NWIS. The data are
+With default \code{output='path'} this returns the path to the data CSV file for a site.
+Set \code{output='values'} to return the data instead. With \code{output='values'}, the function
+attempts to open the file and returns the date range inside (or else NULL).
+}
+\details{
+This function helps load and organize the files downloaded from NWIS. The data are
 stored in CSV files in the "raw" sub-directory of \code{nwis_nm}. File names are constructed
 by joining the site, parameter and statistic codes (in that order) separated by an
 underscore.
-}
-\details{
-With the default \code{output} set to 'path', the function returns the expected file path for
-the CSV. With 'date', the function attempts to open the file and returns its date range
-or NULL. With 'data' the function returns the whole contents of the file as a data frame.
 }

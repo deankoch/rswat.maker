@@ -337,16 +337,16 @@ update_nwis = function(data_dir, nwis_nm='flow_ft', from=NULL,
 }
 
 
-#' Load NWIS data from a file on disk, or return the date range within, or the file path
+#' Load NWIS data from a file on disk (or return the date range within, or the file path)
 #' 
-#' This function organizes the storage of bulk data downloads from NWIS. The data are
+#' With default `output='path'` this returns the path to the data CSV file for a site.
+#' Set `output='values'` to return the data instead. With `output='values'`, the function
+#' attempts to open the file and returns the date range inside (or else NULL).
+#' 
+#' This function helps load and organize the files downloaded from NWIS. The data are
 #' stored in CSV files in the "raw" sub-directory of `nwis_nm`. File names are constructed
 #' by joining the site, parameter and statistic codes (in that order) separated by an
 #' underscore.
-#' 
-#' With the default `output` set to 'path', the function returns the expected file path for
-#' the CSV. With 'date', the function attempts to open the file and returns its date range
-#' or NULL. With 'data' the function returns the whole contents of the file as a data frame.
 #'
 #' @param site character, the site code to fetch
 #' @param data_dir character path to the output files directory
