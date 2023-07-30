@@ -5,7 +5,7 @@
 #' that this requires having an up-to-date `wxArchive` project whose extent
 #' covers the requested sub-basin(s). 
 #' 
-#' This function simply loads existing output from `wxArchive` in a convenient
+#' This function serves to loads existing output from `wxArchive` in a convenient
 #' format. Before calling this function, users must call `save_aoi` to write
 #' "aoi_export.geojson" in `wx_dir`, then run the "downscale" and "extract"
 #' operations in `wxArchive` to compute the output time series. See
@@ -17,7 +17,8 @@
 #' 
 #' The options for `var_nm` are designed to serve as drop-in replacements for
 #' the standard SWAT+ weather station data files - eg values from `var_nm='pcp_mean'`
-#' can be copied to ".pcp" files using `rswat_open` and `rswat_write`.
+#' can be copied to ".pcp" files using `rswat_open` and `rswat_write`. Note that the
+#' units for precipitation are kg/m2 (mm) per hour (averaged from the hourly data)
 #'
 #' @param wx_dir character path to the data directory for `wxArchive`
 #' @param data_dir character path to the `run_maker` data directory for the (sub)catchment
@@ -114,7 +115,8 @@ load_wx = function(wx_dir,
 #'
 #' This writes the SWAT+ weather input files for a single variable 
 #' 
-#' A work in progress. 
+#' A work in progress. This converts the mean hourly precipitation to
+#' daily before writing of enforcing bounds
 #' 
 #' @param sub_dir character path to the sub-catchment directory
 #' @param wx_list list returned from `load_wx`
@@ -204,6 +206,9 @@ write_wx = function(txt_dir,
         cbind(wx_list[['values']][, sub_idx[i]]) |>
         stats::setNames(c('year', 'jday', climate_prefix))
 
+      # convert pcp units to per day
+      if(climate_prefix == 'pcp') data_df[[climate_prefix]] = 24 * data_df[[climate_prefix]]
+      
       # enforce bounds
       low = bounds[[climate_prefix]] |> head(1)
       high = bounds[[climate_prefix]] |> tail(1)

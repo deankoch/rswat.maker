@@ -39,7 +39,7 @@ that this requires having an up-to-date \code{wxArchive} project whose extent
 covers the requested sub-basin(s).
 }
 \details{
-This function simply loads existing output from \code{wxArchive} in a convenient
+This function serves to loads existing output from \code{wxArchive} in a convenient
 format. Before calling this function, users must call \code{save_aoi} to write
 "aoi_export.geojson" in \code{wx_dir}, then run the "downscale" and "extract"
 operations in \code{wxArchive} to compute the output time series. See
@@ -51,5 +51,6 @@ for all sub-basins.
 
 The options for \code{var_nm} are designed to serve as drop-in replacements for
 the standard SWAT+ weather station data files - eg values from \code{var_nm='pcp_mean'}
-can be copied to ".pcp" files using \code{rswat_open} and \code{rswat_write}.
+can be copied to ".pcp" files using \code{rswat_open} and \code{rswat_write}. Note that the
+units for precipitation are kg/m2 (mm) per hour (averaged from the hourly data)
 }

@@ -33,5 +33,6 @@ vector of file paths modified
 This writes the SWAT+ weather input files for a single variable
 }
 \details{
-A work in progress.
+A work in progress. This converts the mean hourly precipitation to
+daily before writing of enforcing bounds
 }
